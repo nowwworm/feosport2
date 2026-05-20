@@ -53,7 +53,7 @@ services:
     depends_on:
       - backend
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost}
+      VITE_API_URL: ""
     expose:
       - "8080"
 
