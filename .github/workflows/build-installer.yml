@@ -148,24 +148,101 @@ jobs:
 
       # ── Шаг 2b: TMX → vite build ─────────────────────────────────────────────
       - name: Build TMX local package dependencies
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          chmod +x feoTEST/factory/esbuild.mjs || true
+          $ErrorActionPreference = "Stop"
+          Write-Host "node: $(node --version)"
+          Write-Host "pnpm: $(pnpm --version)"
 
-          build_package() {
-            local dir="$1"
-            echo "::group::Build $dir"
-            pnpm --dir "$dir" install --ignore-scripts --frozen-lockfile
-            pnpm --dir "$dir" run build
-            echo "::endgroup::"
+          function Test-ExpectedFiles {
+            param(
+              [string]$Dir,
+              [string[]]$ExpectedFiles
+            )
+
+            $missing = @()
+            foreach ($file in $ExpectedFiles) {
+              $path = Join-Path $Dir $file
+              if (-not (Test-Path $path)) {
+                $missing += $file
+              }
+            }
+            return $missing
           }
 
-          build_package feoTEST/factory
-          build_package feoTEST/provider-config
-          build_package feoTEST/scoringVisualizations
-          build_package feoTEST/pdf-factory
-          build_package feoTEST/courthive-components
+          function Invoke-Pnpm {
+            param([string]$Dir, [string[]]$Args)
+            & pnpm --dir $Dir @Args
+            if ($LASTEXITCODE -ne 0) {
+              throw "pnpm --dir $Dir $($Args -join ' ') failed with code $LASTEXITCODE"
+            }
+          }
+
+          function Invoke-InDir {
+            param([string]$Dir, [scriptblock]$Script)
+            Push-Location $Dir
+            try {
+              & $Script
+              if ($LASTEXITCODE -ne 0) {
+                throw "command in $Dir failed with code $LASTEXITCODE"
+              }
+            } finally {
+              Pop-Location
+            }
+          }
+
+          function Build-Package {
+            param(
+              [string]$Dir,
+              [string[]]$ExpectedFiles,
+              [scriptblock]$BuildScript
+            )
+
+            Write-Host "::group::Build $Dir"
+            $missing = Test-ExpectedFiles -Dir $Dir -ExpectedFiles $ExpectedFiles
+            if ($missing.Count -eq 0) {
+              Write-Host "All expected dist files already exist; skipping local rebuild."
+              Write-Host "::endgroup::"
+              return
+            }
+
+            Write-Host "Missing expected dist files:"
+            $missing | ForEach-Object { Write-Host "  - $_" }
+            Invoke-Pnpm -Dir $Dir -Args @("install", "--ignore-scripts", "--frozen-lockfile")
+            & $BuildScript
+
+            $stillMissing = Test-ExpectedFiles -Dir $Dir -ExpectedFiles $ExpectedFiles
+            if ($stillMissing.Count -ne 0) {
+              $stillMissing | ForEach-Object { Write-Host "::error::$Dir did not create $_" }
+              throw "$Dir build did not produce expected dist files"
+            }
+            Write-Host "::endgroup::"
+          }
+
+          Build-Package -Dir "feoTEST/factory" -ExpectedFiles @("dist/index.mjs") -BuildScript {
+            Invoke-Pnpm -Dir "feoTEST/factory" -Args @("exec", "node", "scripts/generateEngineMethods.mjs")
+            Invoke-Pnpm -Dir "feoTEST/factory" -Args @("exec", "rimraf", "dist")
+            Invoke-Pnpm -Dir "feoTEST/factory" -Args @("exec", "rollup", "--config")
+            Invoke-InDir -Dir "feoTEST/factory" -Script { node esbuild.mjs }
+          }
+
+          Build-Package -Dir "feoTEST/provider-config" -ExpectedFiles @("dist/index.js") -BuildScript {
+            Remove-Item -Recurse -Force "feoTEST/provider-config/dist" -ErrorAction SilentlyContinue
+            Invoke-Pnpm -Dir "feoTEST/provider-config" -Args @("exec", "tsc")
+          }
+
+          Build-Package -Dir "feoTEST/scoringVisualizations" -ExpectedFiles @("dist/scoring-visualizations.es.js") -BuildScript {
+            Invoke-Pnpm -Dir "feoTEST/scoringVisualizations" -Args @("exec", "vite", "build")
+          }
+
+          Build-Package -Dir "feoTEST/pdf-factory" -ExpectedFiles @("dist/pdf-factory.js") -BuildScript {
+            Invoke-Pnpm -Dir "feoTEST/pdf-factory" -Args @("exec", "vite", "build")
+          }
+
+          Build-Package -Dir "feoTEST/courthive-components" -ExpectedFiles @("dist/courthive-components.es.js", "dist/courthive-components.css") -BuildScript {
+            Remove-Item -Recurse -Force "feoTEST/courthive-components/dist" -ErrorAction SilentlyContinue
+            Invoke-Pnpm -Dir "feoTEST/courthive-components" -Args @("exec", "vite", "build")
+          }
 
       - name: Build TMX (pnpm + vite)
         shell: pwsh
