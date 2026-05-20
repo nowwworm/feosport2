@@ -171,10 +171,10 @@ jobs:
           }
 
           function Invoke-Pnpm {
-            param([string]$Dir, [string[]]$Args)
-            & pnpm --dir $Dir @Args
+            param([string]$Dir, [string[]]$PnpmArgs)
+            & pnpm --dir $Dir @PnpmArgs
             if ($LASTEXITCODE -ne 0) {
-              throw "pnpm --dir $Dir $($Args -join ' ') failed with code $LASTEXITCODE"
+              throw "pnpm --dir $Dir $($PnpmArgs -join ' ') failed with code $LASTEXITCODE"
             }
           }
 
@@ -208,7 +208,7 @@ jobs:
 
             Write-Host "Missing expected dist files:"
             $missing | ForEach-Object { Write-Host "  - $_" }
-            Invoke-Pnpm -Dir $Dir -Args @("install", "--ignore-scripts", "--frozen-lockfile")
+            Invoke-Pnpm -Dir $Dir -PnpmArgs @("install", "--ignore-scripts", "--frozen-lockfile")
             & $BuildScript
 
             $stillMissing = Test-ExpectedFiles -Dir $Dir -ExpectedFiles $ExpectedFiles
@@ -220,28 +220,28 @@ jobs:
           }
 
           Build-Package -Dir "feoTEST/factory" -ExpectedFiles @("dist/index.mjs") -BuildScript {
-            Invoke-Pnpm -Dir "feoTEST/factory" -Args @("exec", "node", "scripts/generateEngineMethods.mjs")
-            Invoke-Pnpm -Dir "feoTEST/factory" -Args @("exec", "rimraf", "dist")
-            Invoke-Pnpm -Dir "feoTEST/factory" -Args @("exec", "rollup", "--config")
+            Invoke-Pnpm -Dir "feoTEST/factory" -PnpmArgs @("exec", "node", "scripts/generateEngineMethods.mjs")
+            Invoke-Pnpm -Dir "feoTEST/factory" -PnpmArgs @("exec", "rimraf", "dist")
+            Invoke-Pnpm -Dir "feoTEST/factory" -PnpmArgs @("exec", "rollup", "--config")
             Invoke-InDir -Dir "feoTEST/factory" -Script { node esbuild.mjs }
           }
 
           Build-Package -Dir "feoTEST/provider-config" -ExpectedFiles @("dist/index.js") -BuildScript {
             Remove-Item -Recurse -Force "feoTEST/provider-config/dist" -ErrorAction SilentlyContinue
-            Invoke-Pnpm -Dir "feoTEST/provider-config" -Args @("exec", "tsc")
+            Invoke-Pnpm -Dir "feoTEST/provider-config" -PnpmArgs @("exec", "tsc")
           }
 
           Build-Package -Dir "feoTEST/scoringVisualizations" -ExpectedFiles @("dist/scoring-visualizations.es.js") -BuildScript {
-            Invoke-Pnpm -Dir "feoTEST/scoringVisualizations" -Args @("exec", "vite", "build")
+            Invoke-Pnpm -Dir "feoTEST/scoringVisualizations" -PnpmArgs @("exec", "vite", "build")
           }
 
           Build-Package -Dir "feoTEST/pdf-factory" -ExpectedFiles @("dist/pdf-factory.js") -BuildScript {
-            Invoke-Pnpm -Dir "feoTEST/pdf-factory" -Args @("exec", "vite", "build")
+            Invoke-Pnpm -Dir "feoTEST/pdf-factory" -PnpmArgs @("exec", "vite", "build")
           }
 
           Build-Package -Dir "feoTEST/courthive-components" -ExpectedFiles @("dist/courthive-components.es.js", "dist/courthive-components.css") -BuildScript {
             Remove-Item -Recurse -Force "feoTEST/courthive-components/dist" -ErrorAction SilentlyContinue
-            Invoke-Pnpm -Dir "feoTEST/courthive-components" -Args @("exec", "vite", "build")
+            Invoke-Pnpm -Dir "feoTEST/courthive-components" -PnpmArgs @("exec", "vite", "build")
           }
 
       - name: Build TMX (pnpm + vite)
