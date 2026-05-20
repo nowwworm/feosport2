@@ -80,13 +80,19 @@ Write-Step 2 "Сборка frontend (vite build)"
 $frontendDir = Join-Path $ProjectRoot "frontend"
 Push-Location $frontendDir
 try {
-    Write-Host "│  npm install..." -ForegroundColor White
-    npm install --silent
+    Write-Host "│  npm ci (dev dependencies)..." -ForegroundColor White
+    npm ci --include=dev --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) { Write-Fail "npm ci завершился с кодом $LASTEXITCODE" }
+    if (-not (Test-Path "node_modules\.bin\vite.cmd")) {
+        npm ls vite
+        Write-Fail "frontend install не создал node_modules\.bin\vite.cmd"
+    }
 
     Write-Host "│  vite build..." -ForegroundColor White
     # VITE_API_URL пустой → axios будет слать на /api (сервер сам раздаёт)
     $env:VITE_API_URL = ""
     npm run build
+    if ($LASTEXITCODE -ne 0) { Write-Fail "npm run build завершился с кодом $LASTEXITCODE" }
 
     $distDir = Join-Path $frontendDir "dist"
     if (-not (Test-Path $distDir)) { Write-Fail "vite build не создал dist/" }

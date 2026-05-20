@@ -22,7 +22,9 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
 
       # ── pnpm (для TMX) ────────────────────────────────────────────────────────
       - name: Setup pnpm
@@ -67,12 +69,14 @@ jobs:
           Set-Location backend
           npm cache clean --force
           npm ci --silent
+          if ($LASTEXITCODE -ne 0) { throw "backend npm ci failed with code $LASTEXITCODE" }
           $out = "..\deploy\windows\build\staging\app\feosport2-server.exe"
           New-Item -ItemType Directory -Force -Path "..\deploy\windows\build\staging\app\scripts" | Out-Null
           pkg src/server-bundled.js `
             --target node18-win-x64 `
             --output $out `
             --compress GZip
+          if ($LASTEXITCODE -ne 0) { throw "pkg failed with code $LASTEXITCODE" }
           if (-not (Test-Path $out)) { throw "pkg did not produce exe" }
           $mb = [Math]::Round((Get-Item $out).Length / 1MB, 1)
           Write-Host "feosport2-server.exe: $mb MB"
@@ -85,9 +89,14 @@ jobs:
           VITE_API_URL: ''
         run: |
           Set-Location frontend
-          npm cache clean --force
-          npm ci --silent
+          npm ci --include=dev --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "frontend npm ci failed with code $LASTEXITCODE" }
+          if (-not (Test-Path "node_modules\.bin\vite.cmd")) {
+            npm ls vite
+            throw "frontend install did not create node_modules/.bin/vite.cmd"
+          }
           npm run build
+          if ($LASTEXITCODE -ne 0) { throw "frontend build failed with code $LASTEXITCODE" }
           $dist = "dist"
           if (-not (Test-Path $dist)) { throw "vite build did not produce dist/" }
           $dst = "..\deploy\windows\build\staging\frontend-dist"
@@ -113,8 +122,11 @@ jobs:
           }
           Set-Location $tmxDir
           pnpm install --ignore-scripts --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw "TMX pnpm install failed with code $LASTEXITCODE" }
           pnpm exec rimraf dist
+          if ($LASTEXITCODE -ne 0) { throw "TMX rimraf failed with code $LASTEXITCODE" }
           pnpm exec vite build
+          if ($LASTEXITCODE -ne 0) { throw "TMX vite build failed with code $LASTEXITCODE" }
           if (-not (Test-Path "dist")) { throw "TMX vite build did not produce dist/" }
           Set-Location ..\..
           $dst = "deploy\windows\build\staging\tmx-dist"
