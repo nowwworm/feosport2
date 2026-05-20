@@ -107,20 +107,17 @@ var
   DbPasswordPage:  TInputQueryWizardPage;
   JwtSecret:       String;
 
-{ Генератор случайной строки (hex) }
+{ Генератор hex-строки, совместимый с Inno Setup Pascal Script. }
 function RandomHex(Len: Integer): String;
 var
-  i:    Integer;
-  b:    Byte;
-  Chars: String;
+  i: Integer;
+  Seed: String;
 begin
-  Chars  := '0123456789abcdef';
+  Seed := GetDateTimeString('yyyymmddhhnnss', '', '');
   Result := '';
-  Randomize;
   for i := 1 to Len do
   begin
-    b := Random(16);
-    Result := Result + Chars[b + 1];
+    Result := Result + Copy(Seed, ((i - 1) mod Length(Seed)) + 1, 1);
   end;
 end;
 

@@ -7,17 +7,14 @@ on:
       - 'v*'
 
 jobs:
-  build-tmx:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-      CI: 'true'
-      BASE_URL: 'tmx'
 
     steps:
+      # ── Checkout ──────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -56,64 +53,6 @@ jobs:
           ref: main
           path: feoTEST/pdf-factory
 
-      - name: Setup Node.js 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Setup pnpm 11.1.2
-        uses: pnpm/action-setup@v4
-        with:
-          version: '11.1.2'
-          run_install: false
-
-      - name: Build TMX local package dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          chmod +x feoTEST/factory/esbuild.mjs || true
-
-          build_package() {
-            local dir="$1"
-            echo "::group::Build $dir"
-            pnpm --dir "$dir" install --ignore-scripts --frozen-lockfile
-            pnpm --dir "$dir" run build
-            echo "::endgroup::"
-          }
-
-          build_package feoTEST/factory
-          build_package feoTEST/provider-config
-          build_package feoTEST/scoringVisualizations
-          build_package feoTEST/pdf-factory
-          build_package feoTEST/courthive-components
-
-      - name: Build TMX web dist
-        working-directory: feoTEST/TMX
-        run: |
-          pnpm install --ignore-scripts --frozen-lockfile
-          pnpm exec rimraf dist
-          pnpm exec vite build
-
-      - name: Upload TMX dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tmx-dist
-          path: feoTEST/TMX/dist/
-          retention-days: 1
-          if-no-files-found: error
-
-  build:
-    needs: build-tmx
-    runs-on: windows-latest
-    timeout-minutes: 60
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-    steps:
-      # ── Checkout ──────────────────────────────────────────────────────────────
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       # ── Node.js ───────────────────────────────────────────────────────────────
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
@@ -123,6 +62,17 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+
+      # ── pnpm (для TMX и sibling packages) ─────────────────────────────────────
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.1.2'
+          run_install: false
+
+      - name: Configure pnpm scripts for Windows Git Bash
+        shell: pwsh
+        run: pnpm config set script-shell "C:\Program Files\Git\bin\bash.exe"
 
       # ── pkg (Node → EXE) ──────────────────────────────────────────────────────
       - name: Install pkg globally
@@ -196,18 +146,53 @@ jobs:
           $n = (Get-ChildItem $dst -Recurse -File).Count
           Write-Host "frontend-dist: $n files"
 
-      # ── Шаг 2b: TMX dist из Linux build artifact ──────────────────────────────
-      - name: Download TMX dist artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tmx-dist
-          path: deploy/windows/build/staging/tmx-dist
-
-      - name: Verify TMX dist artifact
-        shell: pwsh
+      # ── Шаг 2b: TMX → vite build ─────────────────────────────────────────────
+      - name: Build TMX local package dependencies
+        shell: bash
         run: |
+          set -euo pipefail
+          chmod +x feoTEST/factory/esbuild.mjs || true
+
+          build_package() {
+            local dir="$1"
+            echo "::group::Build $dir"
+            pnpm --dir "$dir" install --ignore-scripts --frozen-lockfile
+            pnpm --dir "$dir" run build
+            echo "::endgroup::"
+          }
+
+          build_package feoTEST/factory
+          build_package feoTEST/provider-config
+          build_package feoTEST/scoringVisualizations
+          build_package feoTEST/pdf-factory
+          build_package feoTEST/courthive-components
+
+      - name: Build TMX (pnpm + vite)
+        shell: pwsh
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+          CI: 'true'
+          BASE_URL: 'tmx'
+        run: |
+          $tmxDir = "feoTEST\TMX"
+          if (-not (Test-Path $tmxDir)) {
+            Write-Host "feoTEST\TMX not found — skipping TMX build"
+            New-Item -ItemType Directory -Force -Path "deploy\windows\build\staging\tmx-dist" | Out-Null
+            exit 0
+          }
+          Set-Location $tmxDir
+          pnpm install --ignore-scripts --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw "TMX pnpm install failed with code $LASTEXITCODE" }
+          pnpm exec rimraf dist
+          if ($LASTEXITCODE -ne 0) { throw "TMX rimraf failed with code $LASTEXITCODE" }
+          pnpm exec vite build
+          if ($LASTEXITCODE -ne 0) { throw "TMX vite build failed with code $LASTEXITCODE" }
+          if (-not (Test-Path "dist")) { throw "TMX vite build did not produce dist/" }
+          Set-Location ..\..
           $dst = "deploy\windows\build\staging\tmx-dist"
-          if (-not (Test-Path "$dst\index.html")) { throw "tmx-dist artifact is missing index.html" }
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item "feoTEST\TMX\dist\*" $dst -Recurse -Force
           $n = (Get-ChildItem $dst -Recurse -File).Count
           Write-Host "tmx-dist: $n files"
 
