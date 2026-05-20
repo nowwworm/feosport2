@@ -8,46 +8,44 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 60
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────────
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Checkout tods-competition-factory
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: CourtHive/tods-competition-factory
           ref: master
           path: feoTEST/factory
 
       - name: Checkout courthive-components
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: CourtHive/courthive-components
           ref: main
           path: feoTEST/courthive-components
 
       - name: Checkout provider-config
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: CourtHive/provider-config
           ref: main
           path: feoTEST/provider-config
 
       - name: Checkout scoringVisualizations
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: CourtHive/scoringVisualizations
           ref: main
           path: feoTEST/scoringVisualizations
 
       - name: Checkout pdf-factory
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: CourtHive/pdf-factory
           ref: main
@@ -55,7 +53,7 @@ jobs:
 
       # ── Node.js ───────────────────────────────────────────────────────────────
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'npm'
@@ -65,7 +63,7 @@ jobs:
 
       # ── pnpm (для TMX и sibling packages) ─────────────────────────────────────
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: '11.1.2'
           run_install: false
@@ -85,7 +83,7 @@ jobs:
       # ── Кэш PostgreSQL installer (~300 MB) ───────────────────────────────────
       - name: Cache PostgreSQL installer
         id: cache-pg
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: deploy/windows/build/deps/postgresql-16-win-x64.exe
           key: postgresql-16.3-1-win-x64
@@ -303,7 +301,7 @@ jobs:
 
       # ── Загрузить артефакт ─────────────────────────────────────────────────────
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: FeoSport2-Setup
           path: deploy/windows/output/FeoSport2-Setup.exe
