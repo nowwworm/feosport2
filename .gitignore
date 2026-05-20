@@ -47,3 +47,5 @@ feoTEST/scoringVisualizations/
 feoTEST/**/node_modules/
 feoTEST/**/.git/
 feoTEST/**/dist/
+
+.claude/skills/run-feosport2/.server.pid
