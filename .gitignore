@@ -37,7 +37,13 @@ install.log
 *.user
 
 # ── feoTEST — сторонний код ───────────────────────────────────────────────────
-# Исходники TMX нужны для CI-сборки; исключаем только артефакты
+# Только TMX нужен для CI-сборки; остальные папки игнорируем полностью
+feoTEST/courthive-components/
+feoTEST/factory/
+feoTEST/pdf-factory/
+feoTEST/provider-config/
+feoTEST/scoringVisualizations/
+# В TMX исключаем только артефакты сборки и зависимости
 feoTEST/**/node_modules/
 feoTEST/**/.git/
 feoTEST/**/dist/
