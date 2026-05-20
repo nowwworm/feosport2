@@ -1,6 +1,7 @@
 import EnvironmentPlugin from 'vite-plugin-environment';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { version as pkgVersion } from './package.json';
+import { existsSync } from 'fs';
 import path from 'path';
 
 // Resolves sibling packages whether running locally or inside Docker.
@@ -8,6 +9,40 @@ import path from 'path';
 // is /app/TMX and the parent is /app — which is exactly where the packages live.
 const BASE = path.resolve(__dirname, '..');
 const SRC  = path.resolve(__dirname, 'src');
+
+const localPackageAliases = () => {
+  if (process.env.TMX_USE_LOCAL_PACKAGES === 'false') return [];
+
+  const aliases = [];
+
+  if (existsSync(path.join(BASE, 'courthive-components/dist/courthive-components.es.js'))) {
+    aliases.push(
+      { find: /^courthive-components\/dist\/(.+)$/, replacement: `${BASE}/courthive-components/dist/$1` },
+      { find: /^courthive-components$/,             replacement: `${BASE}/courthive-components/dist/courthive-components.es.js` },
+    );
+  }
+
+  if (existsSync(path.join(BASE, 'factory/dist/index.mjs'))) {
+    aliases.push({ find: /^tods-competition-factory$/, replacement: `${BASE}/factory/dist/index.mjs` });
+  }
+
+  if (existsSync(path.join(BASE, 'pdf-factory/dist/pdf-factory.js'))) {
+    aliases.push({ find: /^pdf-factory$/, replacement: `${BASE}/pdf-factory/dist/pdf-factory.js` });
+  }
+
+  if (existsSync(path.join(BASE, 'scoringVisualizations/dist/scoring-visualizations.es.js'))) {
+    aliases.push({
+      find: /^@courthive\/scoring-visualizations$/,
+      replacement: `${BASE}/scoringVisualizations/dist/scoring-visualizations.es.js`,
+    });
+  }
+
+  if (existsSync(path.join(BASE, 'provider-config/dist/index.js'))) {
+    aliases.push({ find: /^@courthive\/provider-config$/, replacement: `${BASE}/provider-config/dist` });
+  }
+
+  return aliases;
+};
 
 const emitVersionJson = (): Plugin => ({
   name: 'tmx-emit-version-json',
@@ -43,12 +78,7 @@ const viteconfigFactory = ({ mode }: { mode: string }) => {
     resolve: {
       alias: [
         // ── Local monorepo packages ──────────────────────────────────────
-        { find: /^courthive-components\/dist\/(.+)$/, replacement: `${BASE}/courthive-components/dist/$1` },
-        { find: /^courthive-components$/,             replacement: `${BASE}/courthive-components/dist/courthive-components.es.js` },
-        { find: /^tods-competition-factory$/,          replacement: `${BASE}/factory/dist/index.mjs` },
-        { find: /^pdf-factory$/,                       replacement: `${BASE}/pdf-factory/dist/pdf-factory.js` },
-        { find: /^@courthive\/scoring-visualizations$/, replacement: `${BASE}/scoringVisualizations/dist/scoring-visualizations.es.js` },
-        { find: /^@courthive\/provider-config$/,        replacement: `${BASE}/provider-config/dist` },
+        ...localPackageAliases(),
 
         // ── tsconfig paths (subpaths first, then exact) ──────────────────
         { find: /^assets\/(.+)$/,      replacement: `${SRC}/assets/$1` },
