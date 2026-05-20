@@ -1,0 +1,159 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Node.js ───────────────────────────────────────────────────────────────
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      # ── pnpm (для TMX) ────────────────────────────────────────────────────────
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+          run_install: false
+
+      # ── pkg (Node → EXE) ──────────────────────────────────────────────────────
+      - name: Install @vercel/pkg globally
+        run: npm install -g @vercel/pkg
+
+      # ── Inno Setup 6 ──────────────────────────────────────────────────────────
+      - name: Install Inno Setup 6
+        run: choco install innosetup --version 6.3.3 -y --no-progress
+
+      # ── Кэш PostgreSQL installer (~300 MB) ───────────────────────────────────
+      - name: Cache PostgreSQL installer
+        id: cache-pg
+        uses: actions/cache@v4
+        with:
+          path: deploy/windows/build/deps/postgresql-16-win-x64.exe
+          key: postgresql-16.3-1-win-x64
+
+      - name: Download PostgreSQL 16 installer
+        if: steps.cache-pg.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path deploy\windows\build\deps | Out-Null
+          $url = "https://get.enterprisedb.com/postgresql/postgresql-16.3-1-windows-x64.exe"
+          $out = "deploy\windows\build\deps\postgresql-16-win-x64.exe"
+          Write-Host "Downloading PostgreSQL installer..."
+          $wc = New-Object System.Net.WebClient
+          $wc.DownloadFile($url, $out)
+          $mb = [Math]::Round((Get-Item $out).Length / 1MB, 0)
+          Write-Host "Downloaded: $mb MB"
+
+      # ── Шаг 1: Backend → feosport2-server.exe ────────────────────────────────
+      - name: Build backend (pkg → feosport2-server.exe)
+        shell: pwsh
+        run: |
+          Set-Location backend
+          npm ci --silent
+          $out = "..\deploy\windows\build\staging\app\feosport2-server.exe"
+          New-Item -ItemType Directory -Force -Path "..\deploy\windows\build\staging\app\scripts" | Out-Null
+          pkg src/server-bundled.js `
+            --target node20-win-x64 `
+            --output $out `
+            --compress GZip
+          if (-not (Test-Path $out)) { throw "pkg did not produce exe" }
+          $mb = [Math]::Round((Get-Item $out).Length / 1MB, 1)
+          Write-Host "feosport2-server.exe: $mb MB"
+          Copy-Item "scripts\seed.js" "..\deploy\windows\build\staging\app\scripts\seed.js" -Force
+
+      # ── Шаг 2: Frontend → vite build ─────────────────────────────────────────
+      - name: Build frontend (vite)
+        shell: pwsh
+        env:
+          VITE_API_URL: ''
+        run: |
+          Set-Location frontend
+          npm ci --silent
+          npm run build
+          $dist = "dist"
+          if (-not (Test-Path $dist)) { throw "vite build did not produce dist/" }
+          $dst = "..\deploy\windows\build\staging\frontend-dist"
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item "$dist\*" $dst -Recurse -Force
+          $n = (Get-ChildItem $dst -Recurse -File).Count
+          Write-Host "frontend-dist: $n files"
+
+      # ── Шаг 2b: TMX → vite build ─────────────────────────────────────────────
+      - name: Build TMX (pnpm + vite)
+        shell: pwsh
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+          CI: 'true'
+          BASE_URL: 'tmx'
+        run: |
+          $tmxDir = "feoTEST\TMX"
+          if (-not (Test-Path $tmxDir)) {
+            Write-Host "feoTEST\TMX not found — skipping TMX build"
+            New-Item -ItemType Directory -Force -Path "deploy\windows\build\staging\tmx-dist" | Out-Null
+            exit 0
+          }
+          Set-Location $tmxDir
+          pnpm install --ignore-scripts --frozen-lockfile
+          pnpm exec rimraf dist
+          pnpm exec vite build
+          if (-not (Test-Path "dist")) { throw "TMX vite build did not produce dist/" }
+          Set-Location ..\..
+          $dst = "deploy\windows\build\staging\tmx-dist"
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item "feoTEST\TMX\dist\*" $dst -Recurse -Force
+          $n = (Get-ChildItem $dst -Recurse -File).Count
+          Write-Host "tmx-dist: $n files"
+
+      # ── Шаг 3: Копировать SQL ─────────────────────────────────────────────────
+      - name: Copy database SQL files
+        shell: pwsh
+        run: |
+          $dst = "deploy\windows\build\staging\database"
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item "database\init.sql" "$dst\init.sql" -Force
+          Copy-Item "database\seed.sql" "$dst\seed.sql" -Force
+          Write-Host "init.sql + seed.sql copied"
+
+      # ── Шаг 4: Собрать Inno Setup installer ──────────────────────────────────
+      - name: Compile installer (ISCC)
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue)?.Source
+            if (-not $iscc) { throw "ISCC.exe not found" }
+          }
+          $issFile = "deploy\windows\build\feosport2.iss"
+          New-Item -ItemType Directory -Force -Path "deploy\windows\output" | Out-Null
+          & $iscc $issFile
+          if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE" }
+          $exe = "deploy\windows\output\FeoSport2-Setup.exe"
+          if (-not (Test-Path $exe)) { throw "Installer not created" }
+          $mb = [Math]::Round((Get-Item $exe).Length / 1MB, 0)
+          Write-Host "FeoSport2-Setup.exe: $mb MB"
+
+      # ── Загрузить артефакт ─────────────────────────────────────────────────────
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FeoSport2-Setup
+          path: deploy/windows/output/FeoSport2-Setup.exe
+          retention-days: 30
+          if-no-files-found: error

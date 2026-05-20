@@ -37,4 +37,7 @@ install.log
 *.user
 
 # ── feoTEST — сторонний код ───────────────────────────────────────────────────
-feoTEST/
+# Исходники TMX нужны для CI-сборки; исключаем только артефакты
+feoTEST/**/node_modules/
+feoTEST/**/.git/
+feoTEST/**/dist/
