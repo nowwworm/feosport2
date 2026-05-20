@@ -1,0 +1,370 @@
+/* All colors come from --tmx-* variables defined in theme.css so the modal
+ * adapts to light and dark themes automatically. Do not introduce hardcoded
+ * fallbacks — that masks missing variables. */
+
+.import-participants-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--tmx-text-primary);
+  /* Constrain the whole panel so the modal stays inside the viewport. */
+  max-height: 70vh;
+  overflow: hidden;
+  /* Allow children to shrink so the inner scroll containers actually scroll. */
+  min-height: 0;
+}
+
+.ipv-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--tmx-bg-secondary);
+  color: var(--tmx-text-primary);
+  border: 1px solid var(--tmx-border-secondary);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.ipv-summary-merge {
+  font-size: 0.8rem;
+  color: var(--tmx-text-muted);
+}
+
+.ipv-section-heading {
+  margin: 0.5rem 0 0.25rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tmx-text-primary);
+}
+
+/* The mapping table is the tall element — it owns the scroll. */
+.ipv-mapping-wrap {
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated);
+  /* Inner scroll container — bounded so even with 100+ columns the modal
+   * stays viewport-sized. */
+  max-height: 32vh;
+  overflow-y: auto;
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+.ipv-mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--tmx-bg-elevated);
+  color: var(--tmx-text-primary);
+}
+
+.ipv-mapping-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--tmx-bg-secondary);
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tmx-text-secondary);
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--tmx-border-primary);
+}
+
+.ipv-mapping-row td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--tmx-border-secondary);
+  vertical-align: middle;
+  color: var(--tmx-text-primary);
+}
+
+.ipv-mapping-row:last-child td {
+  border-bottom: none;
+}
+
+.ipv-header-cell {
+  font-weight: 500;
+  width: 30%;
+}
+
+.ipv-sample-cell {
+  font-family: Menlo, Monaco, Consolas, monospace;
+  color: var(--tmx-text-secondary);
+  width: 30%;
+  word-break: break-word;
+}
+
+.ipv-target-cell {
+  width: 40%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* Theme-aware form controls. The native <select> + <button> defaults
+ * pull from the OS, which doesn't follow our theme — so set every
+ * surface explicitly. */
+.ipv-target-select,
+.ipv-rating-scale-select,
+.ipv-event-picker-select,
+.ipv-unresolved-select {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 3px;
+  background: var(--tmx-bg-primary);
+  color: var(--tmx-text-primary);
+}
+
+.ipv-target-select:focus,
+.ipv-rating-scale-select:focus,
+.ipv-event-picker-select:focus,
+.ipv-unresolved-select:focus {
+  outline: none;
+  border-color: var(--tmx-border-focus);
+}
+
+.ipv-split-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  margin-top: 0.25rem;
+  background: var(--tmx-bg-secondary);
+  border: 1px solid var(--tmx-border-secondary);
+  border-radius: 3px;
+  color: var(--tmx-text-primary);
+}
+
+.ipv-split-delimiter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--tmx-text-secondary);
+}
+
+.ipv-split-delimiter-input {
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 3px;
+  background: var(--tmx-bg-primary);
+  color: var(--tmx-text-primary);
+  min-width: 3rem;
+}
+
+.ipv-split-delimiter-input:focus {
+  outline: none;
+  border-color: var(--tmx-border-focus);
+}
+
+.ipv-split-piece-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+}
+
+.ipv-split-piece-preview {
+  font-family: Menlo, Monaco, Consolas, monospace;
+  color: var(--tmx-text-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ipv-split-arrow {
+  color: var(--tmx-text-muted);
+  flex-shrink: 0;
+}
+
+.ipv-split-piece-select {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 3px;
+  background: var(--tmx-bg-primary);
+  color: var(--tmx-text-primary);
+  flex-shrink: 0;
+}
+
+.ipv-split-piece-select:focus {
+  outline: none;
+  border-color: var(--tmx-border-focus);
+}
+
+.ipv-unresolved-wrap {
+  border: 1px solid var(--tmx-status-warning);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  background: var(--tmx-panel-yellow-bg);
+  color: var(--tmx-text-primary);
+  /* Per-cell list can be long — scroll independently. */
+  max-height: 18vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.ipv-unresolved-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.25rem;
+}
+
+.ipv-unresolved-table td {
+  padding: 0.25rem 0.4rem;
+  font-size: 0.78rem;
+  vertical-align: middle;
+  color: var(--tmx-text-primary);
+}
+
+.ipv-unresolved-row-label {
+  color: var(--tmx-text-muted);
+  white-space: nowrap;
+}
+
+.ipv-unresolved-col-label {
+  font-weight: 500;
+}
+
+.ipv-unresolved-value {
+  font-family: Menlo, Monaco, Consolas, monospace;
+  color: var(--tmx-text-primary);
+}
+
+.ipv-preview-wrap {
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  background: var(--tmx-bg-elevated);
+  color: var(--tmx-text-primary);
+  flex-shrink: 0;
+}
+
+.ipv-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.ipv-preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.3rem 0.5rem;
+  border-left: 3px solid var(--tmx-accent-blue);
+  background: var(--tmx-bg-secondary);
+  color: var(--tmx-text-primary);
+}
+
+.ipv-preview-name {
+  font-weight: 600;
+  color: var(--tmx-text-primary);
+}
+
+.ipv-preview-facts {
+  font-size: 0.75rem;
+  color: var(--tmx-text-secondary);
+}
+
+.ipv-preview-empty {
+  font-size: 0.78rem;
+  color: var(--tmx-text-muted);
+  font-style: italic;
+}
+
+.ipv-entry-defaults {
+  border-top: 1px solid var(--tmx-border-secondary);
+  padding-top: 0.5rem;
+  flex-shrink: 0;
+}
+
+.ipv-dedupe-controls {
+  margin-bottom: 0.5rem;
+}
+
+.ipv-dedupe-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ipv-dedupe-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--tmx-text-primary);
+  cursor: pointer;
+}
+
+.ipv-dedupe-toggle input[type='checkbox'] {
+  cursor: pointer;
+  accent-color: var(--tmx-accent-blue);
+}
+
+.ipv-dedupe-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--tmx-text-secondary);
+}
+
+.ipv-dedupe-match select {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 3px;
+  background: var(--tmx-bg-primary);
+  color: var(--tmx-text-primary);
+}
+
+.ipv-dedupe-match select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ipv-dedupe-match select:focus {
+  outline: none;
+  border-color: var(--tmx-border-focus);
+}
+
+.ipv-entry-defaults-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ipv-entry-default-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--tmx-text-secondary);
+}
+
+.ipv-entry-default-field select {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 3px;
+  background: var(--tmx-bg-primary);
+  color: var(--tmx-text-primary);
+}
+
+.ipv-entry-default-field select:focus {
+  outline: none;
+  border-color: var(--tmx-border-focus);
+}

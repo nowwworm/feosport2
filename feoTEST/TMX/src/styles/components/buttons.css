@@ -1,0 +1,198 @@
+/**
+ * Button styles — .button + intent variants for TMX.
+ * Uses --tmx-* custom properties.
+ */
+
+.button {
+  appearance: none;
+  align-items: center;
+  background-color: var(--tmx-bg-primary);
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 10px;
+  box-shadow: none;
+  color: var(--tmx-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1rem;
+  height: 2.5em;
+  justify-content: center;
+  line-height: 1.5;
+  padding: calc(0.5em - 1px) 1em;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: top;
+  user-select: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.button:hover {
+  border-color: var(--tmx-border-secondary);
+}
+.button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--tmx-border-focus);
+}
+.button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Intent variants */
+.button.is-info {
+  background-color: #2a75b0;
+  border-color: transparent;
+  color: #fff;
+}
+.button.is-info:hover {
+  background-color: #2569a3;
+}
+.button.is-info.is-outlined {
+  background-color: transparent;
+  border-color: #2a75b0;
+  color: #2a75b0;
+}
+.button.is-info.is-outlined:hover {
+  background-color: #2a75b0;
+  color: #fff;
+}
+.button.is-info.is-light {
+  background-color: #eff5fb;
+  color: #296fa8;
+}
+
+.button.is-success {
+  background-color: #2ea872;
+  border-color: transparent;
+  color: #fff;
+}
+.button.is-success:hover {
+  background-color: #279966;
+}
+.button.is-success.is-outlined {
+  background-color: transparent;
+  border-color: #2ea872;
+  color: #2ea872;
+}
+.button.is-success.is-outlined:hover {
+  background-color: #2ea872;
+  color: #fff;
+}
+
+.button.is-danger {
+  background-color: #d43054;
+  border-color: transparent;
+  color: #fff;
+}
+.button.is-danger:hover {
+  background-color: #c42848;
+}
+.button.is-danger.is-outlined {
+  background-color: transparent;
+  border-color: #d43054;
+  color: #d43054;
+}
+.button.is-danger.is-outlined:hover {
+  background-color: #d43054;
+  color: #fff;
+}
+
+.button.is-warning {
+  background-color: #ffe08a;
+  border-color: transparent;
+  color: rgba(0, 0, 0, 0.7);
+}
+.button.is-warning:hover {
+  background-color: #ffdc7d;
+}
+.button.is-warning.is-light {
+  background-color: #fffaeb;
+  color: #946c00;
+}
+
+.button.is-primary {
+  background-color: #00a08a;
+  border-color: transparent;
+  color: #fff;
+}
+.button.is-primary:hover {
+  background-color: #00917d;
+}
+
+.button.is-link {
+  background-color: #485fc7;
+  border-color: transparent;
+  color: #fff;
+}
+.button.is-link:hover {
+  background-color: #3e56c4;
+}
+
+.button.is-white {
+  background-color: #fff;
+  border-color: transparent;
+  color: #0a0a0a;
+}
+
+.button.is-small {
+  font-size: 0.75rem;
+  height: 2em;
+  padding: calc(0.25em - 1px) 0.75em;
+}
+.button.is-fullwidth {
+  display: flex;
+  width: 100%;
+}
+.button.is-outlined {
+  background-color: transparent;
+  border-color: var(--tmx-border-primary);
+  color: var(--tmx-text-primary);
+}
+.button.is-light {
+  background-color: var(--tmx-bg-secondary);
+  border-color: transparent;
+  color: var(--tmx-text-primary);
+}
+
+/* Delete button (X dismiss) */
+.delete {
+  appearance: none;
+  background-color: rgba(10, 10, 10, 0.2);
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-block;
+  height: 20px;
+  width: 20px;
+  min-height: 20px;
+  min-width: 20px;
+  max-height: 20px;
+  max-width: 20px;
+  outline: 0;
+  position: relative;
+  vertical-align: top;
+  font-size: 0;
+}
+.delete::before,
+.delete::after {
+  background-color: #fff;
+  content: '';
+  display: block;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translateX(-50%) translateY(-50%) rotate(45deg);
+}
+.delete::before {
+  height: 2px;
+  width: 50%;
+}
+.delete::after {
+  height: 50%;
+  width: 2px;
+}
+.delete:hover {
+  background-color: rgba(10, 10, 10, 0.3);
+}

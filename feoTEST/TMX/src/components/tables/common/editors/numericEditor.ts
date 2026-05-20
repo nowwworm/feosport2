@@ -1,0 +1,61 @@
+import { findAncestor, getChildrenByClassName } from 'services/dom/parentAndChild';
+import { validateNumericInput } from 'functions/validateNumericInput';
+
+export const numericEditor =
+  ({ maxValue, decimals, field }) =>
+  (cell, onRendered, success) => {
+    const editor = document.createElement('input');
+    editor.style.backgroundColor = 'var(--tmx-bg-highlight)';
+    editor.style.color = 'var(--tmx-text-primary)';
+    editor.style.boxSizing = 'border-box';
+    editor.style.textAlign = 'center';
+    editor.style.padding = '3px';
+    editor.style.height = '100%';
+    editor.style.width = '100%';
+    editor.value = cell.getValue() || '';
+
+    onRendered(() => {
+      editor.focus();
+      editor.select();
+    });
+
+    function onChange() {
+      let result: any = editor.value;
+      if (decimals) result = parseFloat(result).toFixed(2);
+      success(!isNaN(result) ? result : undefined);
+    }
+
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+
+    editor.addEventListener('keyup', (e: any) => {
+      e.target.value = validateNumericInput(e.target.value, maxValue, decimals);
+      if (e.key === 'Tab' && e.shiftKey && field) {
+        const row = findAncestor(e.target, 'tabulator-row');
+        const previousRow = row?.previousSibling;
+        const editableCells = previousRow && getChildrenByClassName(previousRow, 'tabulator-editable');
+        if (editableCells) {
+          for (const editableCell of editableCells) {
+            if (editableCell.getAttribute('tabulator-field') === field) editableCell.focus();
+          }
+        }
+      } else if ((e.key === 'Enter' || e.key === 'Tab') && field) {
+        const row = findAncestor(e.target, 'tabulator-row');
+        const nextRow = row?.nextSibling;
+        const editableCells = nextRow && getChildrenByClassName(nextRow, 'tabulator-editable');
+        if (editableCells) {
+          for (const editableCell of editableCells) {
+            if (editableCell.getAttribute('tabulator-field') === field) editableCell.focus();
+          }
+        }
+      }
+    });
+
+    editor.addEventListener('blur', onChange);
+
+    return editor;
+  };

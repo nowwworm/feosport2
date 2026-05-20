@@ -1,0 +1,558 @@
+import { isDesktopNotificationsEnabled, setDesktopNotificationsEnabled } from 'services/notifications/osNotification';
+import { connectSocket, connected, disconnectSocket } from 'services/messaging/socketIo';
+import { persistConfigToStorage, loadSettings } from 'services/settings/settingsStorage';
+import { tournamentEngine } from 'services/factory/engine';
+import { fixtures, factoryConstants } from 'tods-competition-factory';
+import { removeProviderTournament } from 'services/storage/removeProviderTournament';
+import { preferencesConfig, type PreferencesConfig } from 'config/preferencesConfig';
+import { getLoginState } from 'services/authentication/loginState';
+import { renderForm } from 'courthive-components';
+import { removeTournament } from 'services/apis/servicesApi';
+import { tmxToast } from 'services/notifications/tmxToast';
+import { setActiveScale } from 'settings/setActiveScale';
+import { featureFlags } from 'config/featureFlags';
+import { tmx2db } from 'services/storage/tmx2db';
+import { serverConfig } from 'config/serverConfig';
+import { deviceConfig } from 'config/deviceConfig';
+import { context } from 'services/context';
+import { platform } from 'platform';
+import { ensureLocaleCurrent, fetchManifest } from 'i18n/runtime-loader';
+import { i18next, t } from 'i18n';
+import {
+  applyFont,
+  applyFontSize,
+  FONT_OPTIONS,
+  FONT_SIZE_OPTIONS,
+  getFontPreference,
+  getFontSizePreference,
+} from 'services/theme/themeService';
+
+// constants
+import { SUPER_ADMIN, TMX_TOURNAMENTS } from 'constants/tmxConstants';
+
+/** Move text spans into their preceding label.radio so radio+text wrap as a unit. */
+function fixRadioWrapping(formEl: HTMLElement): void {
+  const labels = formEl.querySelectorAll('label.radio');
+  for (const label of labels) {
+    const span = label.nextElementSibling;
+    if (span?.tagName === 'SPAN') {
+      label.appendChild(span);
+    }
+  }
+}
+
+const { ratingsParameters } = fixtures;
+const { SINGLES } = factoryConstants.eventConstants;
+
+const RATINGS_PANEL_BLUE = 'settings-panel panel-blue';
+
+// Hardcoded display labels for the bundled / always-present `en` locale.
+// Used as the last-resort fallback when the CFS manifest is unreachable
+// AND no other locales are loaded in i18next yet.
+const FALLBACK_LANGUAGES: Record<string, string> = {
+  en: 'English',
+};
+
+interface LanguageOption {
+  value: string;
+  label: string;
+  selected: boolean;
+}
+
+/** Build the radio-button options list for the language panel. Prefers the
+ *  manifest's native labels (e.g. "Čeština" for cs). Falls back to whatever
+ *  i18next already has loaded, then to the bundled-en label. */
+function buildLanguageOptions(
+  manifestLocales: Array<{ code: string; label?: string; nativeLabel?: string }> | undefined,
+  knownInI18next: Set<string>,
+  currentLanguage: string,
+): LanguageOption[] {
+  const seen = new Set<string>();
+  const out: LanguageOption[] = [];
+
+  // Manifest is the primary source. Use nativeLabel so the option reads in
+  // the speaker's own script (e.g. "Čeština", "العربية") — that's the most
+  // self-evident way to recognise your own language in a settings list.
+  for (const entry of manifestLocales ?? []) {
+    if (seen.has(entry.code)) continue;
+    seen.add(entry.code);
+    out.push({
+      value: entry.code,
+      label: entry.nativeLabel || entry.label || entry.code,
+      selected: currentLanguage === entry.code,
+    });
+  }
+
+  // Backstop: any locale i18next has loaded that wasn't in the manifest
+  // (e.g. CFS unreachable, but a prior session fetched the file and it's
+  // still in memory). Include them so the user can keep using them.
+  for (const code of knownInI18next) {
+    if (seen.has(code)) continue;
+    seen.add(code);
+    out.push({
+      value: code,
+      label: FALLBACK_LANGUAGES[code] || code,
+      selected: currentLanguage === code,
+    });
+  }
+
+  return out;
+}
+
+async function persistAll(
+  languageInputs: any,
+  ratingInputs: any,
+  scoringInputs: any,
+  storageInputs: any,
+  displayInputs: any,
+): Promise<void> {
+  const previousAssistant = featureFlags.get().assistant;
+  const activeScale = ratingInputs?.activeRating?.value;
+  serverConfig.set({ saveLocal: storageInputs.saveLocal.checked });
+  featureFlags.set({
+    assistant: displayInputs.assistant?.checked || false,
+    formatWizard: displayInputs.formatWizard?.checked || false,
+  });
+
+  let scoringApproach: PreferencesConfig['scoringApproach'];
+  if (scoringInputs.dynamicSets.checked) {
+    scoringApproach = 'dynamicSets';
+  } else if (scoringInputs.dialPad.checked) {
+    scoringApproach = 'dialPad';
+  } else if (scoringInputs.freeScore.checked) {
+    scoringApproach = 'freeScore';
+  } else if (scoringInputs.inlineScoring?.checked) {
+    scoringApproach = 'inlineScoring';
+  } else {
+    scoringApproach = 'dynamicSets';
+  }
+  preferencesConfig.set({
+    scoringApproach,
+    smartComplements: scoringInputs.smartComplements?.checked || false,
+  });
+
+  const language = languageInputs.language.value;
+  const languageChanged = language !== i18next.language;
+
+  if (activeScale) setActiveScale(activeScale);
+
+  const assistantChanged = (displayInputs.assistant?.checked || false) !== previousAssistant;
+
+  // User explicitly picked a language here — mark as explicit so provider
+  // default-language no longer overrides on subsequent boots.
+  persistConfigToStorage({ language, languageExplicit: true });
+
+  if (languageChanged) {
+    // Fetch + cache the new locale BEFORE reload so the post-reload boot
+    // can sync-load it from cache via initialState.ts. Without this, the
+    // first reload after picking a new language renders English fallbacks
+    // until ensureLocaleCurrent's background fetch completes.
+    try {
+      await ensureLocaleCurrent(language);
+    } catch {
+      // Fetch failure — proceed with reload anyway; the boot path will
+      // retry the fetch and the user gets English fallback in the
+      // meantime. Better than blocking the reload indefinitely.
+    }
+  }
+
+  if (languageChanged || assistantChanged) {
+    globalThis.location.reload();
+  }
+}
+
+export async function renderSettingsGrid(container: HTMLElement, options?: { excludeTournament?: boolean }): Promise<void> {
+  const currentSettings = loadSettings();
+
+  // These are populated after renderForm calls; persist closure captures the refs.
+  let languageInputs: any;
+  let ratingInputs: any;
+  let scoringInputs: any;
+  let storageInputs: any;
+  let displayInputs: any;
+
+  const persist = () => persistAll(languageInputs, ratingInputs, scoringInputs, storageInputs, displayInputs);
+
+  const grid = document.createElement('div');
+  grid.className = 'settings-grid';
+
+  // --- Language panel (blue, 1 col) ---
+  // Source the language list from the CFS manifest so newly-added locales
+  // (cs, hr, etc.) appear without a TMX rebuild. force:true so a stale
+  // localStorage cache can't hide a locale that's already live on CFS.
+  // Fall back to whatever i18next has loaded (bundled en + any locale the
+  // runtime-loader already pulled this session) if CFS is unreachable.
+  const manifest = await fetchManifest({ force: true });
+  const knownInI18next = new Set(Object.keys(i18next.options?.resources || {}));
+  const languageOptions = buildLanguageOptions(manifest?.locales, knownInI18next, i18next.language);
+
+  const languagePanel = document.createElement('div');
+  languagePanel.className = RATINGS_PANEL_BLUE;
+  languagePanel.innerHTML = `<h3><i class="fa-solid fa-globe"></i> ${t('modals.settings.language')}</h3>`;
+
+  const languageForm = document.createElement('div');
+  languageInputs = renderForm(languageForm, [
+    {
+      options: languageOptions,
+      onChange: persist,
+      field: 'language',
+      id: 'language',
+    },
+  ]);
+  languagePanel.appendChild(languageForm);
+
+  // Active Rating lives below the language selector in the same panel —
+  // tournament-specific so the sub-section only renders inside a tournament.
+  if (!options?.excludeTournament) {
+    const ratingHeader = document.createElement('h3');
+    ratingHeader.style.marginTop = '16px';
+    ratingHeader.innerHTML = `<i class="fa-solid fa-star"></i> ${t('modals.settings.activeRating')}`;
+    languagePanel.appendChild(ratingHeader);
+
+    // Discover which ratings are present in current tournament participants
+    const { participants: allParticipants = [] } = tournamentEngine.getParticipants({ withScaleValues: true }) ?? {};
+    const presentRatings = new Set<string>();
+    for (const p of allParticipants) {
+      for (const item of p.ratings?.[SINGLES] || []) {
+        presentRatings.add(item.scaleName);
+      }
+    }
+
+    // Build rating options: tournament ratings first, then all others (excluding deprecated)
+    const allRatingKeys = Object.keys(ratingsParameters).filter((key) => !(ratingsParameters as any)[key].deprecated);
+    const inTournament = allRatingKeys.filter((key) => presentRatings.has(key));
+    const notInTournament = allRatingKeys.filter((key) => !presentRatings.has(key));
+
+    const ratingOptions = [
+      ...inTournament.map((key) => ({
+        label: `${key} (in tournament)`,
+        value: key.toLowerCase(),
+        selected: preferencesConfig.get().activeScale === key.toLowerCase(),
+      })),
+      ...notInTournament.map((key) => ({
+        label: key,
+        value: key.toLowerCase(),
+        selected: preferencesConfig.get().activeScale === key.toLowerCase(),
+      })),
+    ];
+
+    const ratingForm = document.createElement('div');
+    ratingInputs = renderForm(ratingForm, [
+      {
+        options: ratingOptions,
+        onChange: persist,
+        field: 'activeRating',
+        id: 'activeRating',
+      },
+    ]);
+    languagePanel.appendChild(ratingForm);
+  }
+
+  grid.appendChild(languagePanel);
+
+  // --- Scoring panel (green, cols 3-4) ---
+  const scoringPanel = document.createElement('div');
+  scoringPanel.className = 'settings-panel panel-green';
+  scoringPanel.style.gridColumn = '2 / 5';
+  scoringPanel.innerHTML = `<h3><i class="fa-solid fa-table-tennis-paddle-ball"></i> ${t('modals.settings.scoringApproach')}</h3>`;
+
+  const scoringForm = document.createElement('div');
+  scoringInputs = renderForm(scoringForm, [
+    {
+      options: [
+        {
+          text: t('modals.settings.dynamicSets'),
+          field: 'dynamicSets',
+          checked: preferencesConfig.get().scoringApproach === 'dynamicSets',
+        },
+        {
+          text: t('modals.settings.dialPad'),
+          field: 'dialPad',
+          checked: preferencesConfig.get().scoringApproach === 'dialPad',
+        },
+        {
+          text: t('modals.settings.freeScore'),
+          field: 'freeScore',
+          checked: preferencesConfig.get().scoringApproach === 'freeScore',
+        },
+        {
+          text: t('modals.settings.inlineScoring'),
+          field: 'inlineScoring',
+          checked: preferencesConfig.get().scoringApproach === 'inlineScoring',
+        },
+      ],
+      onChange: persist,
+      field: 'scoringApproach',
+      id: 'scoringApproach',
+      radio: true,
+    },
+    {
+      label: t('modals.settings.smartComplements'),
+      checked: currentSettings?.smartComplements || false,
+      field: 'smartComplements',
+      id: 'smartComplements',
+      onChange: persist,
+      checkbox: true,
+    },
+  ]);
+  // workaround: courthive-components <=0.9.27 doesn't wire onChange for radios
+  scoringInputs.dynamicSets.addEventListener('change', persist);
+  scoringInputs.dialPad.addEventListener('change', persist);
+  scoringInputs.freeScore.addEventListener('change', persist);
+  fixRadioWrapping(scoringForm);
+  scoringPanel.appendChild(scoringForm);
+  grid.appendChild(scoringPanel);
+
+  // --- Font panel (blue, 1 col) ---
+  const fontPanel = document.createElement('div');
+  fontPanel.className = RATINGS_PANEL_BLUE;
+  fontPanel.innerHTML = `<h3><i class="fa-solid fa-font"></i> ${t('modals.settings.font')}</h3>`;
+
+  const currentFont = getFontPreference();
+  const fontForm = document.createElement('div');
+  renderForm(fontForm, [
+    {
+      options: Object.entries(FONT_OPTIONS).map(([key, { label }]) => ({
+        value: key,
+        label,
+        selected: key === currentFont,
+      })),
+      onChange: (e: Event) => {
+        const select = e.target as HTMLSelectElement;
+        applyFont(select.value);
+      },
+      field: 'fontFamily',
+      id: 'fontFamily',
+    },
+  ]);
+  fontPanel.appendChild(fontForm);
+
+  const currentFontSize = getFontSizePreference();
+  const fontSizeForm = document.createElement('div');
+  fontSizeForm.style.marginTop = '8px';
+  renderForm(fontSizeForm, [
+    {
+      options: Object.entries(FONT_SIZE_OPTIONS).map(([key, { label }]) => ({
+        value: key,
+        label,
+        selected: key === currentFontSize,
+      })),
+      onChange: (e: Event) => {
+        const select = e.target as HTMLSelectElement;
+        applyFontSize(select.value);
+      },
+      field: 'fontSize',
+      id: 'fontSize',
+    },
+  ]);
+  fontPanel.appendChild(fontSizeForm);
+
+  grid.appendChild(fontPanel);
+
+  // --- Beta Features panel (orange, 1 col) — placed between Font and Storage ---
+  const displayPanel = document.createElement('div');
+  displayPanel.className = 'settings-panel panel-orange';
+  displayPanel.innerHTML = `<h3><i class="fa-solid fa-display"></i> ${t('modals.settings.betaFeatures')}</h3>`;
+
+  const displayForm = document.createElement('div');
+  displayInputs = renderForm(displayForm, [
+    {
+      label: 'Ask TMX assistant',
+      checked: featureFlags.get().assistant || false,
+      field: 'assistant',
+      id: 'assistant',
+      onChange: persist,
+      checkbox: true,
+    },
+    {
+      label: 'Format Wizard',
+      checked: featureFlags.get().formatWizard || false,
+      field: 'formatWizard',
+      id: 'formatWizard',
+      onChange: persist,
+      checkbox: true,
+    },
+  ]);
+
+  if (deviceConfig.get().isElectron) {
+    const notifRow = document.createElement('div');
+    notifRow.style.cssText = 'display:flex;align-items:center;margin-top:8px';
+    const notifCheckbox = document.createElement('input');
+    notifCheckbox.type = 'checkbox';
+    notifCheckbox.id = 'desktopNotifications';
+    notifCheckbox.checked = isDesktopNotificationsEnabled();
+    notifCheckbox.addEventListener('change', () => setDesktopNotificationsEnabled(notifCheckbox.checked));
+    const notifLabel = document.createElement('label');
+    notifLabel.htmlFor = 'desktopNotifications';
+    notifLabel.textContent = ' Desktop Notifications';
+    notifLabel.style.marginLeft = '4px';
+    notifRow.appendChild(notifCheckbox);
+    notifRow.appendChild(notifLabel);
+    displayForm.appendChild(notifRow);
+  }
+  displayPanel.appendChild(displayForm);
+  grid.appendChild(displayPanel);
+
+  // --- Storage panel (purple, cols 3-4) ---
+  const storagePanel = document.createElement('div');
+  storagePanel.className = 'settings-panel panel-purple';
+  storagePanel.style.gridColumn = '3 / 5';
+  storagePanel.innerHTML = `<h3><i class="fa-solid fa-floppy-disk"></i> ${t('modals.settings.storage')}</h3>`;
+
+  const storageForm = document.createElement('div');
+  storageInputs = renderForm(storageForm, [
+    {
+      label: t('modals.settings.saveLocalCopies'),
+      checked: serverConfig.get().saveLocal,
+      field: 'saveLocal',
+      id: 'saveLocal',
+      onChange: persist,
+      checkbox: true,
+    },
+  ]);
+  storagePanel.appendChild(storageForm);
+  grid.appendChild(storagePanel);
+
+  // --- Connection panel (indigo, cols 3-4) — Electron only ---
+  if (deviceConfig.get().isElectron) {
+    const connectionPanel = document.createElement('div');
+    connectionPanel.className = 'settings-panel panel-indigo';
+    connectionPanel.style.gridColumn = '3 / 5';
+    connectionPanel.innerHTML = `<h3><i class="fa-solid fa-server"></i> Connection</h3>`;
+
+    const serverUrlLabel = document.createElement('label');
+    serverUrlLabel.className = 'label';
+    serverUrlLabel.textContent = 'Server URL';
+    serverUrlLabel.style.marginBottom = '4px';
+
+    const serverUrlInput = document.createElement('input');
+    serverUrlInput.className = 'input';
+    serverUrlInput.type = 'text';
+    serverUrlInput.value = serverConfig.get().socketPath || '';
+    serverUrlInput.placeholder = 'http://localhost:8383';
+
+    const statusDot = document.createElement('span');
+    const updateStatus = () => {
+      const isConnected = connected();
+      statusDot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:${isConnected ? '#48c774' : '#f14668'}`;
+    };
+    updateStatus();
+
+    const statusLabel = document.createElement('span');
+    statusLabel.style.fontSize = '0.85rem';
+    const updateStatusLabel = () => {
+      statusLabel.textContent = connected() ? 'Connected' : 'Disconnected';
+    };
+    updateStatusLabel();
+
+    const statusRow = document.createElement('div');
+    statusRow.style.cssText = 'display:flex;align-items:center;margin-top:8px;margin-bottom:8px';
+    statusRow.appendChild(statusDot);
+    statusRow.appendChild(statusLabel);
+
+    const offlineCheckbox = document.createElement('input');
+    offlineCheckbox.type = 'checkbox';
+    offlineCheckbox.id = 'workOffline';
+    offlineCheckbox.checked = !serverConfig.get().serverFirst;
+
+    const offlineLabel = document.createElement('label');
+    offlineLabel.htmlFor = 'workOffline';
+    offlineLabel.textContent = ' Work Offline';
+    offlineLabel.style.marginLeft = '4px';
+
+    const offlineRow = document.createElement('div');
+    offlineRow.style.cssText = 'display:flex;align-items:center;margin-top:8px';
+    offlineRow.appendChild(offlineCheckbox);
+    offlineRow.appendChild(offlineLabel);
+
+    // Save server URL on blur
+    serverUrlInput.addEventListener('change', () => {
+      const url = serverUrlInput.value.trim();
+      serverConfig.set({ socketPath: url });
+      platform.setServerUrl?.(url);
+      persistConfigToStorage({});
+    });
+
+    // Work Offline toggle
+    offlineCheckbox.addEventListener('change', () => {
+      if (offlineCheckbox.checked) {
+        disconnectSocket();
+        serverConfig.set({ serverFirst: false, saveLocal: true });
+      } else {
+        serverConfig.set({ serverFirst: true });
+        connectSocket(() => {
+          updateStatus();
+          updateStatusLabel();
+        });
+      }
+      updateStatus();
+      updateStatusLabel();
+      persistConfigToStorage({});
+    });
+
+    connectionPanel.appendChild(serverUrlLabel);
+    connectionPanel.appendChild(serverUrlInput);
+    connectionPanel.appendChild(statusRow);
+    connectionPanel.appendChild(offlineRow);
+    grid.appendChild(connectionPanel);
+  }
+
+  // --- Delete Tournament panel (red, full width) — tournament-specific ---
+  if (!options?.excludeTournament) {
+    const tournamentRecord = tournamentEngine.getTournament().tournamentRecord;
+    const provider = tournamentRecord?.parentOrganisation;
+    const providerId = provider?.organisationId;
+    const state = getLoginState();
+    const superAdmin = state?.roles?.includes(SUPER_ADMIN);
+    const createdByUserId = tournamentRecord?.extensions?.find((e) => e?.name === 'createdByUserId')?.value;
+    const isCreator = !!createdByUserId && createdByUserId === state?.userId;
+    const canDeleteOnServer = superAdmin || isCreator || state?.permissions?.includes('deleteTournament');
+    const activeProvider = context.provider || state?.provider;
+
+    const isProviderTournament = !!(activeProvider && providerId);
+    if (tournamentRecord && (!isProviderTournament || canDeleteOnServer)) {
+      const deletePanel = document.createElement('div');
+      deletePanel.className = 'settings-panel panel-red';
+      deletePanel.style.gridColumn = '3 / 5';
+      deletePanel.innerHTML = `<h3><i class="fa-solid fa-trash"></i> ${t('modals.settings.dangerZone')}</h3>`;
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'button is-danger is-outlined';
+      deleteBtn.style.marginTop = '8px';
+      deleteBtn.innerHTML = `<i class="fa-solid fa-trash" style="margin-right:6px"></i>${t('modals.tournamentActions.deleteTournament')}`;
+      deleteBtn.addEventListener('click', () => {
+        const tournamentId = tournamentRecord.tournamentId;
+        const provId = state?.providerId || providerId;
+        const navigateAway = async () => {
+          tournamentEngine.reset();
+          if (provId) await removeProviderTournament({ tournamentId, providerId: provId });
+          context.router?.navigate(`/${TMX_TOURNAMENTS}`);
+        };
+        const localDelete = () => tmx2db.deleteTournament(tournamentId).then(navigateAway);
+
+        tmxToast({
+          action: {
+            onClick: () => {
+              if (activeProvider && provId && canDeleteOnServer) {
+                removeTournament({ providerId: provId, tournamentId }).then(localDelete, (err) => {
+                  console.error('[deleteTournament] server error:', err);
+                  localDelete();
+                });
+              } else {
+                localDelete();
+              }
+            },
+            text: t('common.confirm'),
+          },
+          message: t('modals.tournamentActions.deleteTournament'),
+          intent: 'is-danger',
+        });
+      });
+
+      deletePanel.appendChild(deleteBtn);
+      grid.appendChild(deletePanel);
+    }
+  }
+
+  container.appendChild(grid);
+}

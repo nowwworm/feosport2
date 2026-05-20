@@ -1,0 +1,41 @@
+import { mutationRequest } from 'services/mutation/mutationRequest';
+import { logMutationError } from 'functions/logMutationError';
+import { tournamentEngine } from 'services/factory/engine';
+
+// constants
+import { PUBLISH_EVENT } from 'constants/mutationConstants';
+
+export const toggleDrawPublishState = (eventRow) => (_, cell) => {
+  const row = cell.getRow().getData();
+  const drawIdsToRemove = row.published ? [row.drawId] : undefined;
+  const drawIdsToAdd = row.published ? undefined : [row.drawId];
+
+  const method = PUBLISH_EVENT;
+  const methods = [
+    {
+      method,
+      params: {
+        eventId: row.eventId,
+        drawIdsToRemove,
+        drawIdsToAdd,
+        eventDataParams: {
+          participantsProfile: { withScaleValues: true },
+          pressureRating: true,
+          refreshResults: true,
+        },
+      },
+    },
+  ];
+  const postMutation = (result) => {
+    if (result?.success) {
+      cell.getRow().update({ published: !row.published });
+      const eventId = eventRow.getData().eventId;
+      const publishState = tournamentEngine.getPublishState({ eventId }).publishState;
+      const published = publishState?.status?.published;
+      eventRow.update({ published });
+    } else {
+      logMutationError('toggleDrawPublishState', result);
+    }
+  };
+  mutationRequest({ methods, callback: postMutation });
+};

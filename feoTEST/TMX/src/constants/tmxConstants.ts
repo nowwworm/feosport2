@@ -1,0 +1,285 @@
+import { entryStatusConstants, factoryConstants } from 'tods-competition-factory';
+
+const { AFTER_REST, FOLLOWED_BY, NEXT_AVAILABLE, NOT_BEFORE, TO_BE_ANNOUNCED } = factoryConstants.timeItemConstants;
+const { SCHEDULE_ERROR, SCHEDULE_CONFLICT, SCHEDULE_WARNING } = factoryConstants.scheduleConstants;
+
+const {
+  ORGANISER_ACCEPTANCE,
+  DIRECT_ACCEPTANCE,
+  SPECIAL_EXEMPT,
+  JUNIOR_EXEMPT,
+  ALTERNATE,
+  WILDCARD
+} = entryStatusConstants;
+
+export const ALL_MATCHUP_TYPES = 'All matchUp types';
+export const ALL_PARTICIPANTS = 'All participants';
+export const ALL_EVENT_TYPES = 'All event types';
+export const ALL_STATUSES = 'All statuses';
+export const ALL_GENDERS = 'All genders';
+export const ALL_FLIGHTS = 'All flights';
+export const ALL_ROUNDS = 'All rounds';
+export const ALL_EVENTS = 'All events';
+export const NO_EVENTS = 'No events';
+export const ALL_TEAMS = 'All teams';
+export const ALL_TYPES = 'All Types';
+export const ANY_TEAM = 'Any team';
+
+export const REGISTRATION = 'registration';
+
+export const TIMEPICKER = 'timepicker';
+export const TIMEVALUE = 'timevalue';
+
+export const TMX_CONTENT = 'tmxContent';
+export const TMX_DRAWER = 'tmxDrawer';
+export const TMX_MODAL = 'tmxModal';
+export const NAVBAR = 'navbar';
+export const SPLASH = 'splash';
+export const HOME = 'home';
+
+export const SYNC_INDICATOR = 'syncIndicator';
+
+export const SUPER_ADMIN = 'superadmin';
+export const ADMIN = 'admin';
+
+export const COMPETITION_ENGINE = 'competitionEngine';
+export const TOURNAMENT_ENGINE = 'tournamentEngine';
+
+export const TMX_TOURNAMENTS = 'tournaments';
+export const TMX_TOPOLOGY = 'tmxTopology';
+export const TMX_TEMPLATES = 'tmxTemplates';
+export const TMX_POLICIES = 'tmxPolicies';
+export const TMX_SETTINGS = 'tmxSettings';
+export const TMX_ADMIN = 'tmxAdmin';
+export const TEMPLATES = 'templates';
+export const POLICIES = 'policies';
+export const SETTINGS = 'settings';
+export const DRAW_ENTRIES = 'drawEntries';
+export const TOURNAMENT = 'tournament';
+export const STRUCTURE = 'structure';
+export const INVITE = 'invite';
+export const EVENT = 'event';
+export const DRAW = 'draw';
+export const VIEW = 'view';
+
+export const TOURNAMENT_EVENTS = 'tournamentEvents';
+export const TOURNAMENT_OVERVIEW = 'overview';
+export const PARTICIPANTS = 'participants';
+export const SCHEDULE2_TAB = 'schedule2';
+export const MATCHUPS_TAB = 'matchUps';
+export const EVENTS_TAB = 'events';
+export const VENUES_TAB = 'venues';
+export const PUBLISHING_TAB = 'publishing';
+export const SETTINGS_TAB = 'settings';
+export const REPORTS_TAB = 'reports';
+export const REPORTS_CONTROL = 'reportsControl';
+export const TOURNAMENT_REPORTS = 'tournamentReports';
+
+export const SETTINGS_CONTROL = 'settingsControl';
+export const TOURNAMENT_SETTINGS = 'tournamentSettings';
+
+export const PUBLISHING_CONTROL = 'publishingControl';
+export const TOURNAMENT_PUBLISHING = 'tournamentPublishing';
+
+export const LEGACY_EVENTS = 'legacyEvents';
+
+export const SUCCESS = { success: true };
+
+export const MINIMUM_SCHEDULE_COLUMNS = 10;
+
+export const CONFLICT_PARTICIPANTS = 'participantConflict';
+export const CONFLICT_MATCHUP_ORDER = 'matchUpConflict';
+export const CONFLICT_COURT_DOUBLE_BOOKING = 'courtDoubleBooking';
+export const SCHEDULE_ISSUE_IDS = 'ISSUE_IDS';
+export const SCHEDULE_ISSUE = 'ISSUE';
+
+export const AUTOMATED = 'Automated';
+export const DRAFT = 'Draft';
+export const MANUAL = 'Manual';
+
+export const scheduleClass: Record<string, string> = {
+  [SCHEDULE_ERROR]: 'matchup-error',
+  [SCHEDULE_CONFLICT]: 'matchup-conflict',
+  [SCHEDULE_ISSUE]: 'matchup-issue',
+  [SCHEDULE_WARNING]: 'matchup-warning',
+};
+
+export const TOURNAMENT_PARTICIPANTS = 'tournamentParticipants';
+export const TEMPORAL_GRID_CONTAINER = 'temporalGridContainer';
+export const SCHEDULED_DATE_FILTER = 'scheduledDateFilter';
+
+export const TOURNAMENT_MATCHUPS = 'tournamentMatchUps';
+export const TOURNAMENTS_TABLE = 'tournamentsTable';
+export const TOURNAMENT_TEAMS = 'tournamentTeams';
+export const TOURNAMENT_VENUES = 'venuesTable';
+export const VENUE = 'venue';
+export const ENTRIES_COUNT = 'entriesCount';
+export const EVENTS_TABLE = 'eventsTable';
+export const TMX_OVERLAY = 'tmxOverlay';
+export const TEAM_STATS = 'teamStats';
+
+export const DRAW_CONTROL = 'drawControl';
+export const DRAW_FRAME = 'drawFrame';
+export const DRAW_RIGHT = 'drawRight';
+export const DRAW_LEFT = 'drawLeft';
+
+export const ENTRIES_VIEW = 'entriesView';
+export const DRAWS_VIEW = 'drawsView';
+
+export const EVENT_SELECTOR = 'eventSelector';
+export const EVENT_SELECTOR_TABLE = 'eventSelectorTable';
+export const EVENT_TABS_BAR = 'eventTabsBar';
+export const EVENT_TAB_CONTENT = 'eventTabContent';
+
+export const QUALIFYING = 'QUALIFYING';
+export const ACCEPTED = 'ACCEPTED';
+
+export const EVENT_INFO = 'eventInfo';
+export const DRAWS_HEADER = 'drawsHeader';
+export const ACCEPTED_PANEL = 'acceptedPanel';
+export const ALTERNATES_PANEL = 'alternatesPanel';
+export const QUALIFYING_PANEL = 'qualifyingPanel';
+export const UNGROUPED_PANEL = 'ungroupedPanel';
+export const WITHDRAWN_PANEL = 'withdrawaPanel';
+
+export const SCHEDULE2_CONTAINER = 'schedule2Container';
+export const SCHEDULE2_CONTROL = 'schedule2Control';
+export const TOURNAMENTS_CONTROL = 'tournamentsControl';
+export const PARTICIPANT_CONTROL = 'participantControl';
+export const MATCHUPS_CONTROL = 'matchUpsControl';
+export const VENUES_CONTROL = 'venuesControl';
+export const EVENTS_CONTROL = 'eventsControl';
+export const EVENT_CONTROL = 'eventControl';
+export const TEAMS_CONTROL = 'teamsControl';
+
+export const CONTROL_BAR = 'controlBar';
+export const BUTTON_BAR = 'buttonBar';
+export const TMX_PANEL = 'tmxPanel';
+export const TMX_TABLE = 'tmxTable';
+
+export const TOURNAMENT_CONTAINER = 'tcContainer';
+
+export const OVERLAY = 'overlay';
+export const CENTER = 'center';
+export const HEADER = 'header';
+export const RIGHT = 'right';
+export const LEFT = 'left';
+
+export const BOTTOM = 'bottom';
+export const TOP = 'top';
+
+export const SUB_TABLE = 'subTable';
+
+export const EMPTY_STRING = '';
+export const FLEX = 'flex';
+export const NONE = 'none';
+
+export const IS_OPEN = 'isOpen';
+
+export const COLLECTION_VALUE = 'Collection value';
+export const MATCH_VALUE = 'Match value';
+export const SCORE_VALUE = 'Score value';
+export const SET_VALUE = 'Set value';
+
+export const timeModifierText: Record<string, string> = {
+  [AFTER_REST]: 'After rest',
+  [FOLLOWED_BY]: 'Followed by',
+  [TO_BE_ANNOUNCED]: 'To be announced',
+  [NEXT_AVAILABLE]: 'Next available',
+  [NOT_BEFORE]: 'Not before',
+};
+
+export const timeModifierDisplay: Record<string, string> = {
+  [AFTER_REST]: 'After rest',
+  [FOLLOWED_BY]: 'Followed by',
+  [TO_BE_ANNOUNCED]: 'TBA',
+  [NEXT_AVAILABLE]: 'Next available',
+  [NOT_BEFORE]: 'NB',
+};
+
+export const entryStatusMapping: Record<string, string> = {
+  [ORGANISER_ACCEPTANCE]: 'OA',
+  [DIRECT_ACCEPTANCE]: 'DA',
+  [SPECIAL_EXEMPT]: 'SE',
+  [JUNIOR_EXEMPT]: 'JE',
+  [QUALIFYING]: 'QUAL',
+  [ALTERNATE]: 'ALT',
+  [WILDCARD]: 'WC'
+};
+
+export const PLAYOFF_NAME_BASE = 'Playoff';
+export const DRAW_SIZE = 'drawSize';
+export const CUSTOM = 'CUSTOM';
+
+export const ADVANCE_PER_GROUP = 'advancePerGroup';
+export const QUALIFYING_FIRST = 'qualifyingFirst';
+export const QUALIFYING_POSITIONS = 'qualifyingPositions';
+export const QUALIFIERS_COUNT = 'qualifiersCount';
+export const GROUP_REMAINING = 'groupRemaining';
+export const MATCHUP_FORMAT = 'matchUpFormat';
+export const SEEDING_POLICY = 'seedingPolicy';
+export const STRUCTURE_NAME = 'structureName';
+export const PLAYOFF_DRAW_TYPE = 'playoffDrawType';
+export const PLAYOFF_GROUP_SIZE = 'playoffGroupSize';
+export const PLAYOFF_TYPE = 'playoffType';
+export const GROUP_SIZE = 'groupSize';
+export const POSITIONS = 'positions';
+export const DRAW_NAME = 'drawName';
+export const DRAW_TYPE = 'drawType';
+export const BEST_FINISHERS = 'bestFinishers';
+export const TOTAL_ADVANCE = 'totalAdvance';
+export const TOP_FINISHERS = 'top';
+export const WINNERS = 'winners';
+
+export const TOPOLOGY_TEMPLATE_PREFIX = 'TOPOLOGY_TEMPLATE:';
+export const TOPOLOGY = 'topology';
+
+export const ROUNDS_COLUMNS = 'roundsColumns';
+export const ROUNDS_STATS = 'roundsStats';
+export const ROUNDS_TABLE = 'roundsTable';
+export const ROUNDS_BRACKET = 'roundsBracket';
+export const ROUNDS_TOPOLOGY = 'roundsTopology';
+export const POINTS_VIEW = 'pointsView';
+
+export const UTR = 'utr';
+export const WTN = 'wtn';
+
+export const DRAW_MATIC = 'DRAW_MATIC';
+export const ROUNDS_COUNT = 'roundsCount';
+export const DYNAMIC_RATINGS = 'dynamicRatings';
+export const TEAM_AVOIDANCE = 'teamAvoidance';
+export const RATING_SCALE = 'ratingScale';
+export const ROUNDS_RATINGS = 'roundsRatings';
+export const ROUNDS_STANDINGS = 'roundsStandings';
+export const ROUNDS_SWISS_CHART = 'roundsSwissChart';
+export const FIC_DEPTH = 'ficDepth';
+
+// Format Wizard (Phase 1.C)
+export const FORMAT_WIZARD_MODAL = 'formatWizardModal';
+export const FORMAT_WIZARD_CONTENT = 'formatWizardContent';
+export const FORMAT_WIZARD_FORM = 'formatWizardForm';
+export const FORMAT_WIZARD_RIGHT_PANE = 'formatWizardRightPane';
+export const FORMAT_WIZARD_SCALE = 'formatWizardScale';
+export const FORMAT_WIZARD_COURTS = 'formatWizardCourts';
+export const FORMAT_WIZARD_DAYS = 'formatWizardDays';
+export const FORMAT_WIZARD_HOURS_PER_DAY = 'formatWizardHoursPerDay';
+export const FORMAT_WIZARD_MIN_FLOOR = 'formatWizardMinFloor';
+export const FORMAT_WIZARD_TARGET_CT = 'formatWizardTargetCt';
+export const FORMAT_WIZARD_APPETITE = 'formatWizardAppetite';
+export const FORMAT_WIZARD_DISTRIBUTION = 'formatWizardDistribution';
+export const FORMAT_WIZARD_PLAN_LIST = 'formatWizardPlanList';
+export const FORMAT_WIZARD_EMPTY = 'formatWizardEmpty';
+export const FORMAT_WIZARD_HEADER_DISTRIBUTION = 'formatWizardHeaderDistribution';
+export const FORMAT_WIZARD_HEADER_PLANS = 'formatWizardHeaderPlans';
+export const FORMAT_WIZARD_ACTION_BUTTON = 'formatWizardActionButton';
+export const FORMAT_WIZARD_RESET_LINK = 'formatWizardResetLink';
+export const FORMAT_WIZARD_CAPACITY_CUE = 'formatWizardCapacityCue';
+export const TMX_FORMAT_WIZARD = 'tmxFormatWizard';
+export const FORMAT_WIZARD_PAGE = 'formatWizardPage';
+export const FORMAT_WIZARD_LAUNCHER = 'formatWizardLauncher';
+export const FORMAT_WIZARD_BACK = 'formatWizardBack';
+export const FORMAT_WIZARD_VC_TOGGLE = 'formatWizardVcToggle';
+export const FORMAT_WIZARD_EVENT_SELECT = 'formatWizardEventSelect';
+export const FORMAT_WIZARD_CLEAR_STALE = 'formatWizardClearStale';
+export const FORMAT_WIZARD_CONSIDERATION = 'formatWizardConsideration';
+export const FORMAT_WIZARD_HEADER_CONSIDERATION = 'formatWizardHeaderConsideration';

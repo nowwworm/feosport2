@@ -1,0 +1,238 @@
+import { tournamentEngine } from 'services/factory/engine';
+import { mocksEngine, queryGovernor, tools, extensionConstants } from 'tods-competition-factory';
+import { compositions, renderMatchUp, renderForm } from 'courthive-components';
+import { resolveCompositionByName } from 'services/compositions/resolveCompositionByName';
+import { getUserCompositionsSync, loadUserCompositions } from 'pages/templates/compositionBridge';
+import { mutationRequest } from 'services/mutation/mutationRequest';
+import { openModal } from 'components/modals/baseModal/baseModal';
+import { removeAllChildNodes } from 'services/dom/transformers';
+import { isFunction } from 'functions/typeOf';
+import { displayConfig } from 'config/displayConfig';
+
+// constants
+import { ADD_DRAW_DEFINITION_EXTENSION, ADD_EVENT_EXTENSION } from 'constants/mutationConstants';
+import { NONE } from 'constants/tmxConstants';
+
+export async function editDisplaySettings(params) {
+  const { eventId, drawId, callback } = params;
+
+  // Ensure the user-composition cache is populated before building the
+  // selector options + render lookup. Idempotent — repeated calls just
+  // re-read IndexedDB.
+  await loadUserCompositions().catch(() => {});
+
+  const storedValue = tournamentEngine.findExtension({
+    name: extensionConstants.DISPLAY,
+    discover: true,
+    eventId,
+    drawId,
+  }).extension?.value;
+
+  // support there being multiple "scopes", e.g. admin, public, etc.
+  const scopedValue = storedValue?.admin ?? storedValue;
+
+  const noScheduleInfo = new Set(['Wimbledon', 'French', 'ITF']);
+  const saveId = 'saveDisplaySettings';
+  const selections: any = {
+    compositionName: scopedValue?.compositionName ?? displayConfig.get().composition?.compositionName ?? 'Australian',
+    configuration: scopedValue?.configuration ?? {},
+    storedColors: scopedValue?.colors,
+    composition: undefined,
+    inputs: undefined,
+  };
+
+  const startDate = tools.dateTime.extractDate(new Date().toISOString());
+  const mockDrawId = 'drawId';
+  const venueId = 'venueId';
+  const venueProfiles = [
+    {
+      onlineResources: [{ link: 'https://www.google.com', label: 'Google' }],
+      venueName: 'Club Courts',
+      venueAbbreviation: 'CC',
+      startTime: '08:00',
+      endTime: '20:00',
+      courtsCount: 6,
+      venueId,
+    },
+  ];
+  const drawProfiles = [
+    {
+      eventName: `WTN 14-19 SINGLES`,
+      category: { ratingType: 'WTN', ratingMin: 14, ratingMax: 19.99 },
+      drawId: mockDrawId,
+      generate: true,
+      drawSize: 4,
+    },
+  ];
+  const schedulingProfile = [
+    {
+      scheduleDate: startDate,
+      venues: [
+        {
+          rounds: [{ drawId: mockDrawId, winnerFinishingPositionRange: '1-2' }],
+          venueId: venueProfiles[0].venueId,
+        },
+      ],
+    },
+  ];
+  const participantsProfile = { withScaleValues: true, withISO2: true };
+
+  const tournamentRecord = mocksEngine.generateTournamentRecord({
+    scheduleCompletedMatchUps: true,
+    completeAllMatchUps: true,
+    participantsProfile,
+    autoSchedule: true,
+    schedulingProfile,
+    venueProfiles,
+    drawProfiles,
+    startDate,
+  }).tournamentRecord;
+
+  const matchUps = queryGovernor.allTournamentMatchUps({ tournamentRecord }).matchUps ?? [];
+  const matchUp = matchUps.find((matchUp) => matchUp.matchUpType === 'SINGLES');
+
+  const content = document.createElement('div');
+  content.style.maxWidth = '500px';
+  const matchUpNode = document.createElement('div');
+  content.appendChild(matchUpNode);
+
+  const render = ({ compositionName, configuration }) => {
+    removeAllChildNodes(matchUpNode);
+    const resolved = resolveCompositionByName(compositionName);
+    if (!resolved) return;
+    selections.composition = resolved;
+    selections.composition.configuration ??= {};
+    Object.assign(selections.composition.configuration, configuration);
+
+    // Extension-level colors (saved snapshot) win over the resolver's
+    // user-composition colors so the displayed state survives later edits
+    // to the underlying user composition. Only apply on first render
+    // for the originally-stored compositionName.
+    if (selections.storedColors && compositionName === scopedValue?.compositionName) {
+      selections.composition.colors = { ...selections.storedColors };
+    }
+
+    selections.composition.genderColor = true;
+    selections.composition.compositionName = compositionName;
+    const renderedMatchUp = renderMatchUp({ isLucky: true, composition: selections.composition, matchUp: matchUp as any });
+    matchUpNode.appendChild(renderedMatchUp);
+  };
+
+  render(selections);
+
+  const builtinOptions = Object.keys(compositions)
+    .filter((x) => x !== 'Night' && x !== 'InlineScoring')
+    .map((key) => ({
+      selected: key === selections.compositionName,
+      label: key,
+      value: key,
+    }));
+
+  const userOptions = getUserCompositionsSync().map((u) => ({
+    selected: u.name === selections.compositionName,
+    label: `${u.name} (custom)`,
+    value: u.name,
+  }));
+
+  const compositionOptions = [...builtinOptions, ...userOptions];
+
+  const participantDetail = selections.configuration.participantDetail;
+  const detailOptions = [
+    { label: 'None', value: 'NONE', selected: !participantDetail },
+    { label: 'Address', value: 'ADDRESS', selected: participantDetail === 'ADDRESS' },
+    { label: 'Team', value: 'TEAM', selected: participantDetail === 'TEAM' },
+  ];
+
+  const onChange = () => {
+    selections.compositionName = selections.inputs.composition.value;
+    selections.configuration.scheduleInfo =
+      !noScheduleInfo.has(selections.compositionName) && selections.inputs.showSchedule.checked;
+    selections.configuration.participantDetail = selections.inputs.detail.value;
+    render(selections);
+  };
+
+  const formElements = [
+    {
+      options: compositionOptions,
+      label: 'Composition',
+      field: 'composition',
+      onChange,
+    },
+    {
+      controlVisible: !noScheduleInfo.has(selections.compositionName),
+      checked: selections.configuration.scheduleInfo,
+      controlId: 'scheduleToggle',
+      label: 'Show Schedule',
+      field: 'showSchedule',
+      id: 'showSchedule',
+      checkbox: true,
+      onChange,
+    },
+    {
+      options: detailOptions,
+      label: 'Detail',
+      field: 'detail',
+      onChange,
+    },
+  ];
+  const formElement = document.createElement('div');
+  content.appendChild(formElement);
+  const relationships = [
+    {
+      onChange: ({ e }) => {
+        const display = !noScheduleInfo.has(e.target.value);
+        const elem = document.getElementById('scheduleToggle');
+        if (elem) elem.style.display = display ? 'block' : NONE;
+      },
+      control: 'composition',
+    },
+  ];
+  selections.inputs = renderForm(formElement, formElements, relationships);
+
+  const saveComposition = () => {
+    const postMutation = () => {
+      displayConfig.set({ composition: selections.composition });
+      if (isFunction(callback)) callback(selections.composition);
+    };
+    const existingValue = tournamentEngine.findExtension({
+      name: extensionConstants.DISPLAY,
+      discover: true,
+      eventId,
+      drawId,
+    })?.extension?.value;
+    // Capture the FULL merged configuration (composition source +
+    // form overrides) so the saved extension is a self-contained
+    // snapshot. Required for user compositions to render with full
+    // fidelity in courthive-public, where the named-composition
+    // lookup falls back to 'National' (since user compositions live
+    // only in TMX's IndexedDB). Saving the full configuration means
+    // the public-side renderer reads every flag from the extension
+    // and never needs to know what 'MyCustom' resolves to.
+    const fullConfiguration = {
+      ...(selections.composition.configuration || {}),
+      ...selections.configuration,
+    };
+    const extension = {
+      value: {
+        ...existingValue, // order is important!
+        compositionName: selections.composition.compositionName,
+        theme: selections.composition.theme,
+        configuration: fullConfiguration,
+        ...(selections.composition.colors ? { colors: selections.composition.colors } : {}),
+      },
+      name: extensionConstants.DISPLAY,
+    };
+    const method = drawId ? ADD_DRAW_DEFINITION_EXTENSION : ADD_EVENT_EXTENSION;
+    const methods = [{ method, params: { eventId, drawId, extension } }];
+    mutationRequest({ methods, callback: postMutation });
+  };
+
+  openModal({
+    title: `Edit display settings`,
+    buttons: [
+      { label: 'Cancel', intent: NONE, close: true },
+      { label: 'Save', id: saveId, intent: 'is-info', close: true, onClick: saveComposition },
+    ],
+    content,
+  });
+}

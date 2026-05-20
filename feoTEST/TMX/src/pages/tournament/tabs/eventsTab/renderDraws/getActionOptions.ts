@@ -1,0 +1,235 @@
+/**
+ * Action options for draw structures.
+ * Provides menu options for editing, removing, and resetting draw structures.
+ */
+import { tournamentEngine } from 'services/factory/engine';
+import { eventConstants, policyConstants, drawDefinitionConstants } from 'tods-competition-factory';
+import { updateTieFormat } from 'components/overlays/editTieFormat.js/updateTieFormat';
+import { enterParticipantAssignmentMode } from './participantAssignmentMode';
+import { renderScorecard } from 'components/overlays/scorecard/scorecard';
+import { mutationRequest } from 'services/mutation/mutationRequest';
+import { openConfigureDraft } from 'components/modals/draftConfigure';
+import { openResolveDraft } from 'components/modals/draftResolve';
+import { removeAllChildNodes } from 'services/dom/transformers';
+import { deleteFlights } from 'components/modals/deleteFlights';
+import { resetDraws } from 'components/modals/resetDraws';
+import { tmxToast } from 'services/notifications/tmxToast';
+import { printDraw } from 'components/modals/printDraw';
+import { removeStructure } from './removeStructure';
+import { renderDrawView } from './renderDrawView';
+import { t } from 'i18n';
+
+// constants
+import { RESET_MATCHUP_LINEUPS, RESET_SCORECARD, SET_POSITION_ASSIGNMENTS } from 'constants/mutationConstants';
+import { DRAWS_VIEW, QUALIFYING } from 'constants/tmxConstants';
+
+const { POLICY_TYPE_SCORING } = policyConstants;
+const { MAIN } = drawDefinitionConstants;
+const { TEAM } = eventConstants;
+
+interface ActionOptionsParams {
+  dualMatchUp?: any;
+  structureId: string;
+  eventData: any;
+  drawData: any;
+  drawId: string;
+}
+
+export function getActionOptions({
+  dualMatchUp,
+  structureId,
+  eventData,
+  drawData,
+  drawId,
+}: ActionOptionsParams): any[] {
+  const hasQualifying = drawData?.structures?.find((structure: any) => structure?.stage === QUALIFYING);
+  const structure = drawData?.structures?.find((structure: any) => structure?.structureId === structureId);
+  const eventId = eventData?.eventInfo?.eventId;
+
+  // Check for active draft
+  const drawDefinition = tournamentEngine.findDrawDefinition({ drawId })?.drawDefinition;
+  const hasDraft = drawDefinition?.extensions?.some((ext: any) => ext.name === 'draftState');
+
+  // Get scoring policy to check if participant assignment should be blocked
+  const scoringPolicy = tournamentEngine.findPolicy({ policyType: POLICY_TYPE_SCORING, eventId });
+  const requireParticipants = scoringPolicy?.requireParticipantsForScoring;
+
+  // Check if draw has any scores
+  const hasScores = structure?.roundMatchUps
+    ? Object.values(structure.roundMatchUps)
+        .flat()
+        .some((matchUp: any) => tournamentEngine.checkScoreHasValue(matchUp))
+    : false;
+
+  // Only block assignment if scoring policy requires participants AND scores exist
+  const blockAssignment = requireParticipants && hasScores;
+
+  // Allow participant assignment for MAIN stage (stageSequence 1) and QUALIFYING stages
+  // Playoff structures are excluded — their positions are fed from other structures
+  const isAssignableStage =
+    (structure?.stage === MAIN && structure?.stageSequence === 1) || structure?.stage === QUALIFYING;
+
+  // Check position assignments for menu item visibility
+  const { positionAssignments } = tournamentEngine.getPositionAssignments({ structureId, drawId });
+  const isEmptyDraw = positionAssignments?.every((pa: any) => !pa.participantId && !pa.bye && !pa.qualifier);
+  const hasUnassignedPositions = positionAssignments?.some((pa: any) => !pa.participantId && !pa.bye && !pa.qualifier);
+
+  const scorecardUpdated = () => {
+    const matchUpId = dualMatchUp.matchUpId;
+    const matchUp = tournamentEngine.findMatchUp({ drawId, matchUpId })?.matchUp;
+    const scorecard = renderScorecard({ matchUp });
+    const drawsView = document.getElementById(DRAWS_VIEW)!;
+    removeAllChildNodes(drawsView);
+    drawsView.appendChild(scorecard);
+  };
+
+  const options = [
+    {
+      // Hide when: not assignable stage, blocked by scores, TEAM event, or button already visible in control bar
+      hide: !isAssignableStage || blockAssignment || eventData?.eventInfo?.eventType === TEAM || hasUnassignedPositions,
+      onClick: () => enterParticipantAssignmentMode({ drawId, eventId, structureId }),
+      label: t('pages.events.actionOptions.assignParticipants'),
+      close: true,
+    },
+    {
+      hide: !isAssignableStage || !isEmptyDraw,
+      onClick: () => {
+        const result = tournamentEngine.automatedPositioning({
+          applyPositioning: false,
+          structureId,
+          drawId,
+        });
+
+        if (!result.success || !result.positionAssignments?.length) {
+          tmxToast({
+            message: result.error?.message || 'No position assignments generated',
+            intent: 'is-warning',
+          });
+          return;
+        }
+
+        const methods = [
+          {
+            method: SET_POSITION_ASSIGNMENTS,
+            params: {
+              structurePositionAssignments: [{ structureId, positionAssignments: result.positionAssignments }],
+              structureId,
+              drawId,
+            },
+          },
+        ];
+
+        const postMutation = (mutationResult: any) => {
+          if (mutationResult.success) {
+            renderDrawView({ eventId, drawId, structureId });
+          } else {
+            tmxToast({
+              message: mutationResult.error?.message || 'Failed to place participants',
+              intent: 'is-danger',
+            });
+          }
+        };
+
+        mutationRequest({ methods, callback: postMutation });
+      },
+      label: t('pages.events.actionOptions.autoPlaceParticipants'),
+      close: true,
+    },
+    {
+      hide: !hasDraft,
+      onClick: () =>
+        openConfigureDraft({
+          drawId,
+          eventId,
+          callback: () => renderDrawView({ eventId, drawId, structureId }),
+        }),
+      label: t('pages.events.actionOptions.configureDraft'),
+      close: true,
+    },
+    {
+      hide: !hasDraft,
+      onClick: () => openResolveDraft({ drawId, eventId }),
+      label: t('pages.events.actionOptions.resolveDraft'),
+      close: true,
+    },
+    {
+      hide: eventData?.eventInfo?.eventType !== TEAM,
+      onClick: () =>
+        updateTieFormat({ matchUpId: dualMatchUp.matchUpId, structureId, eventId, drawId, callback: scorecardUpdated }),
+      label: t('pages.events.actionOptions.editScorecard'),
+      close: true,
+    },
+    {
+      hide: structure?.stage === 'MAIN' && structure.stageSequence === 1 && !hasQualifying,
+      onClick: () => removeStructure({ drawId, eventId, structureId }),
+      label: t('pages.events.actionOptions.removeStructure'),
+      close: true,
+    },
+    {
+      onClick: () => printDraw({ drawId, eventId, structureId }),
+      label: t('pages.events.actionOptions.printDraw'),
+      close: true,
+    },
+    {
+      onClick: () => deleteFlights({ eventData, drawIds: [drawId] }),
+      label: t('pages.events.actionOptions.deleteDraw'),
+    },
+    {
+      onClick: () => resetDraws({ eventData, drawIds: [drawId] }),
+      label: t('pages.events.actionOptions.resetDraw'),
+    },
+  ];
+
+  if (dualMatchUp) {
+    const matchUpId = dualMatchUp.matchUpId;
+    options.push({ divider: true } as any);
+
+    const postMutation = (result: any) => result.success && scorecardUpdated();
+    const removePlayers = () => {
+      const currentMatchUp = tournamentEngine.findMatchUp({
+        matchUpId,
+        drawId,
+      }).matchUp;
+      const resultsPresent = currentMatchUp.tieMatchUps?.some(tournamentEngine.checkScoreHasValue);
+      if (resultsPresent) {
+        tmxToast({
+          message: t('pages.events.actionOptions.cannotRemoveScores'),
+          intent: 'is-warning',
+          pauseOnHover: true,
+        });
+      } else {
+        const methods = [
+          {
+            params: { drawId, matchUpId, inheritance: false },
+            method: RESET_MATCHUP_LINEUPS,
+          },
+        ];
+        mutationRequest({ methods, callback: postMutation });
+      }
+    };
+    const removeParticipantsButton = {
+      label: t('pages.events.actionOptions.removePlayers'),
+      onClick: removePlayers,
+      close: true,
+    } as any;
+    options.push(removeParticipantsButton);
+
+    const clearResults = () => {
+      const methods = [
+        {
+          params: { drawId, matchUpId },
+          method: RESET_SCORECARD,
+        },
+      ];
+      mutationRequest({ methods, callback: postMutation });
+    };
+    const clearResultsButton = {
+      label: t('pages.events.actionOptions.clearResults'),
+      onClick: clearResults,
+      close: true,
+    } as any;
+    options.push(clearResultsButton);
+  }
+
+  return options;
+}

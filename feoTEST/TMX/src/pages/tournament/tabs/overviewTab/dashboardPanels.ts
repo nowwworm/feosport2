@@ -1,0 +1,560 @@
+import { burstChart, fromFactoryDrawData, createCourtSvg, CourtSport } from 'courthive-components';
+import { donutChartFromMatchUps } from '@courthive/scoring-visualizations';
+import { saveTournamentRecord } from 'services/storage/saveTournamentRecord';
+import { openRegistrationProfileEditor } from './registrationProfileEditor';
+import { navigateToEvent } from 'components/tables/common/navigateToEvent';
+import { editTournamentImage } from 'components/modals/tournamentImage';
+import { enterMatchUpScore } from 'services/transitions/scoreMatchUp';
+import { mutationRequest } from 'services/mutation/mutationRequest';
+import { getLoginState } from 'services/authentication/loginState';
+import { printFactSheet } from 'components/modals/printFactSheet';
+import { openModal } from 'components/modals/baseModal/baseModal';
+import { tournamentEngine } from 'services/factory/engine';
+import { sendTournament } from 'services/apis/servicesApi';
+import { tmxToast } from 'services/notifications/tmxToast';
+import { downloadUTRmatches } from 'services/export/UTR';
+import { downloadJSON } from 'services/export/download';
+import { featureFlags } from 'config/featureFlags';
+import { openNotesEditor } from './notesEditorModal';
+import type { StructureInfo } from './dashboardData';
+import { success } from 'components/notices/success';
+import { failure } from 'components/notices/failure';
+import { renderOverview } from './renderOverview';
+import { tmx2db } from 'services/storage/tmx2db';
+import { context } from 'services/context';
+import { t } from 'i18n';
+
+// constants
+import { ADD_TOURNAMENT_TIMEITEM, SET_TOURNAMENT_NOTES } from 'constants/mutationConstants';
+import { ADMIN, FORMAT_WIZARD_ACTION_BUTTON, SUPER_ADMIN, TOURNAMENT } from 'constants/tmxConstants';
+
+const ICON_BTN_STYLE =
+  'background:var(--tmx-bg-primary); border:1px solid var(--tmx-border-primary); border-radius:4px; padding:4px 8px; cursor:pointer; font-size:14px; color:var(--tmx-text-primary);';
+
+export function createImagePanel(imageUrl?: string, courtSvgSport?: string): HTMLElement {
+  const panel = document.createElement('div');
+  panel.style.cssText =
+    'border-radius:8px; overflow:hidden; cursor:pointer; display:flex; align-items:center; justify-content:center; min-height:200px;';
+
+  if (imageUrl) {
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.style.cssText = 'border-radius:8px; width:100%; object-fit:cover; max-height:300px;';
+    img.alt = t('dashboard.tournamentImage');
+    panel.appendChild(img);
+    panel.style.background = '';
+  } else if (courtSvgSport) {
+    const svg = createCourtSvg(courtSvgSport as CourtSport);
+    if (svg) {
+      svg.style.width = '100%';
+      svg.style.height = 'auto';
+      svg.style.maxHeight = '300px';
+      svg.style.opacity = '0.7';
+      svg.style.padding = '16px';
+      panel.appendChild(svg);
+    }
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.style.cssText = 'text-align:center; color:var(--tmx-text-muted); padding:24px; font-size:0.95rem;';
+    placeholder.innerHTML = `<i class="fa fa-camera" style="font-size:48px; margin-bottom:8px; display:block;"></i>${t('dashboard.noTournamentImage')}`;
+    panel.appendChild(placeholder);
+  }
+
+  panel.addEventListener('click', () => {
+    editTournamentImage({
+      callback: () => renderOverview(),
+    });
+  });
+
+  return panel;
+}
+
+export function createNotesPanel(notes?: string): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'dash-panel dash-panel-notes';
+  panel.style.cssText = 'position:relative; min-height:200px; overflow:auto; max-height:300px;';
+
+  const notesView = document.createElement('div');
+  notesView.className = 'ql-container ql-snow content';
+  notesView.style.border = 'none';
+
+  const hasContent = notes && notes.replaceAll(/<[^>]*>/g, '').trim().length > 0;
+  if (hasContent) {
+    notesView.innerHTML = notes;
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.style.cssText =
+      'display:flex; align-items:center; justify-content:center; height:100%; min-height:160px; color:var(--tmx-text-muted); text-align:center; font-size:0.95rem;';
+    placeholder.innerHTML = `<div><i class="fa fa-file-alt" style="font-size:48px; margin-bottom:8px; display:block;"></i>${t('dashboard.noTournamentInfo')}</div>`;
+    notesView.appendChild(placeholder);
+  }
+  panel.appendChild(notesView);
+
+  const btnContainer = document.createElement('div');
+  btnContainer.style.cssText = 'position:absolute; bottom:8px; right:8px; display:flex; gap:4px;';
+
+  const factSheetBtn = document.createElement('button');
+  factSheetBtn.style.cssText = ICON_BTN_STYLE;
+  factSheetBtn.innerHTML = '<i class="fa fa-file-pdf"></i>';
+  factSheetBtn.title = 'Print Fact Sheet';
+  factSheetBtn.addEventListener('click', () => printFactSheet());
+  btnContainer.appendChild(factSheetBtn);
+
+  const profileBtn = document.createElement('button');
+  profileBtn.style.cssText = ICON_BTN_STYLE;
+  profileBtn.innerHTML = '<i class="fa fa-clipboard-list"></i>';
+  profileBtn.title = 'Edit Registration Profile';
+  profileBtn.addEventListener('click', () => openRegistrationProfileEditor());
+  btnContainer.appendChild(profileBtn);
+
+  const editBtn = document.createElement('button');
+  editBtn.style.cssText = ICON_BTN_STYLE;
+  editBtn.innerHTML = '<i class="fa fa-pencil"></i>';
+  editBtn.title = t('dashboard.editNotes');
+  editBtn.addEventListener('click', () => {
+    const notes = tournamentEngine.getTournamentInfo()?.tournamentInfo?.notes || '';
+    openNotesEditor({
+      notes,
+      onSave: (html) => {
+        mutationRequest({ methods: [{ method: SET_TOURNAMENT_NOTES, params: { notes: html } }] });
+        notesView.innerHTML = html;
+      },
+    });
+  });
+  btnContainer.appendChild(editBtn);
+  panel.appendChild(btnContainer);
+
+  return panel;
+}
+
+const VALUE_STYLE =
+  'font-size:1.5rem; font-weight:bold; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+const LABEL_STYLE =
+  'font-size:0.85rem; color:var(--tmx-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+const CARD_BASE_STYLE = 'padding:12px 16px; min-width:0; overflow:hidden;';
+
+export function createStatCard(label: string, value: string | number, icon?: string): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'dash-panel dash-panel-blue';
+  card.style.cssText = CARD_BASE_STYLE;
+
+  const valueEl = document.createElement('div');
+  valueEl.style.cssText = VALUE_STYLE;
+  valueEl.textContent = String(value);
+  card.appendChild(valueEl);
+
+  const labelEl = document.createElement('div');
+  labelEl.style.cssText = LABEL_STYLE;
+  if (icon) {
+    const iconEl = document.createElement('i');
+    iconEl.className = `fa ${icon}`;
+    iconEl.style.marginRight = '4px';
+    labelEl.appendChild(iconEl);
+  }
+  labelEl.appendChild(document.createTextNode(label));
+  card.appendChild(labelEl);
+
+  return card;
+}
+
+export function createDualStatCard(stats: { label: string; value: string | number; icon?: string }[]): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'dash-panel dash-panel-blue';
+  card.style.cssText = `${CARD_BASE_STYLE} display:flex; gap:16px;`;
+
+  for (const stat of stats) {
+    const group = document.createElement('div');
+    // min-width:0 lets the flex column shrink below its content's intrinsic
+    // size so long labels/values truncate cleanly instead of overflowing.
+    group.style.cssText = 'flex:1; min-width:0; overflow:hidden;';
+
+    const valueEl = document.createElement('div');
+    valueEl.style.cssText = VALUE_STYLE;
+    valueEl.textContent = String(stat.value);
+    group.appendChild(valueEl);
+
+    const labelEl = document.createElement('div');
+    labelEl.style.cssText = LABEL_STYLE;
+    if (stat.icon) {
+      const iconEl = document.createElement('i');
+      iconEl.className = `fa ${stat.icon}`;
+      iconEl.style.marginRight = '4px';
+      labelEl.appendChild(iconEl);
+    }
+    labelEl.appendChild(document.createTextNode(stat.label));
+    group.appendChild(labelEl);
+
+    card.appendChild(group);
+  }
+
+  return card;
+}
+
+export function createTripleStatCard(stats: { label: string; value: string | number; icon?: string }[]): HTMLElement {
+  return createDualStatCard(stats);
+}
+
+export function createSunburstPlaceholder(): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'dash-panel dash-panel-green';
+  panel.style.cssText += 'display:flex; align-items:center; justify-content:center; min-height:200px;';
+
+  const placeholder = document.createElement('div');
+  placeholder.style.cssText = 'text-align:center; color:var(--tmx-text-muted); font-size:0.95rem;';
+  placeholder.innerHTML = `<i class="fa fa-circle-notch" style="font-size:48px; margin-bottom:8px; display:block;"></i>${t('dashboard.noEliminationStructures')}`;
+  panel.appendChild(placeholder);
+
+  return panel;
+}
+
+type SunburstView = 'burst' | 'donut';
+
+// Per-user (not per-tournament) preference for the overview chart toggle.
+const SUNBURST_VIEW_KEY = 'tmx:overview:sunburstView';
+const SUNBURST_VIEW_DEFAULT: SunburstView = 'donut';
+
+function readSunburstView(): SunburstView {
+  try {
+    const stored = localStorage.getItem(SUNBURST_VIEW_KEY);
+    return stored === 'burst' || stored === 'donut' ? stored : SUNBURST_VIEW_DEFAULT;
+  } catch {
+    return SUNBURST_VIEW_DEFAULT;
+  }
+}
+
+function writeSunburstView(view: SunburstView): void {
+  try {
+    localStorage.setItem(SUNBURST_VIEW_KEY, view);
+  } catch {
+    // storage unavailable
+  }
+}
+
+const ALL_STRUCTURES = 'all';
+
+export function createSunburstPanel(structures: StructureInfo[]): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'dash-panel dash-panel-green';
+
+  let view: SunburstView = readSunburstView();
+
+  // Header row: structure dropdown + view toggle
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:12px;';
+
+  const select = document.createElement('select');
+  select.style.cssText =
+    'flex:1; min-width:0; padding:4px 8px; border-radius:4px; border:1px solid var(--tmx-border-primary); background:var(--tmx-bg-primary); color:var(--tmx-text-primary);';
+
+  const allOption = document.createElement('option');
+  allOption.value = ALL_STRUCTURES;
+  allOption.textContent = t('dashboard.allStructures');
+  select.appendChild(allOption);
+
+  for (const s of structures) {
+    const option = document.createElement('option');
+    option.value = s.structureId;
+    option.textContent = `${s.eventName} — ${s.drawName} — ${s.structureName}`;
+    select.appendChild(option);
+  }
+  header.appendChild(select);
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.style.cssText = ICON_BTN_STYLE;
+  const setToggleAppearance = () => {
+    const showingBurst = view === 'burst';
+    toggleBtn.innerHTML = `<i class="fa ${showingBurst ? 'fa-chart-pie' : 'fa-circle-notch'}"></i>`;
+    toggleBtn.title = showingBurst ? t('dashboard.viewCompetitiveness') : t('dashboard.viewBracket');
+  };
+  setToggleAppearance();
+  header.appendChild(toggleBtn);
+
+  const setToggleVisibility = (visible: boolean) => {
+    toggleBtn.style.display = visible ? '' : 'none';
+  };
+
+  panel.appendChild(header);
+
+  const chartDiv = document.createElement('div');
+  chartDiv.style.cssText = 'display:flex; justify-content:center;';
+  panel.appendChild(chartDiv);
+
+  const renderBurst = (info: StructureInfo) => {
+    const eventData = tournamentEngine.getEventData({ eventId: info.eventId })?.eventData;
+    const drawData = eventData?.drawsData
+      ?.find((d: any) => d.drawId === info.drawId)
+      ?.structures?.find((s: any) => s.structureId === info.structureId);
+    if (!drawData) return;
+
+    chartDiv.innerHTML = '';
+    const title = `${info.eventName}\n${info.drawName}`;
+    const eventHandlers = {
+      clickSegment: (data: any) => {
+        const matchUp = data?.matchUp;
+        if (matchUp?.readyToScore || matchUp?.scoreString) {
+          enterMatchUpScore({ matchUpId: matchUp.matchUpId, callback: () => renderStructure(select.value) });
+        }
+      },
+      clickCenter: () => {
+        navigateToEvent({
+          eventId: info.eventId,
+          drawId: info.drawId,
+          structureId: info.structureId,
+          renderDraw: true,
+        });
+      },
+    };
+    burstChart({ width: 500, height: 500, eventHandlers }).render(chartDiv, fromFactoryDrawData(drawData), title);
+  };
+
+  const renderDonut = (info: StructureInfo | null) => {
+    const matchUpFilters = info ? { drawIds: [info.drawId], structureIds: [info.structureId] } : undefined;
+    const { matchUps = [] } = tournamentEngine.allTournamentMatchUps({
+      contextProfile: { withCompetitiveness: true },
+      inContext: false,
+      matchUpFilters,
+    });
+
+    chartDiv.innerHTML = '';
+    const title = info ? `${info.eventName} — ${info.drawName}` : t('dashboard.allStructures');
+    donutChartFromMatchUps(chartDiv, matchUps, { width: 500, height: 500, title });
+  };
+
+  const renderStructure = (value: string) => {
+    if (value === ALL_STRUCTURES) {
+      setToggleVisibility(false);
+      renderDonut(null);
+      return;
+    }
+    const info = structures.find((s) => s.structureId === value);
+    if (!info) return;
+    setToggleVisibility(true);
+    if (view === 'donut') {
+      renderDonut(info);
+    } else {
+      renderBurst(info);
+    }
+  };
+
+  toggleBtn.addEventListener('click', () => {
+    view = view === 'burst' ? 'donut' : 'burst';
+    writeSunburstView(view);
+    setToggleAppearance();
+    renderStructure(select.value);
+  });
+
+  select.addEventListener('change', () => renderStructure(select.value));
+
+  select.value = ALL_STRUCTURES;
+  requestAnimationFrame(() => renderStructure(ALL_STRUCTURES));
+
+  return panel;
+}
+
+function changeOnlineState({
+  postMutation,
+  state,
+  offline,
+}: {
+  postMutation?: (result: any) => void;
+  state: any;
+  offline: boolean;
+}): void {
+  const itemValue = { ...tournamentEngine.getTournamentTimeItem({ itemType: 'TMX' })?.timeItem?.itemValue };
+  if (offline) {
+    itemValue.offline = { email: state.email };
+  } else {
+    delete itemValue.offline;
+  }
+  const timeItem = { itemType: 'TMX', itemValue };
+  mutationRequest({
+    methods: [{ method: ADD_TOURNAMENT_TIMEITEM, params: { removePriorValues: true, timeItem } }],
+    callback: postMutation,
+  });
+}
+
+function createActionButton(label: string, icon: string, onClick: () => void, id?: string): HTMLElement {
+  const btn = document.createElement('button');
+  btn.className = 'dash-action-btn';
+  if (id) btn.id = id;
+  btn.innerHTML = `<i class="fa ${icon}"></i> ${label}`;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+// The format wizard is most useful early in tournament setup —
+// before flighting / event-entry decisions have been made. Show
+// the launch button when there are no events at all, or when
+// participants exist but no event has been populated with entries
+// yet.
+export function shouldShowFormatWizard(): boolean {
+  if (!featureFlags.get().formatWizard) return false;
+  const events: any[] = (tournamentEngine.getEvents?.() as any)?.events ?? [];
+  if (events.length === 0) return true;
+  const participants: any[] = (tournamentEngine.getParticipants?.({}) as any)?.participants ?? [];
+  if (participants.length === 0) return false;
+  const totalEntries = events.reduce((sum, e) => sum + ((e?.entries as any[])?.length ?? 0), 0);
+  return totalEntries === 0;
+}
+
+function navigateToFormatWizard(): void {
+  const tournamentId = tournamentEngine.getTournament()?.tournamentRecord?.tournamentId;
+  if (!tournamentId) return;
+  context.router?.navigate(`/${TOURNAMENT}/${tournamentId}/format-wizard`);
+}
+
+export function createActionsPanel(): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'dash-panel dash-panel-red';
+
+  const header = document.createElement('div');
+  header.style.cssText =
+    'font-size:1rem; font-weight:600; display:flex; align-items:center; gap:8px; margin-bottom:12px;';
+  const headerIcon = document.createElement('i');
+  headerIcon.className = 'fa fa-bolt';
+  headerIcon.style.fontSize = '0.9rem';
+  header.appendChild(headerIcon);
+  header.appendChild(document.createTextNode(t('loginMenu.actions')));
+  panel.appendChild(header);
+
+  const btnContainer = document.createElement('div');
+  btnContainer.className = 'dash-action-buttons';
+  panel.appendChild(btnContainer);
+
+  const tournamentRecord = tournamentEngine.getTournament().tournamentRecord;
+  const offline = tournamentRecord?.timeItems?.find(({ itemType }: any) => itemType === 'TMX')?.itemValue?.offline;
+  const provider = tournamentRecord?.parentOrganisation;
+  const providerId = provider?.organisationId;
+  const state = getLoginState();
+  const superAdmin = state?.roles?.includes(SUPER_ADMIN);
+  const admin = superAdmin || state?.roles?.includes(ADMIN);
+  const activeProvider = context.provider || state?.provider;
+
+  if (tournamentRecord && admin) {
+    if (shouldShowFormatWizard()) {
+      btnContainer.appendChild(
+        createActionButton(
+          t('formatWizard.title'),
+          'fa-magic',
+          () => navigateToFormatWizard(),
+          FORMAT_WIZARD_ACTION_BUTTON,
+        ),
+      );
+    }
+    btnContainer.appendChild(
+      createActionButton(t('modals.tournamentActions.exportUtr'), 'fa-download', () => downloadUTRmatches()),
+    );
+    btnContainer.appendChild(
+      createActionButton(t('modals.tournamentActions.exportTods'), 'fa-download', () => {
+        downloadJSON(`${tournamentRecord.tournamentId}.tods.json`, tournamentRecord);
+      }),
+    );
+  }
+
+  // Manage access moved to admin-client (provider admin work belongs there,
+  // not in TMX which is end-user-only). The button used to live here; users
+  // now access it via the admin-client `/admin` page → TournamentDetail panel.
+
+  if (providerId) {
+    btnContainer.appendChild(
+      createActionButton(t('modals.tournamentActions.uploadTournament'), 'fa-upload', () => {
+        const record = tournamentEngine.getTournament().tournamentRecord;
+        openModal({
+          title: t('modals.tournamentActions.uploadTournament'),
+          content: t('modals.tournamentActions.uploadWarning'),
+          buttons: [
+            { label: t('common.cancel'), close: true },
+            {
+              label: t('common.send'),
+              intent: 'is-danger',
+              close: true,
+              onClick: () => {
+                sendTournament({ tournamentRecord: record }).then(success, failure);
+              },
+            },
+          ],
+        });
+      }),
+    );
+  }
+
+  if (tournamentRecord && !providerId && activeProvider) {
+    btnContainer.appendChild(
+      createActionButton(t('modals.tournamentActions.claimTournament'), 'fa-hand-paper', () => {
+        const record = tournamentEngine.getTournament().tournamentRecord;
+        if (!record.parentOrganisation) {
+          record.parentOrganisation = activeProvider;
+          tournamentEngine.setState(record);
+          sendTournament({ tournamentRecord: record }).then(
+            () => {
+              tmx2db.deleteTournament(record.tournamentId);
+              tmxToast({ message: t('modals.tournamentActions.tournamentClaimed'), intent: 'is-info' });
+              renderOverview();
+            },
+            (error: any) => {
+              tmxToast({ message: error.message || t('modals.tournamentActions.notClaimed'), intent: 'is-danger' });
+            },
+          );
+        }
+      }),
+    );
+  }
+
+  if (providerId && !offline) {
+    btnContainer.appendChild(
+      createActionButton(t('modals.tournamentActions.goOffline'), 'fa-wifi', () => {
+        changeOnlineState({
+          state,
+          offline: true,
+          postMutation: (result: any) => {
+            if (result?.success) {
+              saveTournamentRecord();
+              const dnav = document.getElementById('dnav');
+              if (dnav) dnav.style.backgroundColor = 'var(--tmx-bg-highlight)';
+              tmxToast({ message: t('modals.tournamentActions.offline'), intent: 'is-info' });
+              renderOverview();
+            }
+          },
+        });
+      }),
+    );
+  }
+
+  if (providerId && offline) {
+    btnContainer.appendChild(
+      createActionButton(t('modals.tournamentActions.goOnline'), 'fa-wifi', () => {
+        changeOnlineState({
+          state,
+          offline: false,
+          postMutation: (result: any) => {
+            if (result?.success) {
+              const updated = tournamentEngine.getTournament().tournamentRecord;
+              sendTournament({ tournamentRecord: updated }).then(
+                () => {
+                  tmx2db.deleteTournament(updated.tournamentId);
+                  const dnav = document.getElementById('dnav');
+                  if (dnav) dnav.style.backgroundColor = '';
+                  tmxToast({ message: t('modals.tournamentActions.online'), intent: 'is-info' });
+                  renderOverview();
+                },
+                (err: any) => {
+                  console.log({ err });
+                  changeOnlineState({ state, offline: true });
+                },
+              );
+            }
+          },
+        });
+      }),
+    );
+  }
+
+  if (!btnContainer.children.length) {
+    const noActions = document.createElement('div');
+    noActions.style.cssText = 'font-size:0.85rem; color:var(--tmx-text-secondary); font-style:italic;';
+    noActions.textContent = t('modals.tournamentActions.noActions');
+    btnContainer.appendChild(noActions);
+  }
+
+  return panel;
+}

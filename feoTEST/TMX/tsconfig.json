@@ -1,0 +1,58 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "types": ["node"],
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Type checking */
+    "paths": {
+      "assets/*": ["./src/assets/*"],
+      "components/*": ["./src/components/*"],
+      "config/*": ["./src/config/*"],
+      "constants/*": ["./src/constants/*"],
+      "functions/*": ["./src/functions/*"],
+      "homeNavigation": ["./src/homeNavigation.ts"],
+      "i18n": ["./src/i18n/index.ts"],
+      "i18n/*": ["./src/i18n/*"],
+      "navigation": ["./src/navigation.ts"],
+      "pages/*": ["./src/pages/*"],
+      "platform": ["./src/platform/index.ts"],
+      "platform/*": ["./src/platform/*"],
+      "router/*": ["./src/router/*"],
+      "services/*": ["./src/services/*"],
+      "settings/*": ["./src/settings/*"],
+      "types/*": ["./src/types/*"],
+      "utilities/*": ["./src/utilities/*"]
+    },
+    "strictNullChecks": true,
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "importHelpers": true,
+    "noImplicitAny": false,
+    "noImplicitReturns": true,
+    "outDir": "./scratch",
+    "rootDir": "./src",
+    "sourceMap": false
+  },
+  "include": ["src", "src/**.d.ts"],
+  "exclude": ["node_modules", "dist", "build", "cypress", "scratch"]
+}

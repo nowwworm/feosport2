@@ -1,0 +1,295 @@
+import { create as d3Create, select as d3Select } from 'd3-selection';
+
+export interface CourtHiveLogoOptions {
+  maxWidth?: string;
+  color?: string;
+  strokeWidth?: number;
+  lineWidth?: number;
+  fill?: string;
+  className?: string;
+  serviceLinePosition?: number;
+  centerMarkLength?: number;
+}
+
+export function TMXlogoSVG(options: CourtHiveLogoOptions = {}): SVGSVGElement {
+  const {
+    maxWidth = '450px',
+    color = '#000000',
+    strokeWidth = 5,
+    lineWidth = 5,
+    fill = 'none',
+    className = 'courthive-logo',
+    serviceLinePosition = 0.3,
+    centerMarkLength = 12,
+  } = options;
+
+  // Internal court markings are thinner than the hex outline
+  const courtLine = lineWidth ?? strokeWidth;
+
+  // Hexagon circumradius — defines unit geometry for the viewBox
+  const R = 100;
+  const sqrt3 = Math.sqrt(3);
+  const RS3h = (R * sqrt3) / 2; // R * √3/2 ≈ 86.60
+  const RS3 = R * sqrt3; //         R * √3  ≈ 173.21
+  const Rh = R / 2; //              R / 2   = 50
+
+  const pad = strokeWidth;
+
+  // Open hex paths — 5 edges each, excluding the shared center edge
+  // so the "net" can be drawn and faded independently.
+  // Left hex: upper shared vertex → around the left side → lower shared vertex
+  const leftHexPath =
+    `M 0,${-Rh}` +
+    ` L ${-RS3h},${-R}` +
+    ` L ${-RS3},${-Rh}` +
+    ` L ${-RS3},${Rh}` +
+    ` L ${-RS3h},${R}` +
+    ` L 0,${Rh}`;
+
+  // Right hex: upper shared vertex → around the right side → lower shared vertex
+  const rightHexPath =
+    `M 0,${-Rh}` +
+    ` L ${RS3h},${-R}` +
+    ` L ${RS3},${-Rh}` +
+    ` L ${RS3},${Rh}` +
+    ` L ${RS3h},${R}` +
+    ` L 0,${Rh}`;
+
+  // Service lines: vertical lines offset from hex center toward flat edge
+  const sLineOffset = serviceLinePosition * RS3h;
+  const leftSLineX = -RS3h - sLineOffset;
+  const rightSLineX = RS3h + sLineOffset;
+
+  // Service line endpoints: intersect the hex's outer diagonal edges
+  const sLineYTop = -R + sLineOffset / sqrt3;
+  const sLineYBot = R - sLineOffset / sqrt3;
+
+  const svg = d3Create('svg')
+    .attr('viewBox', `${-RS3 - pad} ${-R - pad} ${2 * RS3 + 2 * pad} ${2 * R + 2 * pad}`)
+    .attr('xmlns', 'http://www.w3.org/2000/svg')
+    .attr('class', className)
+    .style('width', '100%')
+    .style('max-width', maxWidth);
+
+  const g = svg.append('g').attr('class', 'logo-group');
+
+  const STROKE_WIDTH = 'stroke-width';
+  const COURT_MARKING = 'court-marking';
+
+  // --- Hex outlines (open paths, thick boundary strokes) ---
+  g.append('path')
+    .attr('d', leftHexPath)
+    .attr('fill', fill)
+    .attr('stroke', color)
+    .attr(STROKE_WIDTH, strokeWidth)
+    .attr('stroke-linejoin', 'miter')
+    .attr('stroke-linecap', 'round');
+
+  g.append('path')
+    .attr('d', rightHexPath)
+    .attr('fill', fill)
+    .attr('stroke', color)
+    .attr(STROKE_WIDTH, strokeWidth)
+    .attr('stroke-linejoin', 'miter')
+    .attr('stroke-linecap', 'round');
+
+  // --- Net line (shared center edge, fades with court markings) ---
+  g.append('line')
+    .attr('class', COURT_MARKING)
+    .attr('x1', 0)
+    .attr('y1', -Rh)
+    .attr('x2', 0)
+    .attr('y2', Rh)
+    .attr('stroke', color)
+    .attr(STROKE_WIDTH, strokeWidth);
+
+  // --- Court markings (thinner lines, classed for animation) ---
+
+  // Left service line (vertical)
+  g.append('line')
+    .attr('class', COURT_MARKING)
+    .attr('x1', leftSLineX)
+    .attr('y1', sLineYTop)
+    .attr('x2', leftSLineX)
+    .attr('y2', sLineYBot)
+    .attr('stroke', color)
+    .attr(STROKE_WIDTH, courtLine);
+
+  // Right service line (vertical)
+  g.append('line')
+    .attr('class', COURT_MARKING)
+    .attr('x1', rightSLineX)
+    .attr('y1', sLineYTop)
+    .attr('x2', rightSLineX)
+    .attr('y2', sLineYBot)
+    .attr('stroke', color)
+    .attr(STROKE_WIDTH, courtLine);
+
+  // Center horizontal line between the two service lines
+  g.append('line')
+    .attr('class', COURT_MARKING)
+    .attr('x1', leftSLineX)
+    .attr('y1', 0)
+    .attr('x2', rightSLineX)
+    .attr('y2', 0)
+    .attr('stroke', color)
+    .attr(STROKE_WIDTH, courtLine);
+
+  // Center marks: short dashes on the inside of each flat edge
+  g.append('line')
+    .attr('class', COURT_MARKING)
+    .attr('x1', -RS3)
+    .attr('y1', 0)
+    .attr('x2', -RS3 + centerMarkLength)
+    .attr('y2', 0)
+    .attr('stroke', color)
+    .attr(STROKE_WIDTH, courtLine);
+
+  g.append('line')
+    .attr('class', COURT_MARKING)
+    .attr('x1', RS3 - centerMarkLength)
+    .attr('y1', 0)
+    .attr('x2', RS3)
+    .attr('y2', 0)
+    .attr('stroke', color)
+    .attr(STROKE_WIDTH, courtLine);
+
+  return svg.node() as SVGSVGElement;
+}
+
+export interface FlyThroughOptions {
+  delay?: number;
+  duration?: number;
+  courtLineFade?: number;
+  onComplete?: () => void;
+}
+
+// Cubic ease-in: t^3 (equivalent to d3.easeCubicIn)
+function easeCubicIn(t: number): number {
+  return t * t * t;
+}
+
+// Animate an SVG viewBox from startVB to targetVB over duration ms with easing
+function animateViewBox(svg: SVGSVGElement, startVB: number[], targetVB: number[], duration: number): void {
+  const startTime = performance.now();
+
+  function tick(now: number) {
+    const elapsed = now - startTime;
+    const rawT = Math.min(elapsed / duration, 1);
+    const t = easeCubicIn(rawT);
+
+    const currentVB = startVB.map((s, i) => s + (targetVB[i] - s) * t).join(' ');
+    svg.setAttribute('viewBox', currentVB);
+
+    if (rawT < 1) requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+}
+
+/**
+ * Animate the logo fly-through. Returns a skip function that immediately
+ * cancels the animation and calls onComplete — wire this to click handlers
+ * so users can bypass the animation if it gets stuck or they're impatient.
+ */
+export function animateLogoFlyThrough(svg: SVGSVGElement, options?: FlyThroughOptions): () => void {
+  const { delay = 2000, duration = 1500, courtLineFade = 900, onComplete } = options ?? {};
+
+  const sel = d3Select(svg);
+
+  // Parse original viewBox
+  const vb = (sel.attr('viewBox') ?? '').split(/\s+/).map(Number);
+  const [, , vbW] = vb;
+  const zoom = 300;
+  const targetVB = vb.map((v) => v / zoom);
+
+  let completed = false;
+  let overlay: HTMLDivElement | undefined;
+
+  const finish = () => {
+    if (completed) return;
+    completed = true;
+    clearTimeout(delayTimer);
+    clearTimeout(safetyTimer);
+    // Cancel all running Web Animations on the SVG and its children
+    svg.getAnimations().forEach((a) => a.cancel());
+    svg.querySelectorAll('*').forEach((el) => {
+      (el as SVGElement).getAnimations?.().forEach((a: Animation) => a.cancel());
+    });
+    svg.remove();
+    overlay?.remove();
+    onComplete?.();
+  };
+
+  // Safety net: force-finish if animation hasn't completed after the expected total time + margin
+  const safetyTimer = setTimeout(finish, delay + duration + 2000) as unknown as number;
+
+  // After the static display period, go fullscreen and animate the viewBox zoom
+  const delayTimer = setTimeout(() => {
+    // Snapshot current screen position before moving
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      // SVG is no longer visible (parent hidden); skip animation
+      finish();
+      return;
+    }
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+
+    // The original SVG maps viewBox width → element width.
+    // Compute the scale so we can build a wider viewBox for the fullscreen SVG
+    // that keeps the logo at exactly the same screen size and position.
+    const vbScale = rect.width / vbW;
+    const logoCenterY = rect.top + rect.height / 2;
+
+    const startVB = [
+      -winW / (2 * vbScale), // x: logo center stays at horizontal midpoint
+      -logoCenterY / vbScale, // y: logo center stays at its original vertical position
+      winW / vbScale, // width:  covers full window at original logo scale
+      winH / vbScale, // height: covers full window at original logo scale
+    ];
+
+    // Move SVG to body and make it fullscreen immediately — no size transition
+    // means no intermediate clipping boundary smaller than the window.
+    document.body.appendChild(svg);
+    sel
+      .attr('viewBox', startVB.join(' '))
+      .style('position', 'fixed')
+      .style('top', '0px')
+      .style('left', '0px')
+      .style('width', '100vw')
+      .style('height', '100vh')
+      .style('max-width', 'none')
+      .style('z-index', '9999')
+      .style('pointer-events', 'none');
+
+    // Transparent click overlay above the SVG so users can click to skip
+    overlay = document.createElement('div');
+    overlay.style.cssText =
+      'position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:10000; cursor:pointer;';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', finish);
+
+    // Fade court markings + net line (Web Animations API)
+    svg.querySelectorAll('.court-marking').forEach((el) => {
+      (el as HTMLElement).animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: courtLineFade,
+        fill: 'forwards',
+      });
+    });
+
+    // Animate the viewBox zoom — hex edges fly off the real window edges
+    animateViewBox(svg, startVB, targetVB, duration);
+
+    // Fade to transparent at the tail end for a clean exit
+    const fadeAnim = svg.animate([{ opacity: 1 }, { opacity: 0 }], {
+      delay: duration * 0.75,
+      duration: duration * 0.25,
+      fill: 'forwards',
+    });
+
+    fadeAnim.onfinish = finish;
+  }, delay) as unknown as number;
+
+  return finish;
+}

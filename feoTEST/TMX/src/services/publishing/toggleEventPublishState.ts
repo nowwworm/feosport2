@@ -1,0 +1,36 @@
+import { mutationRequest } from 'services/mutation/mutationRequest';
+import { logMutationError } from 'functions/logMutationError';
+
+// constants
+import { PUBLISH_EVENT, UNPUBLISH_EVENT } from 'constants/mutationConstants';
+
+export const toggleEventPublishState = (nestedTables) => (_, cell) => {
+  const row = cell.getRow().getData();
+  const eventId = row.eventId;
+  const published = !row.published;
+  const method = row.published ? UNPUBLISH_EVENT : PUBLISH_EVENT;
+  const drawsRows = nestedTables.get(eventId).getRows();
+  drawsRows.forEach((drawRow) => drawRow.update({ published }));
+  const methods = [
+    {
+      method,
+      params: {
+        eventDataParams: {
+          // in the case of publishing, add additional parameters
+          participantsProfile: { withScaleValues: true },
+          pressureRating: true,
+          refreshResults: true,
+        },
+        eventId,
+      },
+    },
+  ];
+  const postMutation = (result) => {
+    if (result?.success) {
+      cell.getRow().update({ published: !row.published });
+    } else {
+      logMutationError('toggleEventPublishState', result);
+    }
+  };
+  mutationRequest({ methods, callback: postMutation });
+};

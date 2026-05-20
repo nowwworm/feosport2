@@ -1,0 +1,23 @@
+packages:
+  - .
+
+allowBuilds:
+  electron-winstaller: true
+  esbuild: true
+
+ignoredBuiltDependencies:
+  - core-js
+  - cypress
+  - electron
+  - electron-winstaller
+  - esbuild
+
+overrides:
+  '@xmldom/xmldom': ^0.9.0
+  'brace-expansion@1': ^5.0.0
+  'brace-expansion@2': ^5.0.0
+  'brace-expansion@>=4 <5.0.5': ^5.0.5
+  follow-redirects: ^1.16.0
+  picomatch: ^4.0.4
+  socket.io-parser: ^4.2.6
+  undici: ^8.0.0

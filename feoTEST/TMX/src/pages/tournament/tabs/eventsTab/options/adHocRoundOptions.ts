@@ -1,0 +1,44 @@
+/**
+ * Ad hoc round action options for draw structures.
+ * Provides options to add/delete matchUps and rounds in ad hoc draws.
+ */
+import { deleteAdHocMatchUps } from 'components/modals/deleteAdHocMatchUps';
+import { addAdHocMatchUps } from 'components/modals/addAdHocMatchUps';
+import { addAdHocRound } from 'components/modals/addAdHocRound';
+import { tournamentEngine } from 'services/factory/engine';
+
+import { RIGHT } from 'constants/tmxConstants';
+
+export const deleteMatchUpsAction = 'Delete matches';
+export const addMatchUpsAction = 'Add matches';
+export const addRoundAction = 'Add round';
+
+export function getAdHocRoundOptions({ structure, drawId, callback }: { structure: any; drawId: string; callback: (params: any) => void }): any {
+  if (!tournamentEngine.isAdHoc({ structure })) return {};
+  const refreshCallback = () => callback({ refresh: true });
+
+  const actionOptions = [
+    {
+      onClick: () => addAdHocMatchUps({ drawId, structure, callback: refreshCallback }),
+      label: addMatchUpsAction,
+      color: '#5ba0d0',
+    },
+    {
+      onClick: () => addAdHocRound({ drawId, structure, newRound: true, callback: refreshCallback }),
+      label: addRoundAction,
+      color: '#5ba0d0',
+    },
+    {
+      label: deleteMatchUpsAction,
+      color: '#e06060',
+      onClick: () => deleteAdHocMatchUps({ drawId, structure, callback: refreshCallback }),
+    },
+  ];
+  return {
+    label: 'Round actions',
+    options: actionOptions,
+    selection: false,
+    location: RIGHT,
+    align: RIGHT,
+  };
+}
