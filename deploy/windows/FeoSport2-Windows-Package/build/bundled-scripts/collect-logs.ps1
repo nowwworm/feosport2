@@ -1,5 +1,6 @@
 param(
-    [string]$InstallDir = (Split-Path -Parent $MyInvocation.MyCommand.Path)
+    [string]$InstallDir = (Split-Path -Parent $MyInvocation.MyCommand.Path),
+    [string]$LogMirrorDir = $env:FEOSPORT2_LOG_SYNC_DIR
 )
 
 $ErrorActionPreference = "Continue"
@@ -37,6 +38,28 @@ function Write-CommandOutput {
     } catch {
         "ERROR: $($_.Exception.Message)" | Out-File -FilePath $path -Encoding UTF8
     }
+}
+
+function Get-LogMirrorDir {
+    if (-not [string]::IsNullOrWhiteSpace($LogMirrorDir)) {
+        return $LogMirrorDir
+    }
+
+    $candidates = @(
+        (Join-Path $env:USERPROFILE "YandexDisk"),
+        (Join-Path $env:USERPROFILE "Yandex Disk"),
+        (Join-Path $env:USERPROFILE "Yandex.Disk"),
+        (Join-Path $env:USERPROFILE "Яндекс.Диск"),
+        (Join-Path $env:USERPROFILE "ЯндексДиск")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) {
+            return (Join-Path $candidate "FeoSport2-logs")
+        }
+    }
+
+    return $null
 }
 
 Write-Info "Collecting from $InstallDir"
@@ -101,4 +124,17 @@ if (Test-Path $zipPath) {
 Compress-Archive -Path (Join-Path $bundleRoot "*") -DestinationPath $zipPath -Force
 
 Write-Info "Done: $zipPath"
+$mirrorDir = Get-LogMirrorDir
+if (-not [string]::IsNullOrWhiteSpace($mirrorDir)) {
+    try {
+        New-Item -ItemType Directory -Force -Path $mirrorDir | Out-Null
+        $mirrorPath = Join-Path $mirrorDir (Split-Path -Leaf $zipPath)
+        Copy-Item -Path $zipPath -Destination $mirrorPath -Force
+        Write-Info "Copied to sync folder: $mirrorPath"
+    } catch {
+        Write-Info "Could not copy to sync folder: $($_.Exception.Message)"
+    }
+} else {
+    Write-Info "Yandex Disk folder was not found. Set FEOSPORT2_LOG_SYNC_DIR to enable log mirroring."
+}
 Start-Process explorer.exe -ArgumentList "/select,`"$zipPath`"" -ErrorAction SilentlyContinue
