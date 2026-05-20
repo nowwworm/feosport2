@@ -32,8 +32,8 @@ jobs:
           run_install: false
 
       # ── pkg (Node → EXE) ──────────────────────────────────────────────────────
-      - name: Install @vercel/pkg globally
-        run: npm install -g @vercel/pkg
+      - name: Install pkg globally
+        run: npm install -g pkg
 
       # ── Inno Setup 6 ──────────────────────────────────────────────────────────
       - name: Install Inno Setup 6
