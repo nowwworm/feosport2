@@ -18,16 +18,14 @@ on:
 jobs:
   backend-tests:
     name: Backend tests
-    runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'npm'
@@ -43,17 +41,16 @@ jobs:
 
   frontend-build:
     name: Frontend build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       VITE_API_URL: ''
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'npm'
@@ -69,9 +66,8 @@ jobs:
 
   tmx-unit:
     name: TMX typecheck and unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
       ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       CI: 'true'
@@ -79,15 +75,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
 
       - name: Setup pnpm 11.1.2
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: '11.1.2'
           run_install: false
@@ -97,9 +93,25 @@ jobs:
         run: pnpm install --ignore-scripts --frozen-lockfile
 
       - name: Typecheck TMX (advisory)
-        continue-on-error: true
         working-directory: feoTEST/TMX
-        run: pnpm run check-types
+        run: |
+          set +e
+          pnpm run check-types > tmx-typecheck.log 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            echo "::warning title=TMX typecheck advisory::Existing TMX TypeScript issues detected; see tmx-typecheck-log artifact."
+          fi
+          exit 0
+
+      - name: Upload TMX typecheck log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: tmx-typecheck-log
+          path: feoTEST/TMX/tmx-typecheck.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Run TMX Vitest suite
         working-directory: feoTEST/TMX
@@ -107,25 +119,24 @@ jobs:
 
   tmx-e2e:
     name: TMX Playwright E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       CI: 'true'
       TZ: UTC
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
 
       - name: Setup pnpm 11.1.2
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: '11.1.2'
           run_install: false
@@ -144,7 +155,7 @@ jobs:
 
       - name: Upload Playwright report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: tmx-playwright-report
           path: feoTEST/TMX/playwright-report/
@@ -153,7 +164,7 @@ jobs:
 
       - name: Upload Playwright test results
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: tmx-playwright-test-results
           path: feoTEST/TMX/e2e/test-results/
