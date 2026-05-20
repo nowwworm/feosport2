@@ -1,0 +1,14 @@
+# Railway конфигурация для FeoSport2
+# Документация: https://docs.railway.app/reference/config-as-code
+
+[build]
+# Railway автоматически обнаружит docker-compose.unified.yml
+# Если нужен отдельный сервис — закомментируй и используй dockerfile ниже
+dockerfilePath = "docker-compose.unified.yml"
+
+[deploy]
+# Healthcheck — Railway будет ждать 200 от этого URL перед роутингом трафика
+healthcheckPath    = "/api/healthz"
+healthcheckTimeout = 60
+restartPolicyType  = "on_failure"
+restartPolicyMaxRetries = 3

@@ -1,0 +1,79 @@
+@use 'variables' as *;
+@use 'mixins'    as *;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin:  0;
+  padding: 0;
+}
+
+html {
+  font-size: $font-size-base;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family:      $font-base;
+  background-color: $clr-bg;
+  color:            $clr-text;
+  min-height:       100dvh;
+  overflow-x:       hidden;
+}
+
+#root {
+  @include flex-col;
+  min-height: 100dvh;
+}
+
+.app-shell {
+  @include flex-col;
+  min-height: 100dvh;
+}
+
+.app-main {
+  flex:        1;
+  padding-top: $header-height;
+  @include safe-bottom-padding;
+}
+
+a {
+  color:           $clr-accent;
+  text-decoration: none;
+}
+
+button {
+  cursor:      pointer;
+  font-family: inherit;
+  border:      none;
+  background:  none;
+}
+
+input,
+select,
+textarea {
+  font-family:   inherit;
+  font-size:     $font-size-base;
+  background:    $clr-surface-2;
+  color:         $clr-text;
+  border:        1px solid $clr-border;
+  border-radius: 6px;
+  padding:       $space-sm $space-md;
+  width:         100%;
+
+  &:focus {
+    outline:        2px solid $clr-accent;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor:  not-allowed;
+  }
+}
+
+// ─── Scrollbar (WebKit) ───────────────────────────────────────────────────────
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: $clr-bg; }
+::-webkit-scrollbar-thumb { background: $clr-border; border-radius: 3px; }

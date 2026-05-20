@@ -1,0 +1,276 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+// ── Page shell ────────────────────────────────────────────────────────────────
+.bracket-page {
+  &__content {
+    padding:   $space-md;
+    max-width: $max-content-width;
+    margin:    0 auto;
+    @include flex-col($gap: $space-lg);
+  }
+
+  &__tabs {
+    display:   flex;
+    gap:       $space-sm;
+    flex-wrap: wrap;
+  }
+
+  &__tab {
+    @include touch-target(40px);
+    padding:       0 $space-md;
+    border:        1px solid $clr-border;
+    border-radius: 20px;
+    font-size:     $font-size-sm;
+    font-weight:   600;
+    color:         $clr-text-muted;
+    background:    $clr-surface;
+    transition:    color .15s, border-color .15s, background .15s;
+
+    &--active {
+      background:   $clr-accent;
+      border-color: $clr-accent;
+      color:        #fff;
+      box-shadow:   0 0 12px rgba($clr-accent, 0.45);
+    }
+  }
+
+  &__loading,
+  &__error {
+    text-align: center;
+    padding:    $space-2xl $space-md;
+    color:      $clr-text-muted;
+    font-size:  $font-size-sm;
+  }
+  &__error { color: $clr-error; }
+
+  &__bracket {
+    @include flex-col($gap: $space-lg);
+  }
+}
+
+// ── Qual leaderboard ──────────────────────────────────────────────────────────
+.qual-board {
+  @include card;
+  @include flex-col($gap: $space-sm);
+
+  &__title {
+    font-size:      $font-size-base;
+    font-weight:    700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color:          $clr-text-muted;
+  }
+
+  &__list {
+    list-style: none;
+    @include flex-col($gap: 2px);
+  }
+
+  &__row {
+    display:     flex;
+    align-items: center;
+    gap:         $space-sm;
+    padding:     $space-xs $space-sm;
+    border-radius: 6px;
+    background:  transparent;
+    transition:  background .1s;
+
+    &--qualify {
+      background: rgba($clr-accent, 0.07);
+      border-left: 2px solid $clr-accent;
+      padding-left: $space-sm - 2px;
+    }
+  }
+
+  &__rank {
+    font-size:   $font-size-sm;
+    font-weight: 700;
+    min-width:   20px;
+    color:       $clr-text-muted;
+  }
+
+  &__pilot {
+    flex: 1;
+    @include flex-col;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size:   $font-size-sm;
+    font-weight: 600;
+    @include truncate;
+  }
+
+  &__team {
+    font-size: 11px;
+    color:     $clr-text-muted;
+    @include truncate;
+  }
+
+  &__time {
+    font-family: $font-mono;
+    font-size:   $font-size-sm;
+    font-weight: 700;
+    color:       $clr-accent-2;
+    flex-shrink: 0;
+  }
+
+  &__badge {
+    font-size:     10px;
+    font-weight:   700;
+    color:         $clr-accent;
+    letter-spacing: .5px;
+    flex-shrink:   0;
+    display:       none;
+
+    @include respond(sm) { display: inline; }
+  }
+
+  // Show only top 8 on small screens for brevity (pure CSS trick via :nth-child)
+  @media (max-width: #{$bp-sm - 1px}) {
+    &__row:nth-child(n+9) { display: none; }
+  }
+}
+
+// ── Bracket round ─────────────────────────────────────────────────────────────
+.bracket-round {
+  @include flex-col($gap: $space-sm);
+
+  &__title {
+    font-size:      $font-size-base;
+    font-weight:    700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color:          $clr-text-muted;
+    display:        flex;
+    align-items:    center;
+    gap:            $space-xs;
+  }
+
+  &__trophy { font-size: $font-size-lg; }
+
+  &--final &__title { color: $clr-accent-2; }
+  &--bronze_final &__title { color: #cd7f32; }
+
+  &__matches {
+    display: grid;
+    gap:     $space-sm;
+
+    @include respond(md) {
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+  }
+}
+
+// ── Match card ────────────────────────────────────────────────────────────────
+.bracket-match {
+  @include card;
+  @include flex-col($gap: $space-xs);
+  position: relative;
+  overflow: hidden;
+
+  // accent stripe on left
+  &::before {
+    content:    '';
+    position:   absolute;
+    left:       0;
+    top:        0;
+    bottom:     0;
+    width:      3px;
+    background: $clr-border;
+    border-radius: 3px 0 0 3px;
+  }
+
+  .bracket-round--final &::before         { background: $clr-accent-2; }
+  .bracket-round--bronze_final &::before  { background: #cd7f32; }
+  .bracket-round--semifinal &::before     { background: $clr-accent; }
+  .bracket-round--quarterfinal &::before  { background: $clr-border; }
+
+  &__label {
+    font-size:   10px;
+    font-weight: 700;
+    color:       $clr-text-muted;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  &__vs {
+    text-align: center;
+    font-size:  10px;
+    color:      $clr-text-muted;
+    font-weight: 600;
+    letter-spacing: 2px;
+  }
+}
+
+// ── Pilot slot inside match ───────────────────────────────────────────────────
+.bracket-slot {
+  display:       flex;
+  align-items:   center;
+  gap:           $space-sm;
+  padding:       $space-xs $space-sm;
+  border-radius: 6px;
+  background:    $clr-surface-2;
+  transition:    background .15s;
+
+  &--winner {
+    background:    rgba($clr-success, 0.12);
+    border:        1px solid rgba($clr-success, 0.35);
+  }
+
+  &--dnf {
+    opacity: 0.5;
+  }
+
+  &--bye {
+    justify-content: center;
+    color:           $clr-text-muted;
+    font-size:       $font-size-sm;
+    font-style:      italic;
+    background:      transparent;
+    border:          1px dashed $clr-border;
+  }
+
+  &__seed {
+    font-size:   10px;
+    font-weight: 700;
+    color:       $clr-text-muted;
+    min-width:   20px;
+    flex-shrink: 0;
+  }
+
+  &__pilot {
+    flex: 1;
+    @include flex-col;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size:   $font-size-sm;
+    font-weight: 600;
+    @include truncate;
+  }
+
+  &__team {
+    font-size: 11px;
+    color:     $clr-text-muted;
+    @include truncate;
+  }
+
+  &__time {
+    font-family: $font-mono;
+    font-size:   $font-size-sm;
+    font-weight: 700;
+    color:       $clr-accent-2;
+    flex-shrink: 0;
+  }
+
+  &--winner &__time { color: $clr-success; }
+
+  &__crown {
+    font-size:  $font-size-sm;
+    color:      $clr-success;
+    flex-shrink: 0;
+  }
+}

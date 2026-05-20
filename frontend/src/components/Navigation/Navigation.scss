@@ -1,0 +1,64 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.nav-bar {
+  position:       fixed;
+  bottom:         0;
+  left:           0;
+  right:          0;
+  z-index:        100;
+  height:         calc(#{$nav-height} + #{$safe-bottom});
+  background:     $clr-surface;
+  border-top:     1px solid $clr-border;
+  display:        flex;
+  align-items:    flex-start;
+  padding-top:    $space-xs;
+  padding-bottom: $safe-bottom;
+
+  // subtle top accent line
+  &::before {
+    content:    '';
+    position:   absolute;
+    top:        0;
+    left:       0;
+    right:      0;
+    height:     2px;
+    background: linear-gradient(90deg, $clr-accent 0%, $clr-accent-2 100%);
+    opacity:    0;
+    transition: opacity .2s;
+  }
+
+  &__item {
+    flex:            1;
+    @include touch-target;
+    flex-direction:  column;
+    gap:             2px;
+    font-size:       10px;
+    letter-spacing:  0.5px;
+    text-transform:  uppercase;
+    color:           $clr-text-muted;
+    text-decoration: none;
+    padding-top:     $space-xs;
+    transition:      color .15s;
+
+    &--active {
+      color: $clr-accent;
+    }
+  }
+
+  &__icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  &__label {
+    font-weight: 600;
+  }
+
+  &__ext-mark {
+    font-size: 8px;
+    opacity: 0.5;
+    line-height: 1;
+    margin-top: -2px;
+  }
+}

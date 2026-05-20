@@ -1,0 +1,43 @@
+// ─── Breakpoints (Mobile-First) ───────────────────────────────────────────────
+$bp-sm:  480px;
+$bp-md:  768px;
+$bp-lg:  1024px;
+$bp-xl:  1280px;
+
+// ─── Spacing ─────────────────────────────────────────────────────────────────
+$space-xs:   4px;
+$space-sm:   8px;
+$space-md:  16px;
+$space-lg:  24px;
+$space-xl:  32px;
+$space-2xl: 48px;
+
+// ─── Typography ───────────────────────────────────────────────────────────────
+$font-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+$font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+
+$font-size-sm:   13px;
+$font-size-base: 15px;
+$font-size-lg:   18px;
+$font-size-xl:   22px;
+$font-size-2xl:  30px;
+
+// ─── Colors ───────────────────────────────────────────────────────────────────
+$clr-bg:        #0a0a0a;
+$clr-surface:   #141414;
+$clr-surface-2: #1e1e1e;
+$clr-border:    #2a2a2a;
+$clr-text:      #efefef;
+$clr-text-muted:#666;
+
+$clr-accent:    #e8272a;   // FPV red
+$clr-accent-2:  #ffd500;   // podium gold
+$clr-success:   #3dba5b;
+$clr-warning:   #f5890a;
+$clr-error:     #e8272a;
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+$nav-height:        60px;
+$header-height:     52px;
+$max-content-width: 960px;
+$safe-bottom:       env(safe-area-inset-bottom, 0px);

@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<title>FeoSport2 — Руководство по установке на Windows 11</title>
+<style>
+/* ── Шрифты и общий сброс ─────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 10.5pt; }
+
+body {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  color: #1a1a1a;
+  line-height: 1.65;
+  background: #fff;
+}
+
+/* ── Страничные настройки для PDF ─────────────────────────────── */
+@page {
+  size: A4;
+  margin: 18mm 16mm 18mm 20mm;
+  @bottom-right {
+    content: "стр. " counter(page) " / " counter(pages);
+    font-size: 8pt;
+    color: #999;
+  }
+}
+
+@page :first {
+  @bottom-right { content: ""; }
+}
+
+/* ── Обложка ──────────────────────────────────────────────────── */
+.cover {
+  page-break-after: always;
+  min-height: 240mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 20mm 0 10mm;
+}
+
+.cover__badge {
+  display: inline-block;
+  background: #e8272a;
+  color: #fff;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 3px;
+  margin-bottom: 12px;
+}
+
+.cover__title {
+  font-size: 38pt;
+  font-weight: 900;
+  color: #e8272a;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+
+.cover__subtitle {
+  font-size: 15pt;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 32px;
+}
+
+.cover__rule {
+  height: 3px;
+  background: linear-gradient(90deg, #e8272a 0%, #ffd500 100%);
+  border: none;
+  margin: 24px 0;
+  width: 80px;
+}
+
+.cover__desc {
+  font-size: 11pt;
+  color: #555;
+  max-width: 130mm;
+  line-height: 1.7;
+  margin-bottom: 40px;
+}
+
+.cover__meta {
+  font-size: 9pt;
+  color: #aaa;
+}
+
+.cover__creds {
+  margin-top: 32px;
+  background: #0a0a0a;
+  color: #efefef;
+  border-radius: 8px;
+  padding: 16px 20px;
+  max-width: 140mm;
+}
+
+.cover__creds h3 {
+  font-size: 8pt;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #ffd500;
+  margin-bottom: 10px;
+}
+
+.cred-row {
+  display: flex;
+  gap: 24px;
+  font-size: 9.5pt;
+  margin-bottom: 5px;
+}
+.cred-label { color: #888; min-width: 50px; }
+.cred-value { font-family: 'JetBrains Mono', monospace; color: #efefef; }
+.cred-role  { color: #e8272a; font-size: 8.5pt; margin-left: auto; }
+
+/* ── Оглавление ───────────────────────────────────────────────── */
+.toc {
+  page-break-after: always;
+}
+
+.toc h2 {
+  font-size: 14pt;
+  font-weight: 900;
+  color: #e8272a;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e8272a;
+}
+
+.toc ol {
+  list-style: none;
+  counter-reset: toc-section;
+}
+
+.toc > ol > li {
+  counter-increment: toc-section;
+  margin-bottom: 6px;
+}
+
+.toc > ol > li > a {
+  font-size: 11pt;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-decoration: none;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.toc > ol > li > a::before {
+  content: counter(toc-section) ".";
+  color: #e8272a;
+  font-weight: 700;
+  min-width: 20px;
+}
+
+.toc-dots {
+  flex: 1;
+  border-bottom: 1px dotted #ccc;
+  margin: 0 6px;
+  margin-bottom: 2px;
+}
+
+.toc > ol > li > ol {
+  list-style: none;
+  margin-left: 28px;
+  margin-top: 4px;
+  counter-reset: toc-sub;
+}
+
+.toc > ol > li > ol > li {
+  counter-increment: toc-sub;
+  margin-bottom: 3px;
+}
+
+.toc > ol > li > ol > li > a {
+  font-size: 9.5pt;
+  color: #555;
+  text-decoration: none;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.toc > ol > li > ol > li > a::before {
+  content: counter(toc-section) "." counter(toc-sub);
+  color: #aaa;
+  min-width: 28px;
+  font-size: 9pt;
+}
+
+/* ── Типография ───────────────────────────────────────────────── */
+h1 {
+  font-size: 18pt;
+  font-weight: 900;
+  color: #e8272a;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #e8272a;
+  page-break-after: avoid;
+}
+
+h2 {
+  font-size: 13pt;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 24px 0 10px;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #333;
+  margin: 18px 0 8px;
+  page-break-after: avoid;
+}
+
+p { margin-bottom: 8px; }
+
+ul, ol { margin: 8px 0 12px 20px; }
+li { margin-bottom: 4px; }
+
+/* ── Раздел ───────────────────────────────────────────────────── */
+.section {
+  page-break-before: always;
+  padding-top: 4mm;
+}
+
+.section:first-of-type { page-break-before: avoid; }
+
+.section-num {
+  display: inline-block;
+  background: #e8272a;
+  color: #fff;
+  font-size: 9pt;
+  font-weight: 700;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  border-radius: 4px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ── Код ──────────────────────────────────────────────────────── */
+code {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 9pt;
+  background: #f4f4f4;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #c0392b;
+}
+
+pre {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 8.5pt;
+  background: #0f0f0f;
+  color: #e8e8e8;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 10px 0 16px;
+  line-height: 1.55;
+  page-break-inside: avoid;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+pre .comment { color: #6a9955; }
+pre .cmd     { color: #ffd500; }
+pre .param   { color: #9cdcfe; }
+pre .str     { color: #ce9178; }
+pre .ok      { color: #4ec9b0; }
+
+/* ── Таблицы ──────────────────────────────────────────────────── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 16px;
+  font-size: 9.5pt;
+  page-break-inside: avoid;
+}
+
+th {
+  background: #1a1a1a;
+  color: #fff;
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 9pt;
+  letter-spacing: 0.3px;
+}
+
+td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #e8e8e8;
+  vertical-align: top;
+}
+
+tr:nth-child(even) td { background: #fafafa; }
+tr:last-child td { border-bottom: 2px solid #1a1a1a; }
+
+td code { background: transparent; border: none; padding: 0; color: #c0392b; }
+
+/* ── Callout-блоки ────────────────────────────────────────────── */
+.note, .warn, .tip, .danger {
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-size: 9.5pt;
+  page-break-inside: avoid;
+}
+
+.note   { background: #e8f4fd; border-left: 4px solid #2196f3; }
+.warn   { background: #fff8e1; border-left: 4px solid #ffc107; }
+.tip    { background: #e8f5e9; border-left: 4px solid #4caf50; }
+.danger { background: #ffeaea; border-left: 4px solid #e8272a; }
+
+.note::before   { content: "ℹ  "; font-weight: 700; color: #2196f3; }
+.warn::before   { content: "⚠  "; font-weight: 700; color: #f9a825; }
+.tip::before    { content: "✓  "; font-weight: 700; color: #4caf50; }
+.danger::before { content: "✗  "; font-weight: 700; color: #e8272a; }
+
+/* ── Шаги ─────────────────────────────────────────────────────── */
+.steps { list-style: none; margin: 10px 0 16px; padding: 0; }
+
+.steps li {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  page-break-inside: avoid;
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  background: #e8272a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 9pt;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.step-body { flex: 1; }
+.step-body strong { display: block; font-size: 10pt; margin-bottom: 3px; }
+
+/* ── Credentials box ──────────────────────────────────────────── */
+.creds-box {
+  background: #0f0f0f;
+  color: #efefef;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 12px 0;
+  page-break-inside: avoid;
+}
+
+.creds-box h3 {
+  color: #ffd500;
+  font-size: 8pt;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+}
+
+.creds-table { width: 100%; font-size: 9pt; }
+.creds-table td { padding: 4px 8px; border: none; }
+.creds-table .lbl { color: #888; width: 80px; }
+.creds-table .val { font-family: 'JetBrains Mono', monospace; color: #efefef; }
+.creds-table .role { color: #e8272a; text-align: right; font-size: 8.5pt; }
+.creds-table tr + tr td { border-top: 1px solid #222; }
+
+/* ── Badge ────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  font-size: 8pt;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-red    { background: #e8272a; color: #fff; }
+.badge-yellow { background: #ffd500; color: #1a1a1a; }
+.badge-green  { background: #4caf50; color: #fff; }
+.badge-gray   { background: #e0e0e0; color: #444; }
+
+/* ── Footer страниц ───────────────────────────────────────────── */
+.page-footer {
+  position: running(footer);
+  font-size: 8pt;
+  color: #aaa;
+  display: flex;
+  justify-content: space-between;
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     ОБЛОЖКА
+══════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <span class="cover__badge">Техническая документация</span>
+  <div class="cover__title">FeoSport2</div>
+  <div class="cover__subtitle">Руководство по установке и развёртыванию на Windows 11</div>
+  <hr class="cover__rule"/>
+  <p class="cover__desc">
+    Система управления соревнованиями по FPV-дронрейсингу.<br/>
+    Полное пошаговое руководство для установки на компьютер под управлением Windows 11.<br/>
+    Содержит три варианта развёртывания, загрузку тестовых данных и справочную информацию.
+  </p>
+
+  <div class="cover__creds">
+    <h3>Учётные данные по умолчанию</h3>
+    <div class="cred-row">
+      <span class="cred-label">Email</span>
+      <span class="cred-value">admin@feosport.local</span>
+      <span class="cred-role">Администратор</span>
+    </div>
+    <div class="cred-row">
+      <span class="cred-label">Пароль</span>
+      <span class="cred-value">admin123</span>
+    </div>
+    <div style="height:8px;border-top:1px solid #222;margin:8px 0;"></div>
+    <div class="cred-row">
+      <span class="cred-label">Email</span>
+      <span class="cred-value">chief@feosport.local</span>
+      <span class="cred-role">Гл. судья</span>
+    </div>
+    <div class="cred-row">
+      <span class="cred-label">Пароль</span>
+      <span class="cred-value">judge123</span>
+    </div>
+    <div style="height:8px;border-top:1px solid #222;margin:8px 0;"></div>
+    <div class="cred-row">
+      <span class="cred-label">Email</span>
+      <span class="cred-value">judge@feosport.local</span>
+      <span class="cred-role">Судья</span>
+    </div>
+    <div class="cred-row">
+      <span class="cred-label">Пароль</span>
+      <span class="cred-value">judge123</span>
+    </div>
+  </div>
+
+  <p class="cover__meta" style="margin-top:24px;">Версия 1.0 · Май 2025 · FeoSport Race Control System</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     ОГЛАВЛЕНИЕ
+══════════════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Содержание</h2>
+  <ol>
+    <li><a href="#s1">Обзор системы <span class="toc-dots"></span> 3</a></li>
+    <li><a href="#s2">Системные требования <span class="toc-dots"></span> 3</a>
+      <ol>
+        <li><a href="#s2-1">Вариант А — Готовый инсталлятор (exe) <span class="toc-dots"></span> 3</a></li>
+        <li><a href="#s2-2">Вариант Б — Docker Desktop <span class="toc-dots"></span> 3</a></li>
+        <li><a href="#s2-3">Вариант В — Нативная установка <span class="toc-dots"></span> 3</a></li>
+      </ol>
+    </li>
+    <li><a href="#s3">Вариант А — Установка через exe-инсталлятор <span class="toc-dots"></span> 4</a>
+      <ol>
+        <li><a href="#s3-1">Сборка инсталлятора <span class="toc-dots"></span> 4</a></li>
+        <li><a href="#s3-2">Установка на целевой машине <span class="toc-dots"></span> 5</a></li>
+        <li><a href="#s3-3">Первый запуск <span class="toc-dots"></span> 6</a></li>
+      </ol>
+    </li>
+    <li><a href="#s4">Вариант Б — Docker Desktop <span class="toc-dots"></span> 7</a>
+      <ol>
+        <li><a href="#s4-1">Установка Docker Desktop <span class="toc-dots"></span> 7</a></li>
+        <li><a href="#s4-2">Настройка и запуск <span class="toc-dots"></span> 8</a></li>
+      </ol>
+    </li>
+    <li><a href="#s5">Вариант В — Нативная установка <span class="toc-dots"></span> 9</a>
+      <ol>
+        <li><a href="#s5-1">Установка Node.js и PostgreSQL <span class="toc-dots"></span> 9</a></li>
+        <li><a href="#s5-2">Настройка базы данных <span class="toc-dots"></span> 10</a></li>
+        <li><a href="#s5-3">Запуск приложения <span class="toc-dots"></span> 10</a></li>
+      </ol>
+    </li>
+    <li><a href="#s6">Тестовые данные <span class="toc-dots"></span> 11</a></li>
+    <li><a href="#s7">Управление приложением <span class="toc-dots"></span> 12</a></li>
+    <li><a href="#s8">Роли и права доступа <span class="toc-dots"></span> 13</a></li>
+    <li><a href="#s9">Устранение неисправностей <span class="toc-dots"></span> 14</a></li>
+    <li><a href="#s10">Справочник команд <span class="toc-dots"></span> 15</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     1. ОБЗОР
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s1">
+  <h1><span class="section-num">1</span>Обзор системы</h1>
+
+  <p>FeoSport2 — веб-приложение для управления соревнованиями по FPV-дронрейсингу. Работает в локальной сети без подключения к интернету. Судьи вносят результаты со смартфонов, табло обновляется в реальном времени у всех зрителей.</p>
+
+  <table>
+    <thead><tr><th>Компонент</th><th>Технология</th><th>Назначение</th></tr></thead>
+    <tbody>
+      <tr><td>Backend</td><td>Node.js 20 + Express + Socket.io</td><td>REST API, WebSocket, бизнес-логика</td></tr>
+      <tr><td>База данных</td><td>PostgreSQL 16</td><td>Хранение пилотов, заездов, результатов</td></tr>
+      <tr><td>Frontend</td><td>React 18 + Vite + SCSS</td><td>Web-интерфейс (PWA, мобильный)</td></tr>
+      <tr><td>Прокси</td><td>Nginx (Docker) / прямой (нативный)</td><td>Единая точка входа</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Три варианта установки на Windows 11:</strong></p>
+  <table>
+    <thead><tr><th>Вариант</th><th>Сложность</th><th>RAM</th><th>Рекомендуется</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>А — Готовый exe</strong></td>
+        <td><span class="badge badge-green">Простой</span></td>
+        <td>4 ГБ</td>
+        <td>Для конечного пользователя</td>
+      </tr>
+      <tr>
+        <td><strong>Б — Docker Desktop</strong></td>
+        <td><span class="badge badge-yellow">Средний</span></td>
+        <td>8 ГБ</td>
+        <td>Для DevOps / тестирования</td>
+      </tr>
+      <tr>
+        <td><strong>В — Нативный</strong></td>
+        <td><span class="badge badge-red">Продвинутый</span></td>
+        <td>4 ГБ</td>
+        <td>Без Docker, ручная настройка</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     2. ТРЕБОВАНИЯ
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s2">
+  <h1><span class="section-num">2</span>Системные требования</h1>
+
+  <h2 id="s2-1">2.1 Вариант А — Готовый инсталлятор</h2>
+  <table>
+    <thead><tr><th>Параметр</th><th>Минимум</th><th>Рекомендуется</th></tr></thead>
+    <tbody>
+      <tr><td>ОС</td><td>Windows 11 (любое издание)</td><td>Windows 11 Pro/Home, обновлённая</td></tr>
+      <tr><td>Процессор</td><td>Intel/AMD x64, 2 ядра</td><td>4+ ядра</td></tr>
+      <tr><td>RAM</td><td>4 ГБ</td><td>8 ГБ</td></tr>
+      <tr><td>Диск</td><td>2 ГБ свободно</td><td>SSD, 5 ГБ</td></tr>
+      <tr><td>Права</td><td>Администратор (только при установке)</td><td>—</td></tr>
+      <tr><td>Интернет</td><td>Для первой установки PostgreSQL</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="s2-2">2.2 Вариант Б — Docker Desktop</h2>
+  <table>
+    <thead><tr><th>Параметр</th><th>Требование</th></tr></thead>
+    <tbody>
+      <tr><td>ОС</td><td>Windows 11 Home/Pro, Build 19041+</td></tr>
+      <tr><td>RAM</td><td>8 ГБ (Docker резервирует 2–3 ГБ)</td></tr>
+      <tr><td>Виртуализация</td><td>Intel VT-x / AMD-V включена в BIOS</td></tr>
+      <tr><td>WSL2</td><td>Устанавливается автоматически</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="s2-3">2.3 Вариант В — Нативная установка</h2>
+  <table>
+    <thead><tr><th>ПО</th><th>Версия</th><th>Источник</th></tr></thead>
+    <tbody>
+      <tr><td>Node.js LTS</td><td>20.x или выше</td><td>nodejs.org / winget</td></tr>
+      <tr><td>PostgreSQL</td><td>16.x</td><td>postgresql.org / winget</td></tr>
+      <tr><td>Windows Terminal</td><td>любая</td><td>Microsoft Store (рекомендуется)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     3. ВАРИАНТ А — exe
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s3">
+  <h1><span class="section-num">3</span>Вариант А — Установка через exe-инсталлятор</h1>
+
+  <p>Это <strong>рекомендуемый способ</strong> для развёртывания на пользовательских машинах. Инсталлятор содержит предсобранный сервер, фронтенд и автоматически настраивает базу данных.</p>
+
+  <h2 id="s3-1">3.1 Сборка инсталлятора (на машине разработчика)</h2>
+
+  <div class="note">Сборка выполняется один раз на любой Windows-машине с установленным Git и доступом в интернет. Результат — файл <code>FeoSport2-Setup.exe</code>, который затем копируется на целевые машины.</div>
+
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Скопировать исходники проекта</strong>
+        Перенести папку <code>feosport2</code> на Windows-машину (USB, сеть, архив).
+        Полный путь, например: <code>C:\feosport2\</code>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Открыть PowerShell от Администратора</strong>
+        Нажать Win, ввести «PowerShell», правая кнопка → «Запуск от имени администратора».
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Разрешить выполнение скриптов</strong>
+        <pre><span class="cmd">Set-ExecutionPolicy</span> <span class="param">-Scope Process -ExecutionPolicy Bypass</span></pre>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Перейти в папку проекта и запустить сборку</strong>
+        <pre><span class="cmd">cd</span> C:\feosport2
+<span class="cmd">.\deploy\windows\build\build-installer.ps1</span></pre>
+        Скрипт выполнит следующее автоматически:
+        <ul style="margin-top:8px;">
+          <li>Установит зависимости npm для backend и frontend</li>
+          <li>Скомпилирует Node.js сервер в <code>feosport2-server.exe</code> через pkg</li>
+          <li>Соберёт React-приложение через Vite</li>
+          <li>Скачает PostgreSQL 16 installer (~300 МБ)</li>
+          <li>Установит Inno Setup 6 через winget</li>
+          <li>Скомпилирует финальный инсталлятор</li>
+        </ul>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Результат</strong>
+        По завершении файл будет здесь:
+        <pre><span class="str">C:\feosport2\deploy\windows\output\FeoSport2-Setup.exe</span></pre>
+        Размер приблизительно 350–400 МБ (включает PostgreSQL installer).
+      </div>
+    </li>
+  </ol>
+
+  <div class="warn">Если интернет недоступен во время сборки, заранее скачай PostgreSQL 16 вручную с сайта <strong>postgresql.org → Downloads → Windows</strong> и положи файл в <code>deploy\windows\build\deps\postgresql-16-win-x64.exe</code></div>
+
+  <h2 id="s3-2">3.2 Установка на целевой машине</h2>
+
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Скопировать FeoSport2-Setup.exe на целевую машину</strong>
+        USB-накопитель, локальная сеть или любой удобный способ.
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Запустить инсталлятор от имени Администратора</strong>
+        Правая кнопка на файле → «Запуск от имени администратора».<br/>
+        Если появится SmartScreen — нажать «Подробнее» → «Выполнить в любом случае».
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Экран выбора компонентов</strong>
+        <table style="margin-top:8px;">
+          <thead><tr><th>Компонент</th><th>Когда выбирать</th></tr></thead>
+          <tbody>
+            <tr><td>Приложение FeoSport2</td><td>Всегда (обязательный)</td></tr>
+            <tr><td>PostgreSQL 16</td><td>Если PostgreSQL ещё не установлен</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Ввести пароль postgres (суперпользователь)</strong>
+        Если PostgreSQL устанавливается впервые — придумать новый пароль.<br/>
+        Если уже установлен — ввести существующий пароль.<br/>
+        <span class="badge badge-red">Запомните этот пароль!</span>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Ввести пароль пользователя feosport</strong>
+        Это технический пароль, который приложение использует для подключения к БД.<br/>
+        Можно оставить значение по умолчанию (<code>feosport2024</code>) или задать своё.
+      </div>
+    </li>
+    <li>
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <strong>Дождаться завершения установки</strong>
+        Установщик автоматически:
+        <ul>
+          <li>Установит PostgreSQL 16 (если выбран)</li>
+          <li>Создаст базу данных <code>feosport2</code></li>
+          <li>Применит схему и загрузит тестовые данные</li>
+          <li>Создаст ярлык на рабочем столе</li>
+        </ul>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <strong>Выбрать задачи при завершении</strong>
+        <ul>
+          <li>☑ Создать ярлык на рабочем столе — рекомендуется</li>
+          <li>☑ Запускать автоматически при входе — для постоянного сервера</li>
+          <li>☑ Запустить FeoSport2 сейчас — откроет браузер сразу</li>
+        </ul>
+      </div>
+    </li>
+  </ol>
+
+  <h2 id="s3-3">3.3 Первый запуск</h2>
+
+  <p>После установки дважды кликнуть ярлык <strong>FeoSport2</strong> на рабочем столе.</p>
+  <p>В браузере откроется страница входа по адресу <code>http://localhost:8090</code></p>
+
+  <div class="creds-box">
+    <h3>Учётные данные для входа</h3>
+    <table class="creds-table">
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">admin@feosport.local</td>
+        <td class="role">Администратор</td>
+      </tr>
+      <tr>
+        <td class="lbl">Пароль</td>
+        <td class="val">admin123</td>
+        <td></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="tip">После первого входа рекомендуется сменить пароль администратора через настройки профиля.</div>
+
+  <p>Папка установки по умолчанию: <code>C:\Program Files\FeoSport2\</code></p>
+  <table>
+    <thead><tr><th>Файл</th><th>Назначение</th></tr></thead>
+    <tbody>
+      <tr><td><code>feosport2-server.exe</code></td><td>Сервер приложения (Node.js + API + фронтенд)</td></tr>
+      <tr><td><code>.env</code></td><td>Конфигурация (порт, БД, JWT-секрет)</td></tr>
+      <tr><td><code>frontend-dist\</code></td><td>Собранный React-интерфейс</td></tr>
+      <tr><td><code>start-feosport.bat</code></td><td>Запустить сервер и открыть браузер</td></tr>
+      <tr><td><code>stop-feosport.bat</code></td><td>Остановить сервер</td></tr>
+      <tr><td><code>seed-data.bat</code></td><td>Повторная загрузка тестовых данных</td></tr>
+      <tr><td><code>install.log</code></td><td>Журнал установки (при проблемах)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     4. ВАРИАНТ Б — Docker
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s4">
+  <h1><span class="section-num">4</span>Вариант Б — Docker Desktop</h1>
+
+  <div class="note">Этот вариант запускает все компоненты в изолированных контейнерах. Идеален для тестирования или когда нужна воспроизводимая среда.</div>
+
+  <h2 id="s4-1">4.1 Установка Docker Desktop</h2>
+
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Открыть PowerShell от Администратора и запустить скрипт установки</strong>
+        <pre><span class="cmd">Set-ExecutionPolicy</span> <span class="param">-Scope Process -ExecutionPolicy Bypass</span>
+<span class="cmd">cd</span> C:\feosport2
+<span class="cmd">.\deploy\windows\docker\01-install-docker.ps1</span></pre>
+        Скрипт включит WSL2, установит Docker Desktop через winget и добавит пользователя в группу <code>docker-users</code>.
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Перезагрузить компьютер</strong>
+        Скрипт предложит перезагрузку автоматически. Нажать <code>Y</code> или перезагрузить вручную.
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Дождаться запуска Docker Desktop</strong>
+        После перезагрузки Docker Desktop запустится автоматически. В системном трее (правый нижний угол) появится иконка кита. Подождать, пока надпись сменится с «Starting» на «Docker Desktop is running».
+      </div>
+    </li>
+  </ol>
+
+  <div class="warn">На Windows 11 Home Docker Desktop требует WSL2. Если появляется ошибка виртуализации — проверить, включена ли виртуализация в BIOS/UEFI (раздел CPU Configuration → Intel Virtualization Technology = Enabled).</div>
+
+  <h2 id="s4-2">4.2 Настройка и запуск</h2>
+
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Настроить переменные окружения</strong>
+        <pre><span class="cmd">.\deploy\windows\docker\02-setup-env.ps1</span></pre>
+        Скрипт создаст файл <code>deploy\.env</code> с паролями и JWT-секретом. Откроет диалог для ввода пароля PostgreSQL.
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Запустить приложение</strong>
+        <pre><span class="cmd">.\deploy\windows\docker\start.bat</span></pre>
+        Docker скачает образы и соберёт контейнеры (первый запуск ~5–10 минут).
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Загрузить тестовые данные</strong>
+        <pre><span class="cmd">.\deploy\windows\docker\seed.bat</span></pre>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Открыть браузер</strong>
+        Сайт доступен по адресу: <code>http://localhost:80</code> (или просто <code>http://localhost</code>)
+      </div>
+    </li>
+  </ol>
+
+  <table>
+    <thead><tr><th>Файл</th><th>Действие</th></tr></thead>
+    <tbody>
+      <tr><td><code>start.bat</code></td><td>Запустить все контейнеры</td></tr>
+      <tr><td><code>stop.bat</code></td><td>Остановить (данные сохраняются)</td></tr>
+      <tr><td><code>logs.bat</code></td><td>Просмотр логов всех сервисов</td></tr>
+      <tr><td><code>seed.bat</code></td><td>Загрузить тестовые данные</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     5. ВАРИАНТ В — нативный
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s5">
+  <h1><span class="section-num">5</span>Вариант В — Нативная установка</h1>
+
+  <div class="note">Этот вариант не использует Docker. Node.js и PostgreSQL устанавливаются непосредственно в Windows.</div>
+
+  <h2 id="s5-1">5.1 Установка Node.js и PostgreSQL</h2>
+
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Открыть PowerShell от Администратора</strong>
+        <pre><span class="cmd">Set-ExecutionPolicy</span> <span class="param">-Scope Process -ExecutionPolicy Bypass</span>
+<span class="cmd">cd</span> C:\feosport2
+<span class="cmd">.\deploy\windows\native\01-install-deps.ps1</span></pre>
+        Скрипт через <code>winget</code> установит:
+        <ul>
+          <li>Node.js 20 LTS (OpenJS.NodeJS.LTS)</li>
+          <li>PostgreSQL 16 (PostgreSQL.PostgreSQL.16)</li>
+        </ul>
+        И выполнит <code>npm install</code> для backend и frontend.
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Если winget недоступен — ручная установка</strong>
+        <table>
+          <thead><tr><th>ПО</th><th>Ссылка для скачивания</th></tr></thead>
+          <tbody>
+            <tr><td>Node.js 20 LTS</td><td>https://nodejs.org/en/download → Windows Installer (.msi)</td></tr>
+            <tr><td>PostgreSQL 16</td><td>https://www.postgresql.org/download/windows/ → Download the installer</td></tr>
+          </tbody>
+        </table>
+        После ручной установки выполнить:
+        <pre><span class="cmd">cd</span> C:\feosport2\backend  &amp;&amp;  <span class="cmd">npm install</span>
+<span class="cmd">cd</span> C:\feosport2\frontend &amp;&amp;  <span class="cmd">npm install</span></pre>
+      </div>
+    </li>
+  </ol>
+
+  <div class="warn">После установки закрыть и снова открыть PowerShell, чтобы переменные PATH обновились.</div>
+
+  <h2 id="s5-2">5.2 Настройка базы данных</h2>
+
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Запустить скрипт настройки БД</strong>
+        <pre><span class="cmd">.\deploy\windows\native\02-setup-db.ps1</span></pre>
+        Скрипт создаст пользователя <code>feosport</code>, базу данных <code>feosport2</code>, применит схему и запишет <code>backend\.env</code>.
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Загрузить тестовые данные</strong>
+        <pre><span class="cmd">.\deploy\windows\native\seed.bat</span></pre>
+      </div>
+    </li>
+  </ol>
+
+  <h2 id="s5-3">5.3 Запуск приложения</h2>
+
+  <pre><span class="cmd">.\deploy\windows\native\start.bat</span></pre>
+
+  <p>Откроются два окна: <strong>FeoSport2 Backend</strong> (порт 8090) и <strong>FeoSport2 Frontend</strong> (порт 8080). Сайт доступен по адресу: <code>http://localhost:8080</code></p>
+
+  <div class="warn">Не закрывать окна командной строки — это остановит сервер. Для остановки использовать <code>stop.bat</code>.</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     6. ТЕСТОВЫЕ ДАННЫЕ
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s6">
+  <h1><span class="section-num">6</span>Тестовые данные</h1>
+
+  <p>Тестовые данные загружаются автоматически при установке (Вариант А) или командой <code>seed.bat</code> (Варианты Б и В).</p>
+
+  <h2>6.1 Учётные записи</h2>
+  <div class="creds-box">
+    <h3>Все учётные данные</h3>
+    <table class="creds-table">
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">admin@feosport.local</td>
+        <td class="role">Администратор</td>
+      </tr>
+      <tr><td class="lbl">Пароль</td><td class="val">admin123</td><td></td></tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">chief@feosport.local</td>
+        <td class="role">Главный судья</td>
+      </tr>
+      <tr><td class="lbl">Пароль</td><td class="val">judge123</td><td></td></tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">judge@feosport.local</td>
+        <td class="role">Судья</td>
+      </tr>
+      <tr><td class="lbl">Пароль</td><td class="val">judge123</td><td></td></tr>
+    </table>
+  </div>
+
+  <h2>6.2 Команды и пилоты</h2>
+  <table>
+    <thead><tr><th>Команда</th><th>Пилот</th><th>Лучший результат</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="8"><strong>Феодосия FPV</strong></td><td>Иванов Алексей</td><td>43.521 с — призёр</td></tr>
+      <tr><td>Петров Дмитрий</td><td>57.234 с</td></tr>
+      <tr><td>Сидоров Никита</td><td>45.100 с — призёр</td></tr>
+      <tr><td>Козлов Максим</td><td>61.450 с</td></tr>
+      <tr><td>Морозов Артём</td><td>47.650 с</td></tr>
+      <tr><td>Новиков Игорь</td><td>63.220 с</td></tr>
+      <tr><td>Попов Сергей</td><td>49.830 с</td></tr>
+      <tr><td>Лебедев Кирилл</td><td>67.110 с</td></tr>
+      <tr><td rowspan="8"><strong>Крым Racing</strong></td><td>Соколов Виктор</td><td>44.780 с — призёр</td></tr>
+      <tr><td>Волков Андрей</td><td>58.650 с</td></tr>
+      <tr><td>Захаров Роман</td><td>46.320 с — призёр</td></tr>
+      <tr><td>Степанов Денис</td><td>59.780 с</td></tr>
+      <tr><td>Орлов Евгений</td><td>48.990 с</td></tr>
+      <tr><td>Зайцев Павел</td><td>65.430 с</td></tr>
+      <tr><td>Медведев Вадим</td><td>51.200 с</td></tr>
+      <tr><td>Фёдоров Илья</td><td>68.900 с</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6.3 Соревнования</h2>
+  <table>
+    <thead><tr><th>Соревнование</th><th>Место</th><th>Дата</th><th>🥇</th><th>🥈</th><th>🥉</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Кубок Феодосии 2024</td>
+        <td>Феодосия, ипподром</td>
+        <td>15.06.2024</td>
+        <td>Иванов А.</td>
+        <td>Соколов В.</td>
+        <td>Сидоров Н.</td>
+      </tr>
+      <tr>
+        <td>Летний спринт 2024</td>
+        <td>Феодосия, набережная</td>
+        <td>10.08.2024</td>
+        <td>Соколов В.</td>
+        <td>Иванов А.</td>
+        <td>Захаров Р.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Каждое соревнование содержит: 4 квалификационных заезда → четвертьфиналы → полуфиналы → бронзовый финал → финал. Все результаты подтверждены и заблокированы.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     7. УПРАВЛЕНИЕ
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s7">
+  <h1><span class="section-num">7</span>Управление приложением</h1>
+
+  <h2>7.1 Запуск и остановка</h2>
+  <table>
+    <thead><tr><th>Вариант</th><th>Запуск</th><th>Остановка</th></tr></thead>
+    <tbody>
+      <tr><td>А (exe)</td><td>Ярлык на рабочем столе / <code>start-feosport.bat</code></td><td><code>stop-feosport.bat</code></td></tr>
+      <tr><td>Б (Docker)</td><td><code>deploy\windows\docker\start.bat</code></td><td><code>deploy\windows\docker\stop.bat</code></td></tr>
+      <tr><td>В (нативный)</td><td><code>deploy\windows\native\start.bat</code></td><td><code>deploy\windows\native\stop.bat</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>7.2 Адреса в браузере</h2>
+  <table>
+    <thead><tr><th>Вариант</th><th>Адрес сайта</th><th>Адрес API</th></tr></thead>
+    <tbody>
+      <tr><td>А (exe)</td><td><code>http://localhost:8090</code></td><td><code>http://localhost:8090/api</code></td></tr>
+      <tr><td>Б (Docker)</td><td><code>http://localhost:80</code></td><td><code>http://localhost:80/api</code></td></tr>
+      <tr><td>В (нативный)</td><td><code>http://localhost:8080</code></td><td><code>http://localhost:8090/api</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>7.3 Доступ с других устройств (смартфоны судей)</h2>
+  <p>Для работы в локальной сети судьи открывают браузер на телефоне и вводят IP-адрес компьютера-сервера.</p>
+
+  <ol class="steps">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Узнать IP-адрес сервера</strong>
+        <pre><span class="cmd">ipconfig</span></pre>
+        Найти строку «IPv4-адрес» в разделе своего сетевого адаптера.<br/>
+        Например: <code>192.168.1.100</code>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>На телефоне открыть браузер и ввести адрес</strong>
+        <pre>http://192.168.1.100:8090   <span class="comment">(Вариант А)</span>
+http://192.168.1.100        <span class="comment">(Вариант Б)</span>
+http://192.168.1.100:8080   <span class="comment">(Вариант В)</span></pre>
+      </div>
+    </li>
+  </ol>
+
+  <div class="tip">Приложение является PWA — судьи могут добавить его на главный экран телефона через меню браузера «Добавить на главный экран» для удобного доступа.</div>
+
+  <h2>7.4 Резервная копия данных</h2>
+  <pre><span class="comment"># Сохранить дамп БД</span>
+<span class="cmd">pg_dump</span> <span class="param">-U feosport feosport2 > backup_$(date +%Y%m%d).sql</span>
+
+<span class="comment"># Восстановить из дампа</span>
+<span class="cmd">psql</span> <span class="param">-U feosport feosport2 &lt; backup_20240615.sql</span></pre>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     8. РОЛИ
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s8">
+  <h1><span class="section-num">8</span>Роли и права доступа</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Возможность</th>
+        <th style="text-align:center;">Пилот</th>
+        <th style="text-align:center;">Судья</th>
+        <th style="text-align:center;">Гл. судья</th>
+        <th style="text-align:center;">Администратор</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Просмотр таблицы лидеров</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+      <tr><td>Просмотр турнирной сетки</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+      <tr><td>Ввод результатов заезда</td><td style="text-align:center;">—</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+      <tr><td>Редактирование результатов</td><td style="text-align:center;">—</td><td style="text-align:center;">✓*</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+      <tr><td>Блокировка заезда</td><td style="text-align:center;">—</td><td style="text-align:center;">—</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+      <tr><td>Управление пилотами</td><td style="text-align:center;">—</td><td style="text-align:center;">—</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+      <tr><td>Создание соревнований</td><td style="text-align:center;">—</td><td style="text-align:center;">—</td><td style="text-align:center;">—</td><td style="text-align:center;">✓</td></tr>
+      <tr><td>Генерация плей-офф</td><td style="text-align:center;">—</td><td style="text-align:center;">—</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td></tr>
+      <tr><td>Управление пользователями</td><td style="text-align:center;">—</td><td style="text-align:center;">—</td><td style="text-align:center;">—</td><td style="text-align:center;">✓</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:8.5pt;color:#666;">* Судья может редактировать только до блокировки заезда главным судьёй. Все правки сохраняются в журнале аудита.</p>
+
+  <h2>8.1 Создание дополнительных пользователей</h2>
+  <p>Новые пользователи создаются через API (POST-запрос к <code>/api/auth/register</code>):</p>
+  <pre><span class="cmd">curl</span> <span class="param">-X POST http://localhost:8090/api/auth/register</span> \
+  <span class="param">-H "Content-Type: application/json"</span> \
+  <span class="param">-H "Authorization: Bearer &lt;ADMIN_TOKEN&gt;"</span> \
+  <span class="param">-d</span> <span class="str">'{"email":"judge2@feosport.local","password":"judge123","role_id":3}'</span></pre>
+
+  <table>
+    <thead><tr><th>role_id</th><th>Роль</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Администратор</td></tr>
+      <tr><td>2</td><td>Главный судья</td></tr>
+      <tr><td>3</td><td>Судья</td></tr>
+      <tr><td>4</td><td>Пилот</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     9. УСТРАНЕНИЕ НЕИСПРАВНОСТЕЙ
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s9">
+  <h1><span class="section-num">9</span>Устранение неисправностей</h1>
+
+  <h2>9.1 Сервер не запускается</h2>
+  <table>
+    <thead><tr><th>Симптом</th><th>Причина</th><th>Решение</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Браузер показывает «Страница недоступна»</td>
+        <td>Сервер не запущен</td>
+        <td>Запустить <code>start-feosport.bat</code></td>
+      </tr>
+      <tr>
+        <td>Ошибка «Port 8090 already in use»</td>
+        <td>Порт занят другой программой</td>
+        <td><code>netstat -ano | findstr 8090</code>, затем <code>taskkill /PID &lt;PID&gt; /F</code></td>
+      </tr>
+      <tr>
+        <td>Ошибка подключения к БД</td>
+        <td>PostgreSQL не запущен</td>
+        <td><code>net start postgresql-x64-16</code></td>
+      </tr>
+      <tr>
+        <td>«password authentication failed»</td>
+        <td>Неверный пароль в .env</td>
+        <td>Проверить <code>C:\Program Files\FeoSport2\.env</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>9.2 Проблемы с Docker Desktop</h2>
+  <table>
+    <thead><tr><th>Симптом</th><th>Решение</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>«Hyper-V not enabled»</td>
+        <td>Включить виртуализацию в BIOS и выполнить: <code>bcdedit /set hypervisorlaunchtype auto</code></td>
+      </tr>
+      <tr>
+        <td>Docker не запускается после перезагрузки</td>
+        <td>Запустить Docker Desktop вручную из меню Пуск</td>
+      </tr>
+      <tr>
+        <td>Контейнер backend не стартует</td>
+        <td>Проверить логи: <code>deploy\windows\docker\logs.bat</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>9.3 Сброс данных</h2>
+  <div class="danger">Следующие команды удаляют все данные безвозвратно. Сделать резервную копию перед выполнением.</div>
+
+  <pre><span class="comment"># Сброс для Docker-варианта</span>
+<span class="cmd">docker compose</span> <span class="param">-f deploy/docker-compose.prod.yml down -v</span>
+<span class="cmd">docker compose</span> <span class="param">-f deploy/docker-compose.prod.yml up --build -d</span>
+
+<span class="comment"># Сброс для нативного варианта (через psql)</span>
+<span class="cmd">psql</span> <span class="param">-U postgres -c "DROP DATABASE feosport2;"</span>
+<span class="cmd">psql</span> <span class="param">-U postgres -c "CREATE DATABASE feosport2 OWNER feosport;"</span>
+<span class="cmd">psql</span> <span class="param">-U postgres -d feosport2 -f database\init.sql</span>
+<span class="cmd">psql</span> <span class="param">-U postgres -d feosport2 -f database\seed.sql</span></pre>
+
+  <h2>9.4 Журналы установки</h2>
+  <p>При проблемах с установкой проверить файл <code>C:\Program Files\FeoSport2\install.log</code> — он содержит подробный журнал всех операций.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     10. СПРАВОЧНИК КОМАНД
+══════════════════════════════════════════════════════════════════ -->
+<div class="section" id="s10">
+  <h1><span class="section-num">10</span>Справочник команд</h1>
+
+  <h2>10.1 PowerShell — общие команды</h2>
+  <table>
+    <thead><tr><th>Команда</th><th>Описание</th></tr></thead>
+    <tbody>
+      <tr><td><code>ipconfig</code></td><td>Показать IP-адреса сетевых адаптеров</td></tr>
+      <tr><td><code>netstat -ano | findstr 8090</code></td><td>Проверить занятость порта 8090</td></tr>
+      <tr><td><code>net start postgresql-x64-16</code></td><td>Запустить службу PostgreSQL</td></tr>
+      <tr><td><code>net stop postgresql-x64-16</code></td><td>Остановить службу PostgreSQL</td></tr>
+      <tr><td><code>services.msc</code></td><td>Открыть диспетчер служб Windows</td></tr>
+    </tbody>
+  </table>
+
+  <h2>10.2 Docker Compose команды</h2>
+  <table>
+    <thead><tr><th>Команда</th><th>Описание</th></tr></thead>
+    <tbody>
+      <tr><td><code>docker compose ps</code></td><td>Статус контейнеров</td></tr>
+      <tr><td><code>docker compose logs -f</code></td><td>Логи в реальном времени</td></tr>
+      <tr><td><code>docker compose restart backend</code></td><td>Перезапустить backend</td></tr>
+      <tr><td><code>docker compose down</code></td><td>Остановить (данные сохраняются)</td></tr>
+      <tr><td><code>docker compose down -v</code></td><td>Остановить и удалить все данные</td></tr>
+    </tbody>
+  </table>
+
+  <h2>10.3 psql — работа с базой данных</h2>
+  <table>
+    <thead><tr><th>Команда</th><th>Описание</th></tr></thead>
+    <tbody>
+      <tr><td><code>psql -U feosport -d feosport2</code></td><td>Подключиться к БД приложения</td></tr>
+      <tr><td><code>\dt</code></td><td>Список таблиц (внутри psql)</td></tr>
+      <tr><td><code>SELECT COUNT(*) FROM pilots;</code></td><td>Количество пилотов</td></tr>
+      <tr><td><code>SELECT * FROM users;</code></td><td>Список пользователей</td></tr>
+      <tr><td><code>\q</code></td><td>Выход из psql</td></tr>
+    </tbody>
+  </table>
+
+  <h2>10.4 API — быстрая проверка работоспособности</h2>
+  <pre><span class="comment"># Проверить, что сервер отвечает</span>
+<span class="cmd">curl</span> http://localhost:8090/healthz
+
+<span class="comment"># Получить JWT-токен (авторизоваться)</span>
+<span class="cmd">curl</span> <span class="param">-X POST</span> http://localhost:8090/api/auth/login \
+  <span class="param">-H "Content-Type: application/json"</span> \
+  <span class="param">-d</span> <span class="str">'{"email":"admin@feosport.local","password":"admin123"}'</span>
+
+<span class="comment"># Список соревнований</span>
+<span class="cmd">curl</span> http://localhost:8090/api/competitions \
+  <span class="param">-H "Authorization: Bearer &lt;TOKEN&gt;"</span></pre>
+
+  <div style="margin-top:30px; padding-top:16px; border-top:1px solid #e0e0e0; text-align:center; color:#999; font-size:8.5pt;">
+    FeoSport2 Race Control System · Версия 1.0 · 2025<br/>
+    Документ сгенерирован автоматически
+  </div>
+</div>
+
+</body>
+</html>

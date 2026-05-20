@@ -1,0 +1,63 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.pilots-page {
+  &__content {
+    padding:   $space-md;
+    @include flex-col($gap: $space-sm);
+    max-width: $max-content-width;
+    margin:    0 auto;
+  }
+
+  &__state {
+    text-align:  center;
+    color:       $clr-text-muted;
+    padding:     $space-2xl 0;
+
+    &--error { color: $clr-error; }
+  }
+
+  &__list {
+    list-style: none;
+    @include flex-col($gap: $space-xs);
+  }
+
+  &__item {
+    @include card;
+    display:     flex;
+    align-items: center;
+    gap:         $space-md;
+  }
+
+  &__num {
+    font-family: $font-mono;
+    font-size:   $font-size-sm;
+    color:       $clr-text-muted;
+    min-width:   40px;
+    flex-shrink: 0;
+  }
+
+  &__info {
+    @include flex-col($gap: 2px);
+    min-width: 0;
+  }
+
+  &__name {
+    font-weight: 600;
+    @include truncate;
+  }
+
+  &__meta {
+    font-size: $font-size-sm;
+    color:     $clr-text-muted;
+    @include truncate;
+  }
+
+  @include respond(md) {
+    &__list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: $space-sm;
+    }
+  }
+}

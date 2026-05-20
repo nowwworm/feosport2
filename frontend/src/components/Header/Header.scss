@@ -1,0 +1,47 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.header {
+  position:         fixed;
+  top:              0;
+  left:             0;
+  right:            0;
+  height:           $header-height;
+  z-index:          100;
+  background:       $clr-surface;
+  border-bottom:    1px solid $clr-border;
+  display:          flex;
+  align-items:      center;
+  justify-content:  space-between;
+  padding:          0 $space-md;
+
+  &__title {
+    font-size:      $font-size-lg;
+    font-weight:    700;
+    color:          $clr-accent;
+    @include truncate;
+  }
+
+  &__user {
+    display:     flex;
+    align-items: center;
+    gap:         $space-sm;
+    flex-shrink: 0;
+  }
+
+  &__role {
+    font-size:      $font-size-sm;
+    color:          $clr-text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  &__logout {
+    @include touch-target(36px);
+    font-size:     $font-size-sm;
+    color:         $clr-accent;
+    border:        1px solid $clr-border;
+    border-radius: 6px;
+    padding:       0 $space-sm;
+  }
+}

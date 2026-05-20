@@ -1,0 +1,95 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.leaderboard-page {
+  &__content {
+    padding:     $space-md;
+    @include flex-col($gap: $space-sm);
+    max-width:   $max-content-width;
+    margin:      0 auto;
+  }
+
+  &__status {
+    display:     flex;
+    align-items: center;
+    gap:         $space-xs;
+    font-size:   $font-size-sm;
+    color:       $clr-text-muted;
+  }
+
+  &__dot {
+    width:         8px;
+    height:        8px;
+    border-radius: 50%;
+    flex-shrink:   0;
+
+    &--online  { background: $clr-success; }
+    &--offline { background: $clr-error; }
+  }
+
+  &__ts {
+    margin-left: auto;
+  }
+
+  &__empty {
+    @include card;
+    text-align: center;
+    padding:    $space-2xl $space-md;
+    color:      $clr-text-muted;
+  }
+
+  &__list {
+    list-style: none;
+    @include flex-col($gap: $space-xs);
+  }
+
+  &__row {
+    @include card;
+    display:     flex;
+    align-items: center;
+    gap:         $space-md;
+
+    &--podium { border-color: $clr-accent-2; }
+
+    .rank {
+      font-size:   $font-size-xl;
+      font-weight: 900;
+      min-width:   32px;
+      color:       $clr-text-muted;
+    }
+
+    .pilot-info {
+      flex: 1;
+      @include flex-col($gap: 2px);
+      min-width: 0;
+
+      .name {
+        font-weight: 600;
+        @include truncate;
+      }
+
+      .team {
+        font-size: $font-size-sm;
+        color:     $clr-text-muted;
+        @include truncate;
+      }
+    }
+
+    .time {
+      font-family: $font-mono;
+      font-size:   $font-size-lg;
+      font-weight: 700;
+      color:       $clr-accent-2;
+      flex-shrink: 0;
+    }
+  }
+
+  // Expand to 2-column grid on wider screens
+  @include respond(md) {
+    &__list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: $space-sm;
+    }
+  }
+}

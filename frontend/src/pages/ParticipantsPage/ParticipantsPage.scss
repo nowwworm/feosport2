@@ -1,0 +1,221 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.participants-page {
+  &__content {
+    padding:   $space-md;
+    max-width: 1200px;
+    margin:    0 auto;
+    @include flex-col($gap: $space-md);
+  }
+
+  &__header {
+    display:         flex;
+    align-items:     flex-start;
+    justify-content: space-between;
+    gap:             $space-md;
+    flex-wrap:       wrap;
+  }
+
+  &__title {
+    font-size:   $font-size-xl;
+    font-weight: 700;
+    color:       $clr-text;
+    margin:      0;
+  }
+
+  &__subtitle {
+    font-size: $font-size-sm;
+    color:     $clr-text-muted;
+    margin:    4px 0 0;
+  }
+
+  &__actions {
+    display:     flex;
+    align-items: center;
+    gap:         $space-sm;
+    flex-wrap:   wrap;
+  }
+
+  &__sync-btn {
+    display:       inline-flex;
+    align-items:   center;
+    gap:           $space-sm;
+    padding:       9px $space-md;
+    background:    $clr-accent;
+    color:         #fff;
+    border:        none;
+    border-radius: 8px;
+    font-size:     $font-size-sm;
+    font-weight:   600;
+    cursor:        pointer;
+    white-space:   nowrap;
+    transition:    background 0.2s, opacity 0.2s;
+
+    &:hover:not(:disabled) { background: #c41f22; }
+    &--loading { opacity: 0.7; cursor: not-allowed; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+
+  &__danger-btn {
+    display:       inline-flex;
+    align-items:   center;
+    gap:           $space-xs;
+    padding:       9px $space-md;
+    background:    transparent;
+    color:         $clr-text-muted;
+    border:        1px solid $clr-border;
+    border-radius: 8px;
+    font-size:     $font-size-sm;
+    font-weight:   600;
+    cursor:        pointer;
+    white-space:   nowrap;
+    transition:    border-color 0.2s, color 0.2s, background 0.2s;
+
+    &:hover:not(:disabled) {
+      border-color: $clr-error;
+      color:        $clr-error;
+      background:   rgba($clr-error, 0.08);
+    }
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
+  }
+
+  &__log {
+    background:    $clr-surface;
+    border:        1px solid $clr-border;
+    border-radius: 8px;
+    padding:       $space-md;
+    font-family:   $font-mono;
+    font-size:     12px;
+    color:         $clr-text-muted;
+    white-space:   pre-wrap;
+    max-height:    160px;
+    overflow-y:    auto;
+    line-height:   1.6;
+  }
+
+  &__state {
+    text-align: center;
+    color:      $clr-text-muted;
+    padding:    $space-2xl 0;
+    &--error { color: $clr-error; }
+  }
+
+  // ── Панель фильтров ──────────────────────────────────────────────────────
+  &__filters {
+    display:       flex;
+    gap:           $space-sm;
+    flex-wrap:     wrap;
+    align-items:   center;
+    background:    $clr-surface;
+    border:        1px solid $clr-border;
+    border-radius: 10px;
+    padding:       12px $space-md;
+  }
+
+  &__search-wrap {
+    position:    relative;
+    flex:        2;
+    min-width:   220px;
+    display:     flex;
+    align-items: center;
+  }
+
+  &__search-icon {
+    position:       absolute;
+    left:           10px;
+    color:          $clr-text-muted;
+    font-size:      17px;
+    pointer-events: none;
+    line-height:    1;
+  }
+
+  &__search {
+    width:         100%;
+    background:    $clr-surface-2;
+    border:        1px solid $clr-border;
+    border-radius: 6px;
+    padding:       8px 32px 8px 32px;
+    color:         $clr-text;
+    font-size:     $font-size-sm;
+    outline:       none;
+    transition:    border-color 0.2s;
+
+    &::placeholder { color: $clr-text-muted; }
+    &:focus        { border-color: $clr-accent; }
+  }
+
+  &__search-clear {
+    position:    absolute;
+    right:       8px;
+    background:  none;
+    border:      none;
+    color:       $clr-text-muted;
+    cursor:      pointer;
+    font-size:   13px;
+    padding:     2px 4px;
+    line-height: 1;
+    &:hover { color: $clr-accent; }
+  }
+
+  &__select {
+    background:          $clr-surface-2;
+    border:              1px solid $clr-border;
+    border-radius:       6px;
+    padding:             8px 30px 8px 10px;
+    color:               $clr-text;
+    font-size:           $font-size-sm;
+    outline:             none;
+    cursor:              pointer;
+    min-width:           130px;
+    flex:                1;
+    transition:          border-color 0.2s;
+    appearance:          none;
+    background-image:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23666' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+    background-repeat:   no-repeat;
+    background-position: right 10px center;
+
+    &:focus { border-color: $clr-accent; }
+    option  { background: #1e1e1e; color: $clr-text; }
+  }
+
+  &__clear-btn {
+    padding:       8px 12px;
+    background:    transparent;
+    border:        1px solid $clr-border;
+    border-radius: 6px;
+    color:         $clr-text-muted;
+    font-size:     $font-size-sm;
+    cursor:        pointer;
+    white-space:   nowrap;
+    transition:    border-color 0.2s, color 0.2s;
+
+    &:hover { border-color: $clr-accent; color: $clr-accent; }
+  }
+
+  // ── DataGrid ─────────────────────────────────────────────────────────────
+  &__grid-wrap {
+    height: 600px;
+    width:  100%;
+
+    .MuiTablePagination-select,
+    .MuiTablePagination-displayedRows { color: #666; font-size: 12px; }
+  }
+
+  &__del-btn {
+    background:    transparent;
+    border:        none;
+    color:         #444;
+    font-size:     14px;
+    cursor:        pointer;
+    padding:       4px 6px;
+    border-radius: 4px;
+    transition:    color 0.15s, background 0.15s;
+    line-height:   1;
+
+    &:hover {
+      color:      $clr-error;
+      background: rgba($clr-error, 0.1);
+    }
+  }
+}

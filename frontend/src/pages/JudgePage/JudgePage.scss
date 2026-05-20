@@ -1,0 +1,84 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.judge-page {
+  &__content {
+    padding:    $space-md;
+    @include flex-col($gap: $space-md);
+    max-width:  480px;
+    margin:     0 auto;
+  }
+
+  &__locked-banner {
+    background:    rgba($clr-error, 0.12);
+    border:        1px solid $clr-error;
+    border-radius: 8px;
+    padding:       $space-sm $space-md;
+    color:         $clr-error;
+    font-weight:   700;
+    text-align:    center;
+  }
+
+  &__form {
+    @include flex-col($gap: $space-md);
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-sm;
+  }
+
+  &__field {
+    @include flex-col($gap: $space-xs);
+
+    label {
+      font-size: $font-size-sm;
+      color:     $clr-text-muted;
+    }
+  }
+
+  &__flags {
+    @include flex-col($gap: $space-sm);
+  }
+
+  &__flag {
+    display:     flex;
+    align-items: center;
+    gap:         $space-sm;
+    font-size:   $font-size-base;
+    cursor:      pointer;
+
+    input[type='checkbox'] {
+      width:  20px;
+      height: 20px;
+      cursor: pointer;
+    }
+  }
+
+  &__feedback {
+    padding:       $space-sm $space-md;
+    border-radius: 6px;
+    font-size:     $font-size-sm;
+    text-align:    center;
+
+    &--success { background: rgba($clr-success, 0.12); color: $clr-success; border: 1px solid $clr-success; }
+    &--error   { background: rgba($clr-error,   0.12); color: $clr-error;   border: 1px solid $clr-error;   }
+    &--warning { background: rgba($clr-warning,  0.12); color: $clr-warning; border: 1px solid $clr-warning; }
+  }
+
+  &__submit {
+    @include touch-target(56px);
+    width:         100%;
+    background:    $clr-accent;
+    color:         #fff;
+    font-size:     $font-size-lg;
+    font-weight:   700;
+    border-radius: 8px;
+
+    &:disabled {
+      background: $clr-surface-2;
+      color:      $clr-text-muted;
+    }
+  }
+}

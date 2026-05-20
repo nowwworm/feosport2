@@ -1,0 +1,216 @@
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+
+  &__content {
+    padding: 16px;
+    flex: 1;
+  }
+
+  &__toolbar {
+    margin-bottom: 16px;
+  }
+
+  // ── Форма создания ─────────────────────────────────────────────────────────
+  &__form {
+    background: var(--color-surface, #1a1a2e);
+    border: 1px solid var(--color-border, #2a2a4a);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    max-width: 440px;
+  }
+
+  &__form-title {
+    margin: 0 0 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary, #e0e0ff);
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+
+    span {
+      font-size: 12px;
+      color: var(--color-text-secondary, #8888aa);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input, select {
+      background: var(--color-input-bg, #111128);
+      border: 1px solid var(--color-border, #2a2a4a);
+      border-radius: 6px;
+      color: var(--color-text-primary, #e0e0ff);
+      padding: 8px 10px;
+      font-size: 14px;
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+
+      &:focus {
+        border-color: var(--color-accent, #6c63ff);
+      }
+    }
+  }
+
+  &__form-error {
+    color: var(--color-error, #ff5555);
+    font-size: 13px;
+    margin: 0 0 10px;
+  }
+
+  // ── Кнопки ────────────────────────────────────────────────────────────────
+  &__btn {
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    transition: opacity 0.15s;
+
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &:not(:disabled):hover { opacity: 0.85; }
+
+    &--primary {
+      background: var(--color-accent, #6c63ff);
+      color: #fff;
+    }
+
+    &--sm {
+      padding: 4px 10px;
+      background: var(--color-accent, #6c63ff);
+      color: #fff;
+      margin-left: 6px;
+    }
+  }
+
+  // ── Состояния ─────────────────────────────────────────────────────────────
+  &__state {
+    text-align: center;
+    color: var(--color-text-secondary, #8888aa);
+    padding: 32px 0;
+    font-size: 14px;
+
+    &--error { color: var(--color-error, #ff5555); }
+  }
+
+  // ── Таблица ───────────────────────────────────────────────────────────────
+  &__table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+
+    th {
+      text-align: left;
+      color: var(--color-text-secondary, #8888aa);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 6px 10px 8px;
+      border-bottom: 1px solid var(--color-border, #2a2a4a);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--color-border, #2a2a4a);
+      vertical-align: middle;
+      color: var(--color-text-primary, #e0e0ff);
+    }
+  }
+
+  &__row {
+    transition: background 0.1s;
+
+    &:hover { background: rgba(255,255,255,0.03); }
+
+    &--inactive td {
+      opacity: 0.45;
+    }
+  }
+
+  &__cell-id {
+    color: var(--color-text-secondary, #8888aa);
+    font-size: 11px;
+    width: 32px;
+  }
+
+  &__cell-date {
+    color: var(--color-text-secondary, #8888aa);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  // ── Роль — select ─────────────────────────────────────────────────────────
+  &__select {
+    background: var(--color-input-bg, #111128);
+    border: 1px solid var(--color-border, #2a2a4a);
+    border-radius: 4px;
+    color: var(--color-text-primary, #e0e0ff);
+    padding: 4px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &:focus { border-color: var(--color-accent, #6c63ff); }
+  }
+
+  // ── Бейдж статуса ────────────────────────────────────────────────────────
+  &__badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s;
+
+    &:hover { opacity: 0.75; }
+
+    &--active {
+      background: rgba(80, 200, 120, 0.18);
+      color: #50c878;
+    }
+
+    &--disabled {
+      background: rgba(180, 180, 180, 0.12);
+      color: #888;
+    }
+  }
+
+  // ── Смена пароля ─────────────────────────────────────────────────────────
+  &__cell-pwd {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__pwd-input {
+    background: var(--color-input-bg, #111128);
+    border: 1px solid var(--color-border, #2a2a4a);
+    border-radius: 4px;
+    color: var(--color-text-primary, #e0e0ff);
+    padding: 4px 8px;
+    font-size: 12px;
+    width: 120px;
+    outline: none;
+
+    &:focus { border-color: var(--color-accent, #6c63ff); }
+  }
+}
