@@ -1,0 +1,161 @@
+name: AQA
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_e2e:
+        description: 'Run TMX Playwright E2E suite'
+        required: false
+        default: false
+        type: boolean
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Run backend Jest tests
+        working-directory: backend
+        run: npm test
+
+  frontend-build:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      VITE_API_URL: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --include=dev --no-audit --no-fund
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  tmx-unit:
+    name: TMX typecheck and unit tests
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      CI: 'true'
+      TZ: UTC
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm 11.1.2
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.1.2'
+          run_install: false
+
+      - name: Install TMX dependencies
+        working-directory: feoTEST/TMX
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Typecheck TMX (advisory)
+        continue-on-error: true
+        working-directory: feoTEST/TMX
+        run: pnpm run check-types
+
+      - name: Run TMX Vitest suite
+        working-directory: feoTEST/TMX
+        run: pnpm exec vitest run
+
+  tmx-e2e:
+    name: TMX Playwright E2E
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      CI: 'true'
+      TZ: UTC
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm 11.1.2
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.1.2'
+          run_install: false
+
+      - name: Install TMX dependencies
+        working-directory: feoTEST/TMX
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Install Chromium for Playwright
+        working-directory: feoTEST/TMX
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run TMX Playwright E2E suite
+        working-directory: feoTEST/TMX
+        run: pnpm run test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmx-playwright-report
+          path: feoTEST/TMX/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Playwright test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmx-playwright-test-results
+          path: feoTEST/TMX/e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
