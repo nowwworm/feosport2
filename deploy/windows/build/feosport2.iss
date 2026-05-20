@@ -29,6 +29,7 @@ MinVersion=10.0.19041
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
 CloseApplications=yes
+SetupLogging=yes
 
 ; Страницы установщика
 [Languages]
@@ -66,6 +67,7 @@ Source: "bundled-scripts\setup-db.ps1";     DestDir: "{app}";               Flag
 Source: "bundled-scripts\start-feosport.bat"; DestDir: "{app}";             Flags: ignoreversion
 Source: "bundled-scripts\stop-feosport.bat";  DestDir: "{app}";             Flags: ignoreversion
 Source: "bundled-scripts\seed-data.bat";      DestDir: "{app}";             Flags: ignoreversion
+Source: "bundled-scripts\collect-logs.ps1";   DestDir: "{app}";             Flags: ignoreversion
 
 ; PostgreSQL installer (опционально, только для компонента postgres)
 Source: "deps\postgresql-16-win-x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Components: postgres
@@ -74,6 +76,7 @@ Source: "deps\postgresql-16-win-x64.exe"; DestDir: "{tmp}"; Flags: deleteafterin
 Name: "{group}\{#AppName}";                 Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"
 Name: "{group}\Остановить {#AppName}";      Filename: "{app}\stop-feosport.bat"
 Name: "{group}\Загрузить тестовые данные";  Filename: "{app}\seed-data.bat"
+Name: "{group}\Собрать логи {#AppName}";    Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\collect-logs.ps1"""; WorkingDir: "{app}"
 Name: "{group}\Удалить {#AppName}";         Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}";           Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"; Tasks: desktopicon
 Name: "{userstartup}\{#AppName}";           Filename: "{app}\start-feosport.bat"; Tasks: autostart
@@ -110,20 +113,6 @@ var
   DbPasswordPage:  TInputQueryWizardPage;
   JwtSecret:       String;
 
-{ Генератор hex-строки, совместимый с Inno Setup Pascal Script. }
-function RandomHex(Len: Integer): String;
-var
-  i: Integer;
-  Seed: String;
-begin
-  Seed := GetDateTimeString('yyyymmddhhnnss', '', '');
-  Result := '';
-  for i := 1 to Len do
-  begin
-    Result := Result + Copy(Seed, ((i - 1) mod Length(Seed)) + 1, 1);
-  end;
-end;
-
 { Проверка — установлен ли PostgreSQL }
 function IsPostgresInstalled: Boolean;
 begin
@@ -134,7 +123,7 @@ end;
 { Инициализация кастомных страниц }
 procedure InitializeWizard;
 begin
-  JwtSecret := RandomHex(64);
+  JwtSecret := '';
 
   { Страница 1: пароль postgres-суперпользователя }
   PgPasswordPage := CreateInputQueryPage(wpSelectComponents,

@@ -12,8 +12,14 @@ for /f "tokens=3" %%s in ('sc query postgresql* ^| findstr "STATE"') do (
 
 :: Start the server (hidden window via start /b)
 set SCRIPT_DIR=%~dp0
+set LOG_DIR=%SCRIPT_DIR%logs
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"') do set LOG_TS=%%I
+set LOG_FILE=%LOG_DIR%\server-%LOG_TS%.log
 if exist "%SCRIPT_DIR%feosport2-server.exe" (
-    start "FeoSport2-Server" /b "%SCRIPT_DIR%feosport2-server.exe"
+    echo [%date% %time%] Starting FeoSport2 from %SCRIPT_DIR% > "%LOG_FILE%"
+    echo [%date% %time%] Server log: %LOG_FILE% >> "%LOG_FILE%"
+    start "FeoSport2-Server" /b cmd /c ""%SCRIPT_DIR%feosport2-server.exe" >> "%LOG_FILE%" 2>&1"
 ) else (
     echo [ОШИБКА] feosport2-server.exe не найден в %SCRIPT_DIR%
     pause

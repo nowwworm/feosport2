@@ -6,16 +6,37 @@
 param(
     [Parameter(Mandatory)][string]$PgPassword,   # postgres superuser password
     [Parameter(Mandatory)][string]$DbPassword,   # feosport user password
-    [Parameter(Mandatory)][string]$JwtSecret,    # JWT secret
+    [Parameter(Mandatory)][AllowEmptyString()][string]$JwtSecret,    # JWT secret
     [Parameter(Mandatory)][string]$InstallDir,   # C:\FeoSport2
     [Parameter(Mandatory)][string]$InitSql,      # path to init.sql
     [Parameter(Mandatory)][string]$SeedSql       # path to seed.sql
 )
 
 $ErrorActionPreference = "Stop"
-$LogFile = Join-Path $InstallDir "install.log"
+$LogDir = Join-Path $InstallDir "logs"
+New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+$LogFile = Join-Path $LogDir "setup-db.log"
+$TranscriptFile = Join-Path $LogDir "setup-db-transcript.log"
 
 function Log { param($msg) Add-Content -Path $LogFile -Value "$(Get-Date -f 'HH:mm:ss') $msg" }
+
+function New-HexSecret {
+    $bytes = New-Object byte[] 32
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $rng.GetBytes($bytes)
+    } finally {
+        $rng.Dispose()
+    }
+    return -join ($bytes | ForEach-Object { $_.ToString("x2") })
+}
+
+Start-Transcript -Path $TranscriptFile -Append | Out-Null
+
+try {
+if ([string]::IsNullOrWhiteSpace($JwtSecret)) {
+    $JwtSecret = New-HexSecret
+}
 
 Log "=== FeoSport2 DB Setup START ==="
 
@@ -85,3 +106,10 @@ if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContin
 
 Log "=== FeoSport2 DB Setup COMPLETE ==="
 exit 0
+} catch {
+    Log "ERROR: $($_.Exception.Message)"
+    Log "ERROR DETAIL: $($_ | Out-String)"
+    exit 1
+} finally {
+    try { Stop-Transcript | Out-Null } catch {}
+}
