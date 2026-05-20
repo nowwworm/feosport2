@@ -69,7 +69,7 @@ jobs:
           $out = "..\deploy\windows\build\staging\app\feosport2-server.exe"
           New-Item -ItemType Directory -Force -Path "..\deploy\windows\build\staging\app\scripts" | Out-Null
           pkg src/server-bundled.js `
-            --target node20-win-x64 `
+            --target node18-win-x64 `
             --output $out `
             --compress GZip
           if (-not (Test-Path $out)) { throw "pkg did not produce exe" }
