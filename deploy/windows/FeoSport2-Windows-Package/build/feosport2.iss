@@ -55,8 +55,12 @@ Source: "staging\app\scripts\seed.js";   DestDir: "{app}\scripts";           Fla
 ; Собранный фронтенд
 Source: "staging\frontend-dist\*";       DestDir: "{app}\frontend-dist";     Flags: ignoreversion recursesubdirs createallsubdirs
 
+; TMX (турнирная сетка) — статический SPA, раздаётся сервером по пути /tmx/
+Source: "staging\tmx-dist\*";            DestDir: "{app}\tmx-dist";          Flags: ignoreversion recursesubdirs createallsubdirs; Components: app
+
 ; База данных
 Source: "staging\database\init.sql";     DestDir: "{app}\database";          Flags: ignoreversion
+Source: "staging\database\seed-users.sql"; DestDir: "{app}\database";        Flags: ignoreversion
 Source: "staging\database\seed.sql";     DestDir: "{app}\database";          Flags: ignoreversion
 
 ; Вспомогательные скрипты
@@ -65,6 +69,8 @@ Source: "bundled-scripts\start-feosport.bat"; DestDir: "{app}";             Flag
 Source: "bundled-scripts\stop-feosport.bat";  DestDir: "{app}";             Flags: ignoreversion
 Source: "bundled-scripts\seed-data.bat";      DestDir: "{app}";             Flags: ignoreversion
 Source: "bundled-scripts\collect-logs.ps1";   DestDir: "{app}";             Flags: ignoreversion
+Source: "bundled-scripts\check-updates.ps1";  DestDir: "{app}";             Flags: ignoreversion
+Source: "support\*";                          DestDir: "{app}\support";     Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; PostgreSQL installer (опционально, только для компонента postgres)
 Source: "deps\postgresql-16-win-x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Components: postgres
@@ -74,6 +80,7 @@ Name: "{group}\{#AppName}";                 Filename: "{app}\start-feosport.bat"
 Name: "{group}\Остановить {#AppName}";      Filename: "{app}\stop-feosport.bat"
 Name: "{group}\Загрузить тестовые данные";  Filename: "{app}\seed-data.bat"
 Name: "{group}\Собрать логи {#AppName}";    Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\collect-logs.ps1"""; WorkingDir: "{app}"
+Name: "{group}\Проверить обновления {#AppName}"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\check-updates.ps1"""; WorkingDir: "{app}"
 Name: "{group}\Удалить {#AppName}";         Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}";           Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"; Tasks: desktopicon
 Name: "{userstartup}\{#AppName}";           Filename: "{app}\start-feosport.bat"; Tasks: autostart
@@ -88,7 +95,7 @@ Filename: "{tmp}\postgresql-16-win-x64.exe"; \
 
 ; 2. Настройка БД + автоматический seed (admin, пилоты, соревнования)
 Filename: "powershell.exe"; \
-    Parameters: "-ExecutionPolicy Bypass -NonInteractive -File ""{app}\setup-db.ps1"" -PgPassword ""{code:GetPgPassword}"" -DbPassword ""{code:GetDbPassword}"" -JwtSecret ""{code:GetJwtSecret}"" -InstallDir ""{app}"" -InitSql ""{app}\database\init.sql"" -SeedSql ""{app}\database\seed.sql"""; \
+    Parameters: "-ExecutionPolicy Bypass -NonInteractive -File ""{app}\setup-db.ps1"" -PgPassword ""{code:GetPgPassword}"" -DbPassword ""{code:GetDbPassword}"" -JwtSecret ""{code:GetJwtSecret}"" -InstallDir ""{app}"" -InitSql ""{app}\database\init.sql"" -SeedUsersSql ""{app}\database\seed-users.sql"" -SeedSql ""{app}\database\seed.sql"""; \
     StatusMsg: "Настройка базы данных и загрузка тестовых данных..."; \
     Flags: waituntilterminated runhidden
 
