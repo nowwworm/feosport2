@@ -22,7 +22,11 @@ export default function AuthPage() {
       await login(form.email, form.password);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка входа');
+      if (err.response?.status >= 500) {
+        setError('Ошибка сервера, проверьте БД/логи установки');
+      } else {
+        setError(err.response?.data?.error || 'Ошибка входа');
+      }
     } finally {
       setLoading(false);
     }
