@@ -5,6 +5,7 @@ const { execFile } = require('child_process');
 const path     = require('path');
 const bcrypt   = require('bcryptjs');
 const pool     = require('../config/db');
+const { getDbAdminStatus, startPgAdmin } = require('../services/dbAdminTools');
 const { authenticate, authorize } = require('../middleware/auth');
 
 // ── Все admin-маршруты требуют авторизации ──────────────────────────────────
@@ -25,6 +26,41 @@ router.get('/users', async (req, res) => {
   } catch (err) {
     console.error('[admin/users]', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  GET /api/admin/db/status — безопасная сводка по PostgreSQL для админки
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/db/status', async (req, res) => {
+  try {
+    const status = await getDbAdminStatus(pool, process.env);
+    res.json(status);
+  } catch (err) {
+    console.error('[admin/db/status]', err);
+    res.status(500).json({
+      ok: false,
+      error: 'Не удалось получить статус PostgreSQL',
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/admin/db/pgadmin/start — открыть pgAdmin на Windows-хосте
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/db/pgadmin/start', async (req, res) => {
+  try {
+    const result = await startPgAdmin();
+    if (!result.ok) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[admin/db/pgadmin/start]', err);
+    res.status(500).json({
+      ok: false,
+      error: 'Не удалось запустить pgAdmin',
+    });
   }
 });
 
