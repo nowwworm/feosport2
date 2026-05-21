@@ -12,6 +12,77 @@
     margin-bottom: 16px;
   }
 
+  &__db-panel {
+    background: var(--color-surface, #1a1a2e);
+    border: 1px solid var(--color-border, #2a2a4a);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  &__db-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+
+    h2 {
+      margin: 0 0 4px;
+      color: var(--color-text-primary, #e0e0ff);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    p {
+      margin: 0;
+      color: var(--color-text-secondary, #8888aa);
+      font-size: 13px;
+      word-break: break-word;
+    }
+  }
+
+  &__db-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  &__db-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    gap: 10px;
+
+    div {
+      background: var(--color-input-bg, #111128);
+      border: 1px solid var(--color-border, #2a2a4a);
+      border-radius: 6px;
+      padding: 10px;
+      min-width: 0;
+    }
+
+    span {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--color-text-secondary, #8888aa);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    strong {
+      color: var(--color-text-primary, #e0e0ff);
+      font-size: 14px;
+    }
+  }
+
+  &__db-error {
+    margin: 0;
+    color: var(--color-error, #ff5555);
+    font-size: 13px;
+  }
+
   // ── Форма создания ─────────────────────────────────────────────────────────
   &__form {
     background: var(--color-surface, #1a1a2e);
@@ -81,6 +152,12 @@
     &--primary {
       background: var(--color-accent, #6c63ff);
       color: #fff;
+    }
+
+    &--secondary {
+      background: var(--color-input-bg, #111128);
+      border: 1px solid var(--color-border, #2a2a4a);
+      color: var(--color-text-primary, #e0e0ff);
     }
 
     &--sm {
@@ -212,5 +289,21 @@
     outline: none;
 
     &:focus { border-color: var(--color-accent, #6c63ff); }
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-page {
+    &__db-head {
+      flex-direction: column;
+    }
+
+    &__db-actions {
+      justify-content: flex-start;
+    }
+
+    &__db-grid {
+      grid-template-columns: 1fr;
+    }
   }
 }

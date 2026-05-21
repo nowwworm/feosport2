@@ -17,6 +17,10 @@ export default function AdminPage() {
   const [users,   setUsers]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
+  const [dbStatus, setDbStatus] = useState(null);
+  const [dbLoading, setDbLoading] = useState(true);
+  const [dbError, setDbError] = useState('');
+  const [pgAdminStarting, setPgAdminStarting] = useState(false);
 
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
@@ -37,7 +41,29 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const loadDbStatus = useCallback(() => {
+    setDbLoading(true);
+    setDbError('');
+    api.get('/admin/db/status')
+      .then(({ data }) => setDbStatus(data))
+      .catch((err) => setDbError(err.response?.data?.error || 'Ошибка проверки PostgreSQL'))
+      .finally(() => setDbLoading(false));
+  }, []);
+
   useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => { loadDbStatus(); }, [loadDbStatus]);
+
+  async function handleStartPgAdmin() {
+    setPgAdminStarting(true);
+    try {
+      await api.post('/admin/db/pgadmin/start');
+      loadDbStatus();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Не удалось запустить pgAdmin');
+    } finally {
+      setPgAdminStarting(false);
+    }
+  }
 
   // ── Создание пользователя ──────────────────────────────────────────────────
   async function handleCreate(e) {
@@ -106,6 +132,51 @@ export default function AdminPage() {
       <Header title="Управление пользователями" />
 
       <div className="admin-page__content">
+        <section className="admin-page__db-panel">
+          <div className="admin-page__db-head">
+            <div>
+              <h2>PostgreSQL</h2>
+              <p>База {dbStatus?.connection?.database || 'feosport2'} · {dbStatus?.connection?.user || 'feosport'}@{dbStatus?.connection?.host || 'localhost'}:{dbStatus?.connection?.port || 5432}</p>
+            </div>
+            <div className="admin-page__db-actions">
+              <button
+                className="admin-page__btn admin-page__btn--secondary"
+                type="button"
+                onClick={loadDbStatus}
+                disabled={dbLoading}
+              >
+                {dbLoading ? 'Проверка…' : 'Обновить'}
+              </button>
+              <button
+                className="admin-page__btn admin-page__btn--primary"
+                type="button"
+                onClick={handleStartPgAdmin}
+                disabled={pgAdminStarting || !dbStatus?.pgAdmin?.available}
+                title={dbStatus?.pgAdmin?.available ? 'Открыть pgAdmin на сервере' : 'pgAdmin не найден на сервере'}
+              >
+                {pgAdminStarting ? 'Запуск…' : 'Открыть pgAdmin'}
+              </button>
+            </div>
+          </div>
+
+          {dbError && <p className="admin-page__db-error">{dbError}</p>}
+          {!dbError && (
+            <div className="admin-page__db-grid">
+              <div>
+                <span>Статус</span>
+                <strong>{dbStatus?.ok ? 'Подключено' : dbLoading ? 'Проверка' : 'Нет данных'}</strong>
+              </div>
+              <div>
+                <span>Базовые пользователи</span>
+                <strong>{dbStatus?.baselineUsers ?? '—'}/4</strong>
+              </div>
+              <div>
+                <span>pgAdmin</span>
+                <strong>{dbStatus?.pgAdmin?.available ? 'Найден' : 'Не найден'}</strong>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* ── Кнопка добавить ──────────────────────────────────────────── */}
         <div className="admin-page__toolbar">
