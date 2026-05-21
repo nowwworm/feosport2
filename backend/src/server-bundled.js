@@ -3,6 +3,11 @@
  * Serves both the API and the pre-built React frontend from a single process.
  */
 const path = require('path');
+const {
+  getRuntimeSummary,
+  loadBundledEnv,
+  logRuntimeSummary,
+} = require('./config/runtimeEnv');
 
 // When running as pkg exe, process.execPath = path to the .exe
 // When running as plain node, fall back to project root
@@ -10,7 +15,8 @@ const appDir = process.pkg
   ? path.dirname(process.execPath)
   : path.resolve(__dirname, '../../..');
 
-require('dotenv').config({ path: path.join(appDir, '.env') });
+const envInfo = loadBundledEnv(appDir);
+logRuntimeSummary(getRuntimeSummary(appDir, envInfo));
 
 const http    = require('http');
 const express = require('express');

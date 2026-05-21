@@ -29,7 +29,14 @@ router.post('/login', async (req, res) => {
     );
     res.json({ token, user: { id: rows[0].id, email: rows[0].email, role: rows[0].role } });
   } catch (err) {
-    console.error(err);
+    if (err.code === '28P01') {
+      console.error(
+        `[db] PostgreSQL authentication failed for DB_USER=${process.env.DB_USER || 'postgres'} ` +
+        `DB_NAME=${process.env.DB_NAME || 'feosport2'} DB_HOST=${process.env.DB_HOST || 'localhost'}`
+      );
+    } else {
+      console.error(err);
+    }
     res.status(500).json({ error: 'Server error' });
   }
 });
