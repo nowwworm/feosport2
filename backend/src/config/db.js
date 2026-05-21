@@ -1,12 +1,20 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  host:     process.env.DB_HOST     || 'localhost',
-  port:     parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME     || 'feosport2',
-  user:     process.env.DB_USER     || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-});
+function getPoolConfig(env = process.env) {
+  return {
+    host:     env.DB_HOST     || 'localhost',
+    port:     parseInt(env.DB_PORT || '5432', 10),
+    database: env.DB_NAME     || 'feosport2',
+    user:     env.DB_USER     || 'postgres',
+    password: env.DB_PASSWORD || 'postgres',
+  };
+}
+
+function describePoolConfig(config = getPoolConfig()) {
+  return `${config.user}@${config.host}:${config.port}/${config.database}`;
+}
+
+const pool = new Pool(getPoolConfig());
 
 pool.on('error', (err) => {
   console.error('[db] unexpected client error', err);
@@ -14,3 +22,5 @@ pool.on('error', (err) => {
 });
 
 module.exports = pool;
+module.exports.getPoolConfig = getPoolConfig;
+module.exports.describePoolConfig = describePoolConfig;
