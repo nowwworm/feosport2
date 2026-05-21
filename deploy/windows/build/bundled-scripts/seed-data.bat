@@ -4,6 +4,8 @@ title FeoSport2 — Тестовые данные
 
 set APP_DIR=%~dp0
 set SEED_SQL=%APP_DIR%database\seed.sql
+set SEED_USERS_SQL=%APP_DIR%database\seed-users.sql
+set ENV_FILE=%APP_DIR%.env
 
 echo.
 echo  ╔══════════════════════════════════════════════════════╗
@@ -35,15 +37,44 @@ if not exist "%SEED_SQL%" (
     pause & exit /b 1
 )
 
-set /p PGPASSWORD=  Введи пароль postgres-суперпользователя:
+if not exist "%SEED_USERS_SQL%" (
+    echo  [ОШИБКА] seed-users.sql не найден: %SEED_USERS_SQL%
+    pause & exit /b 1
+)
+
+if exist "%ENV_FILE%" (
+    for /f "usebackq tokens=1,* delims==" %%A in ("%ENV_FILE%") do (
+        if /I "%%A"=="DB_HOST" set "DB_HOST=%%B"
+        if /I "%%A"=="DB_PORT" set "DB_PORT=%%B"
+        if /I "%%A"=="DB_NAME" set "DB_NAME=%%B"
+        if /I "%%A"=="DB_USER" set "DB_USER=%%B"
+        if /I "%%A"=="DB_PASSWORD" set "PGPASSWORD=%%B"
+    )
+) else (
+    echo  [ПРЕДУПРЕЖДЕНИЕ] .env не найден: %ENV_FILE%
+)
+
+if not defined DB_HOST set "DB_HOST=localhost"
+if not defined DB_PORT set "DB_PORT=5432"
+if not defined DB_NAME set "DB_NAME=feosport2"
+if not defined DB_USER set "DB_USER=feosport"
+if not defined PGPASSWORD set /p PGPASSWORD=  Введи пароль пользователя %DB_USER%:
 
 echo.
-"%PSQL%" -U postgres -d feosport2 -f "%SEED_SQL%"
+"%PSQL%" -h "%DB_HOST%" -p "%DB_PORT%" -U "%DB_USER%" -d "%DB_NAME%" -f "%SEED_USERS_SQL%"
+if errorlevel 1 (
+    echo.
+    echo  [ОШИБКА] Не удалось применить seed-users.sql
+    echo  Проверь .env, пароль пользователя БД и наличие схемы.
+    pause & exit /b 1
+)
+
+"%PSQL%" -h "%DB_HOST%" -p "%DB_PORT%" -U "%DB_USER%" -d "%DB_NAME%" -f "%SEED_SQL%"
 
 if errorlevel 1 (
     echo.
     echo  [ОШИБКА] Не удалось применить seed.sql
-    echo  Проверь что база feosport2 существует и пароль верный.
+    echo  Проверь что база %DB_NAME% существует и пароль верный.
 ) else (
     echo.
     echo  ✓ Тестовые данные загружены успешно!

@@ -5,9 +5,10 @@ param(
 
 $ErrorActionPreference = "Continue"
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$computer = if ([string]::IsNullOrWhiteSpace($env:COMPUTERNAME)) { "UNKNOWN-PC" } else { $env:COMPUTERNAME }
 $desktop = [Environment]::GetFolderPath("Desktop")
-$bundleRoot = Join-Path $env:TEMP "FeoSport2-logbundle-$stamp"
-$zipPath = Join-Path $desktop "FeoSport2-logs-$stamp.zip"
+$bundleRoot = Join-Path $env:TEMP "FeoSport2-logbundle-$computer-$stamp"
+$zipPath = Join-Path $desktop "FeoSport2-logs-$computer-$stamp.zip"
 
 New-Item -ItemType Directory -Force -Path $bundleRoot | Out-Null
 
@@ -67,12 +68,13 @@ Write-Info "Collecting from $InstallDir"
 Copy-ItemSafe -Path (Join-Path $InstallDir "logs") -Destination (Join-Path $bundleRoot "app")
 Copy-ItemSafe -Path (Join-Path $InstallDir "install.log") -Destination (Join-Path $bundleRoot "legacy")
 Copy-ItemSafe -Path (Join-Path $InstallDir "database") -Destination (Join-Path $bundleRoot "database")
+Copy-ItemSafe -Path (Join-Path $InstallDir "support") -Destination (Join-Path $bundleRoot "support")
 
 $envFile = Join-Path $InstallDir ".env"
 if (Test-Path $envFile) {
     $sanitizedEnv = Join-Path $bundleRoot "env.sanitized.txt"
     Get-Content $envFile |
-        ForEach-Object { $_ -replace "^(DB_PASSWORD|JWT_SECRET)=.*$", '$1=<redacted>' } |
+        ForEach-Object { $_ -replace "^(DB_PASSWORD|JWT_SECRET|FD_PASSWORD|PGPASSWORD)=.*$", '$1=<redacted>' } |
         Set-Content -Path $sanitizedEnv -Encoding UTF8
 }
 
@@ -88,6 +90,10 @@ Write-CommandOutput "diagnostics.txt" {
     "InstallDir: $InstallDir"
     "User: $env:USERNAME"
     "Computer: $env:COMPUTERNAME"
+    "Package version:"
+    $versionFile = Join-Path $InstallDir "support\version.txt"
+    if (Test-Path $versionFile) { Get-Content $versionFile } else { "support\version.txt not found" }
+    ""
     "OS:"
     Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber, OSArchitecture
     ""
@@ -101,6 +107,28 @@ Write-CommandOutput "diagnostics.txt" {
     Get-Process -ErrorAction SilentlyContinue |
         Where-Object { $_.ProcessName -match "feosport|postgres|node" } |
         Select-Object ProcessName, Id, CPU, StartTime, Path
+}
+
+Write-CommandOutput "health-check.txt" {
+    "GET http://localhost:8090/healthz"
+    try {
+        Invoke-WebRequest -Uri "http://localhost:8090/healthz" -UseBasicParsing -TimeoutSec 5 |
+            Select-Object StatusCode, StatusDescription, Content
+    } catch {
+        "ERROR: $($_.Exception.Message)"
+    }
+    ""
+    "POST http://localhost:8090/api/auth/login as judge@feosport.local"
+    try {
+        $body = @{ email = "judge@feosport.local"; password = "judge123" } | ConvertTo-Json
+        Invoke-WebRequest -Uri "http://localhost:8090/api/auth/login" -Method POST -Body $body -ContentType "application/json" -UseBasicParsing -TimeoutSec 5 |
+            Select-Object StatusCode, StatusDescription, Content
+    } catch {
+        "ERROR: $($_.Exception.Message)"
+        if ($_.Exception.Response) {
+            "HTTP status: $([int]$_.Exception.Response.StatusCode)"
+        }
+    }
 }
 
 Write-CommandOutput "ports.txt" {

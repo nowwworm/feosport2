@@ -144,8 +144,9 @@ if (-not (Test-Path $tmxDir)) {
 # ── Шаг 3: init.sql ──────────────────────────────────────────────────────────
 Write-Step 3 "Копирование database/"
 Copy-Item (Join-Path $ProjectRoot "database\init.sql") "$StagingDir\database\init.sql" -Force
+Copy-Item (Join-Path $ProjectRoot "database\seed-users.sql") "$StagingDir\database\seed-users.sql" -Force
 Copy-Item (Join-Path $ProjectRoot "database\seed.sql") "$StagingDir\database\seed.sql" -Force
-Write-Ok "init.sql + seed.sql скопированы"
+Write-Ok "init.sql + seed-users.sql + seed.sql скопированы"
 
 # ── Шаг 4: PostgreSQL installer ───────────────────────────────────────────────
 Write-Step 4 "PostgreSQL 16 installer"

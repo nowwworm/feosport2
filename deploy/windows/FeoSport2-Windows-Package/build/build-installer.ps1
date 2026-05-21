@@ -104,11 +104,49 @@ try {
     Pop-Location
 }
 
+# ── Шаг 2b: TMX → vite build ─────────────────────────────────────────────────
+Write-Step "2b" "Сборка TMX (feoTEST/TMX, vite build)"
+
+$tmxDir     = Join-Path $ProjectRoot "feoTEST\TMX"
+$tmxDist    = Join-Path $tmxDir "dist"
+$tmxStaging = Join-Path $StagingDir "tmx-dist"
+
+New-Item -ItemType Directory -Force -Path $tmxStaging | Out-Null
+
+if (-not (Test-Path $tmxDir)) {
+    Write-Warn "Папка feoTEST\TMX не найдена — пропускаем TMX"
+} else {
+    Push-Location $tmxDir
+    try {
+        if (-not (Test-Path (Join-Path $tmxDir "node_modules"))) {
+            Write-Host "│  pnpm install (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1)..." -ForegroundColor White
+            $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+            $env:ELECTRON_SKIP_BINARY_DOWNLOAD    = "1"
+            $env:CI = "true"
+            pnpm install --config.confirmModulesPurge=false
+        }
+
+        Write-Host "│  vite build (BASE_URL=tmx)..." -ForegroundColor White
+        $env:BASE_URL = "tmx"
+        pnpm exec rimraf dist
+        pnpm exec vite build
+
+        if (-not (Test-Path $tmxDist)) { Write-Fail "TMX: vite build не создал dist/" }
+
+        Copy-Item "$tmxDist\*" "$tmxStaging\" -Recurse -Force
+        $fileCount = (Get-ChildItem $tmxStaging -Recurse -File).Count
+        Write-Ok "tmx-dist/ ($fileCount файлов)"
+    } finally {
+        Pop-Location
+    }
+}
+
 # ── Шаг 3: init.sql ──────────────────────────────────────────────────────────
 Write-Step 3 "Копирование database/"
 Copy-Item (Join-Path $ProjectRoot "database\init.sql") "$StagingDir\database\init.sql" -Force
+Copy-Item (Join-Path $ProjectRoot "database\seed-users.sql") "$StagingDir\database\seed-users.sql" -Force
 Copy-Item (Join-Path $ProjectRoot "database\seed.sql") "$StagingDir\database\seed.sql" -Force
-Write-Ok "init.sql + seed.sql скопированы"
+Write-Ok "init.sql + seed-users.sql + seed.sql скопированы"
 
 # ── Шаг 4: PostgreSQL installer ───────────────────────────────────────────────
 Write-Step 4 "PostgreSQL 16 installer"
