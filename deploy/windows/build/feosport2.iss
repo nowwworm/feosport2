@@ -44,8 +44,11 @@ Name: "app";      Description: "Приложение FeoSport2";    Types: full 
 Name: "postgres"; Description: "PostgreSQL 16 (если не установлен)"; Types: full
 
 [Tasks]
-Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительно:"
-Name: "autostart";   Description: "Запускать автоматически при входе в Windows"; GroupDescription: "Дополнительно:"
+Name: "desktopicon";       Description: "Создать ярлык запуска FeoSport2 на рабочем столе"; GroupDescription: "Ярлыки:"
+Name: "desktoptools";      Description: "Создать ярлыки управления на рабочем столе"; GroupDescription: "Ярлыки:"
+Name: "desktopdb";         Description: "Создать ярлык настройки PostgreSQL на рабочем столе"; GroupDescription: "Ярлыки:"
+Name: "desktoppgadmin";    Description: "Создать ярлык pgAdmin 4 на рабочем столе"; GroupDescription: "Ярлыки:"
+Name: "autostart";         Description: "Запускать FeoSport2 автоматически при входе в Windows"; GroupDescription: "Автозапуск:"
 
 [Files]
 ; Основной сервер (скомпилированный pkg)
@@ -68,6 +71,7 @@ Source: "bundled-scripts\setup-db.ps1";     DestDir: "{app}";               Flag
 Source: "bundled-scripts\start-feosport.bat"; DestDir: "{app}";             Flags: ignoreversion
 Source: "bundled-scripts\stop-feosport.bat";  DestDir: "{app}";             Flags: ignoreversion
 Source: "bundled-scripts\seed-data.bat";      DestDir: "{app}";             Flags: ignoreversion
+Source: "bundled-scripts\open-pgadmin.bat";   DestDir: "{app}";             Flags: ignoreversion
 Source: "bundled-scripts\collect-logs.ps1";   DestDir: "{app}";             Flags: ignoreversion
 Source: "bundled-scripts\check-updates.ps1";  DestDir: "{app}";             Flags: ignoreversion
 Source: "support\*";                          DestDir: "{app}\support";     Flags: ignoreversion recursesubdirs createallsubdirs
@@ -76,14 +80,21 @@ Source: "support\*";                          DestDir: "{app}\support";     Flag
 Source: "deps\postgresql-16-win-x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Components: postgres
 
 [Icons]
-Name: "{group}\{#AppName}";                 Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"
-Name: "{group}\Остановить {#AppName}";      Filename: "{app}\stop-feosport.bat"
-Name: "{group}\Загрузить тестовые данные";  Filename: "{app}\seed-data.bat"
-Name: "{group}\Собрать логи {#AppName}";    Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\collect-logs.ps1"""; WorkingDir: "{app}"
-Name: "{group}\Проверить обновления {#AppName}"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\check-updates.ps1"""; WorkingDir: "{app}"
-Name: "{group}\Удалить {#AppName}";         Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}";           Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"; Tasks: desktopicon
-Name: "{userstartup}\{#AppName}";           Filename: "{app}\start-feosport.bat"; Tasks: autostart
+Name: "{group}\{#AppName} — запуск";                  Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"
+Name: "{group}\{#AppName} — остановка";               Filename: "{app}\stop-feosport.bat"; IconFilename: "{sys}\shell32.dll"; IconIndex: 27
+Name: "{group}\{#AppName} — настройка PostgreSQL";    Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\setup-db.ps1"""; WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 21
+Name: "{group}\{#AppName} — тестовые данные";         Filename: "{app}\seed-data.bat"; IconFilename: "{sys}\shell32.dll"; IconIndex: 69
+Name: "{group}\{#AppName} — собрать логи";            Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\collect-logs.ps1"""; WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 70
+Name: "{group}\{#AppName} — проверить обновления";    Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\check-updates.ps1"""; WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 238
+Name: "{group}\pgAdmin 4";                            Filename: "{app}\open-pgadmin.bat"; IconFilename: "{sys}\shell32.dll"; IconIndex: 21
+Name: "{group}\Удалить {#AppName}";                   Filename: "{uninstallexe}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 31
+Name: "{autodesktop}\FeoSport2 — запуск";             Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"; Tasks: desktopicon
+Name: "{autodesktop}\FeoSport2 — остановка";          Filename: "{app}\stop-feosport.bat"; IconFilename: "{sys}\shell32.dll"; IconIndex: 27; Tasks: desktoptools
+Name: "{autodesktop}\FeoSport2 — тестовые данные";    Filename: "{app}\seed-data.bat"; IconFilename: "{sys}\shell32.dll"; IconIndex: 69; Tasks: desktoptools
+Name: "{autodesktop}\FeoSport2 — логи";               Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\collect-logs.ps1"""; WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 70; Tasks: desktoptools
+Name: "{autodesktop}\FeoSport2 — PostgreSQL";         Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\setup-db.ps1"""; WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 21; Tasks: desktopdb
+Name: "{autodesktop}\pgAdmin 4";                      Filename: "{app}\open-pgadmin.bat"; IconFilename: "{sys}\shell32.dll"; IconIndex: 21; Tasks: desktoppgadmin
+Name: "{userstartup}\FeoSport2 — запуск";             Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"; Tasks: autostart
 
 [Run]
 ; 1. Установить PostgreSQL если выбран компонент
@@ -115,6 +126,7 @@ Filename: "powershell.exe"; Parameters: "-Command ""taskkill /F /IM feosport2-se
 var
   PgPasswordPage:  TInputQueryWizardPage;
   DbPasswordPage:  TInputQueryWizardPage;
+  StandardPgPasswordCheck: TNewCheckBox;
   JwtSecret:       String;
 
 { Проверка — установлен ли PostgreSQL }
@@ -122,6 +134,41 @@ function IsPostgresInstalled: Boolean;
 begin
   Result := FileExists('C:\Program Files\PostgreSQL\16\bin\psql.exe') or
             FileExists(ExpandConstant('{pf}') + '\PostgreSQL\16\bin\psql.exe');
+end;
+
+function GetPgAdminPath(Param: String): String;
+begin
+  if FileExists('C:\Program Files\pgAdmin 4\runtime\pgAdmin4.exe') then
+    Result := 'C:\Program Files\pgAdmin 4\runtime\pgAdmin4.exe'
+  else if FileExists('C:\Program Files (x86)\pgAdmin 4\runtime\pgAdmin4.exe') then
+    Result := 'C:\Program Files (x86)\pgAdmin 4\runtime\pgAdmin4.exe'
+  else if FileExists('C:\Program Files\PostgreSQL\16\pgAdmin 4\runtime\pgAdmin4.exe') then
+    Result := 'C:\Program Files\PostgreSQL\16\pgAdmin 4\runtime\pgAdmin4.exe'
+  else if FileExists('C:\Program Files\PostgreSQL\15\pgAdmin 4\runtime\pgAdmin4.exe') then
+    Result := 'C:\Program Files\PostgreSQL\15\pgAdmin 4\runtime\pgAdmin4.exe'
+  else if FileExists('C:\Program Files\PostgreSQL\17\pgAdmin 4\runtime\pgAdmin4.exe') then
+    Result := 'C:\Program Files\PostgreSQL\17\pgAdmin 4\runtime\pgAdmin4.exe'
+  else
+    Result := '';
+end;
+
+function IsPgAdminInstalled: Boolean;
+begin
+  Result := GetPgAdminPath('') <> '';
+end;
+
+procedure StandardPgPasswordCheckClick(Sender: TObject);
+begin
+  if StandardPgPasswordCheck.Checked then
+  begin
+    PgPasswordPage.Values[0] := '23oleral';
+    PgPasswordPage.Edits[0].Enabled := False;
+  end
+  else
+  begin
+    PgPasswordPage.Edits[0].Enabled := True;
+    PgPasswordPage.Values[0] := '';
+  end;
 end;
 
 { Инициализация кастомных страниц }
@@ -138,6 +185,14 @@ begin
     'Если устанавливается впервые — придумайте новый пароль.');
   PgPasswordPage.Add('Пароль postgres:', True);
   PgPasswordPage.Values[0] := '';
+  StandardPgPasswordCheck := TNewCheckBox.Create(PgPasswordPage);
+  StandardPgPasswordCheck.Parent := PgPasswordPage.Surface;
+  StandardPgPasswordCheck.Left := PgPasswordPage.Edits[0].Left;
+  StandardPgPasswordCheck.Top := PgPasswordPage.Edits[0].Top + PgPasswordPage.Edits[0].Height + ScaleY(10);
+  StandardPgPasswordCheck.Width := PgPasswordPage.SurfaceWidth;
+  StandardPgPasswordCheck.Caption := 'Использовать стандартный пароль: 23oleral';
+  StandardPgPasswordCheck.Checked := False;
+  StandardPgPasswordCheck.OnClick := @StandardPgPasswordCheckClick;
 
   { Страница 2: пароль пользователя приложения }
   DbPasswordPage := CreateInputQueryPage(PgPasswordPage.ID,
@@ -155,6 +210,9 @@ begin
   Result := True;
   if CurPageID = PgPasswordPage.ID then
   begin
+    if StandardPgPasswordCheck.Checked then
+      PgPasswordPage.Values[0] := '23oleral';
+
     if Trim(PgPasswordPage.Values[0]) = '' then
     begin
       MsgBox('Пожалуйста, введите пароль postgres.', mbError, MB_OK);
@@ -180,7 +238,10 @@ end;
 { Геттеры для [Run] секции }
 function GetPgPassword(Param: String): String;
 begin
-  Result := PgPasswordPage.Values[0];
+  if StandardPgPasswordCheck.Checked then
+    Result := '23oleral'
+  else
+    Result := PgPasswordPage.Values[0];
 end;
 
 function GetDbPassword(Param: String): String;

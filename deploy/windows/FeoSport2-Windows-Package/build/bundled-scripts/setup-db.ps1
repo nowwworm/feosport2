@@ -4,16 +4,28 @@
     Вызывается из [Run] секции installer.iss
 #>
 param(
-    [Parameter(Mandatory)][string]$PgPassword,   # postgres superuser password
-    [Parameter(Mandatory)][string]$DbPassword,   # feosport user password
-    [Parameter(Mandatory)][AllowEmptyString()][string]$JwtSecret,    # JWT secret
-    [Parameter(Mandatory)][string]$InstallDir,   # C:\FeoSport2
-    [Parameter(Mandatory)][string]$InitSql,      # path to init.sql
-    [Parameter(Mandatory)][string]$SeedUsersSql, # path to seed-users.sql
-    [Parameter(Mandatory)][string]$SeedSql       # path to seed.sql
+    [string]$PgPassword,   # postgres superuser password
+    [string]$DbPassword,   # feosport user password
+    [AllowEmptyString()][string]$JwtSecret,    # JWT secret
+    [string]$InstallDir,   # C:\FeoSport2
+    [string]$InitSql,      # path to init.sql
+    [string]$SeedUsersSql, # path to seed-users.sql
+    [string]$SeedSql       # path to seed.sql
 )
 
 $ErrorActionPreference = "Stop"
+if ([string]::IsNullOrWhiteSpace($InstallDir)) { $InstallDir = $PSScriptRoot }
+if ([string]::IsNullOrWhiteSpace($InitSql)) { $InitSql = Join-Path $InstallDir "database\init.sql" }
+if ([string]::IsNullOrWhiteSpace($SeedUsersSql)) { $SeedUsersSql = Join-Path $InstallDir "database\seed-users.sql" }
+if ([string]::IsNullOrWhiteSpace($SeedSql)) { $SeedSql = Join-Path $InstallDir "database\seed.sql" }
+
+if ([string]::IsNullOrWhiteSpace($PgPassword)) {
+    $PgPassword = Read-Host "Введите пароль суперпользователя postgres"
+}
+if ([string]::IsNullOrWhiteSpace($DbPassword)) {
+    $DbPassword = Read-Host "Введите пароль пользователя feosport"
+}
+
 $LogDir = Join-Path $InstallDir "logs"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogFile = Join-Path $LogDir "setup-db.log"

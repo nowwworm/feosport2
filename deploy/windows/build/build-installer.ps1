@@ -24,6 +24,42 @@ function Write-Step { param($n, $text)
 function Write-Ok   { param($t) Write-Host "│  ✓ $t" -ForegroundColor Green }
 function Write-Warn { param($t) Write-Host "│  ! $t" -ForegroundColor Yellow }
 function Write-Fail { param($t) Write-Host "│  ✗ $t" -ForegroundColor Red; exit 1 }
+function Invoke-CodeSign {
+    param([Parameter(Mandatory)][string]$FilePath)
+
+    $certPath = $env:FEOSPORT_SIGN_CERT_PATH
+    if ([string]::IsNullOrWhiteSpace($certPath)) {
+        Write-Warn "Подпись пропущена для $(Split-Path $FilePath -Leaf): FEOSPORT_SIGN_CERT_PATH не задан"
+        return
+    }
+    if (-not (Test-Path $certPath)) {
+        Write-Warn "Подпись пропущена: сертификат не найден $certPath"
+        return
+    }
+
+    $timestampUrl = if ($env:FEOSPORT_TIMESTAMP_URL) { $env:FEOSPORT_TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
+    $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue)?.Source
+    if (-not $signtool) {
+        $kits = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+        $signtool = $kits?.FullName
+    }
+    if (-not $signtool) {
+        Write-Warn "Подпись пропущена: signtool.exe не найден"
+        return
+    }
+
+    $args = @("sign", "/fd", "SHA256", "/f", $certPath, "/tr", $timestampUrl, "/td", "SHA256")
+    if ($env:FEOSPORT_SIGN_CERT_PASSWORD) {
+        $args += @("/p", $env:FEOSPORT_SIGN_CERT_PASSWORD)
+    }
+    $args += $FilePath
+
+    & $signtool @args
+    if ($LASTEXITCODE -ne 0) { Write-Fail "Не удалось подписать $FilePath" }
+    Write-Ok "Подписано: $(Split-Path $FilePath -Leaf)"
+}
 
 # ── Пути ─────────────────────────────────────────────────────────────────────
 $ScriptDir   = $PSScriptRoot
@@ -64,6 +100,7 @@ try {
         --compress GZip
 
     if (-not (Test-Path $pkgOutput)) { Write-Fail "pkg не создал exe" }
+    Invoke-CodeSign $pkgOutput
     $sizeMb = [Math]::Round((Get-Item $pkgOutput).Length / 1MB, 1)
     Write-Ok "feosport2-server.exe ($sizeMb MB)"
 
@@ -201,6 +238,7 @@ $outputExe = Join-Path $OutputDir "FeoSport2-Setup.exe"
 if (-not (Test-Path $outputExe)) { Write-Fail "Installer не создан" }
 
 $sizeMb = [Math]::Round((Get-Item $outputExe).Length / 1MB, 0)
+Invoke-CodeSign $outputExe
 
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Green
