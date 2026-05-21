@@ -1,6 +1,13 @@
 name: AQA
 
 on:
+  workflow_call:
+    inputs:
+      run_e2e:
+        description: 'Run TMX Playwright E2E suite'
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       run_e2e:
@@ -120,7 +127,7 @@ jobs:
   tmx-e2e:
     name: TMX Playwright E2E
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.run_e2e }}
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       CI: 'true'

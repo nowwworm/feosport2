@@ -6,8 +6,18 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
+  aqa:
+    name: AQA before installer build
+    uses: ./.github/workflows/aqa.yml
+    with:
+      run_e2e: false
+
   build:
+    needs: aqa
     runs-on: windows-2025
     timeout-minutes: 60
 
@@ -278,8 +288,9 @@ jobs:
           $dst = "deploy\windows\build\staging\database"
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
           Copy-Item "database\init.sql" "$dst\init.sql" -Force
+          Copy-Item "database\seed-users.sql" "$dst\seed-users.sql" -Force
           Copy-Item "database\seed.sql" "$dst\seed.sql" -Force
-          Write-Host "init.sql + seed.sql copied"
+          Write-Host "init.sql + seed-users.sql + seed.sql copied"
 
       # ── Шаг 4: Собрать Inno Setup installer ──────────────────────────────────
       - name: Compile installer (ISCC)
@@ -307,3 +318,9 @@ jobs:
           path: deploy/windows/output/FeoSport2-Setup.exe
           retention-days: 30
           if-no-files-found: error
+
+      - name: Publish GitHub Release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: deploy/windows/output/FeoSport2-Setup.exe
