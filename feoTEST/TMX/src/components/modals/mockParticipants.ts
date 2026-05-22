@@ -40,7 +40,6 @@ export function mockParticipants({ callback }: { callback?: () => void }): void 
       minAge: t('modals.generateParticipants.minAge'),
       maxAge: t('modals.generateParticipants.maxAge'),
       ratings: t('modals.generateParticipants.ratings'),
-      ratingsHelp: t('modals.generateParticipants.ratingsHelp'),
       countries: t('modals.generateParticipants.countries'),
       cancel: t('modals.generateParticipants.cancel'),
       generate: t('modals.generateParticipants.generate'),

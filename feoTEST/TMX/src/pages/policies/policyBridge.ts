@@ -15,15 +15,17 @@ const {
     POLICY_RANKING_POINTS_WTA,
     POLICY_RANKING_POINTS_ITF_WTT,
     POLICY_RANKING_POINTS_ITF_JUNIOR,
-    POLICY_RANKING_POINTS_TENNIS_EUROPE,
-    POLICY_RANKING_POINTS_USTA_JUNIOR,
-    POLICY_RANKING_POINTS_LTA,
-    POLICY_RANKING_POINTS_TENNIS_AUSTRALIA,
-    POLICY_RANKING_POINTS_TENNIS_CANADA,
   },
 } = fixtures;
 
-const BUILTIN_POLICIES: PolicyCatalogItem[] = [
+const optionalFactoryPolicies = fixtures.policies as Record<string, any>;
+const POLICY_RANKING_POINTS_TENNIS_EUROPE = optionalFactoryPolicies.POLICY_RANKING_POINTS_TENNIS_EUROPE;
+const POLICY_RANKING_POINTS_USTA_JUNIOR = optionalFactoryPolicies.POLICY_RANKING_POINTS_USTA_JUNIOR;
+const POLICY_RANKING_POINTS_LTA = optionalFactoryPolicies.POLICY_RANKING_POINTS_LTA;
+const POLICY_RANKING_POINTS_TENNIS_AUSTRALIA = optionalFactoryPolicies.POLICY_RANKING_POINTS_TENNIS_AUSTRALIA;
+const POLICY_RANKING_POINTS_TENNIS_CANADA = optionalFactoryPolicies.POLICY_RANKING_POINTS_TENNIS_CANADA;
+
+const BUILTIN_POLICIES: PolicyCatalogItem[] = ([
   {
     id: 'builtin-scheduling',
     name: 'Default Scheduling',
@@ -86,7 +88,7 @@ const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'USTA Junior Rankings — 7 levels, 8 age categories, quality win bonuses, multiple draw formats',
-    policyData: POLICY_RANKING_POINTS_USTA_JUNIOR[POLICY_TYPE_RANKING_POINTS],
+    policyData: POLICY_RANKING_POINTS_USTA_JUNIOR?.[POLICY_TYPE_RANKING_POINTS],
   },
   {
     id: 'builtin-ranking-points-itf-junior',
@@ -102,7 +104,7 @@ const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'Tennis Europe Junior Tour — 6 levels from TE Super to TE 12 Cat 2, with bonus draws',
-    policyData: POLICY_RANKING_POINTS_TENNIS_EUROPE[POLICY_TYPE_RANKING_POINTS],
+    policyData: POLICY_RANKING_POINTS_TENNIS_EUROPE?.[POLICY_TYPE_RANKING_POINTS],
   },
   {
     id: 'builtin-ranking-points-lta',
@@ -110,7 +112,7 @@ const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'LTA Rankings — Premier through Grade 5, consolation/qualifying/team events, doubles at 25%',
-    policyData: POLICY_RANKING_POINTS_LTA[POLICY_TYPE_RANKING_POINTS],
+    policyData: POLICY_RANKING_POINTS_LTA?.[POLICY_TYPE_RANKING_POINTS],
   },
   {
     id: 'builtin-ranking-points-tennis-australia',
@@ -118,7 +120,7 @@ const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'Tennis Australia De Minaur Junior Tour — J1000/J500/J250/J125, best 8 results',
-    policyData: POLICY_RANKING_POINTS_TENNIS_AUSTRALIA[POLICY_TYPE_RANKING_POINTS],
+    policyData: POLICY_RANKING_POINTS_TENNIS_AUSTRALIA?.[POLICY_TYPE_RANKING_POINTS],
   },
   {
     id: 'builtin-ranking-points-tennis-canada',
@@ -126,9 +128,9 @@ const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'Tennis Canada Junior Rankings — 5 levels, U12-U18, requires match win for points',
-    policyData: POLICY_RANKING_POINTS_TENNIS_CANADA[POLICY_TYPE_RANKING_POINTS],
+    policyData: POLICY_RANKING_POINTS_TENNIS_CANADA?.[POLICY_TYPE_RANKING_POINTS],
   },
-];
+] as PolicyCatalogItem[]).filter((item) => Boolean(item.policyData));
 
 export function getBuiltinPolicies(): PolicyCatalogItem[] {
   return BUILTIN_POLICIES;
