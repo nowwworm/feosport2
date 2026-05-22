@@ -4,6 +4,7 @@ node_modules/
 .tools/
 .npm-cache/
 .pnpm-store/
+.runtime-logs/
 
 # ── Сборки ────────────────────────────────────────────────────────────────────
 dist/
