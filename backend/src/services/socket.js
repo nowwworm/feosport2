@@ -244,6 +244,7 @@ function initSocket(httpServer) {
           lap: rows[0],
           summary,
         });
+        broadcastLeaderboard(io, heatRows[0].competition_id);
       } catch (err) {
         console.error('[ws] lap_complete', err);
         ack?.({ error: err.message });
@@ -352,17 +353,56 @@ function initSocket(httpServer) {
   return io;
 }
 
-async function broadcastLeaderboard(io, competitionId) {
-  try {
-    const leaderboard = await getQualificationLeaderboard(competitionId);
-    io.to(`competition:${competitionId}`).emit('leaderboard_update', {
-      competition_id: competitionId,
-      leaderboard,
-      updated_at: new Date().toISOString(),
+// ─── Leaderboard broadcast (debounced, 500ms per competition) ───────────────
+// Спектатор-таблоид обновляется часто (каждый круг), поэтому каждое событие
+// (lap_complete / flight_end / score / lock) превращалось бы в отдельный
+// emit. Throttle с trailing-edge: первое событие в окне 500ms — сразу,
+// последующие коалесцируются в один отложенный emit в конце окна.
+const LEADERBOARD_DEBOUNCE_MS = 500;
+const _lbLastEmitAt   = new Map();
+const _lbTrailing     = new Map();
+
+function _emitLeaderboard(io, competitionId) {
+  return getQualificationLeaderboard(competitionId)
+    .then((leaderboard) => {
+      io.to(`competition:${competitionId}`).emit('leaderboard_update', {
+        competition_id: competitionId,
+        leaderboard,
+        updated_at: new Date().toISOString(),
+      });
+      _lbLastEmitAt.set(competitionId, Date.now());
+    })
+    .catch((err) => {
+      console.error('[ws] _emitLeaderboard', err);
     });
-  } catch (err) {
-    console.error('[ws] broadcastLeaderboard', err);
+}
+
+function broadcastLeaderboard(io, competitionId) {
+  const now = Date.now();
+  const last = _lbLastEmitAt.get(competitionId) || 0;
+  const elapsed = now - last;
+
+  if (elapsed >= LEADERBOARD_DEBOUNCE_MS) {
+    return _emitLeaderboard(io, competitionId);
   }
+
+  if (_lbTrailing.has(competitionId)) return;
+
+  const delay = LEADERBOARD_DEBOUNCE_MS - elapsed;
+  const timer = setTimeout(() => {
+    _lbTrailing.delete(competitionId);
+    _emitLeaderboard(io, competitionId);
+  }, delay);
+  if (typeof timer.unref === 'function') timer.unref();
+  _lbTrailing.set(competitionId, timer);
+}
+
+// For tests: clear pending trailing timers so the suite can exit cleanly
+// and so each test starts from a known state.
+function _resetLeaderboardThrottle() {
+  for (const t of _lbTrailing.values()) clearTimeout(t);
+  _lbTrailing.clear();
+  _lbLastEmitAt.clear();
 }
 
 async function getHeatForEvent(heatId) {
@@ -387,4 +427,4 @@ async function getPilotLapSummary(heatId, pilotId) {
   };
 }
 
-module.exports = { initSocket };
+module.exports = { initSocket, _resetLeaderboardThrottle };

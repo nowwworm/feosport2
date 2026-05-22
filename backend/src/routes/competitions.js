@@ -2,6 +2,7 @@ const router = require('express').Router();
 const pool   = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
 const { generatePlayoffs }        = require('../services/tournament');
+const { computeCompetitionLeaderboard } = require('../services/leaderboard');
 
 // GET /api/competitions
 router.get('/', authenticate, async (req, res) => {
@@ -91,6 +92,18 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
 });
 
 // GET /api/competitions/:id/bracket
+// GET /api/competitions/:id/leaderboard?limit=N — live spectator standings.
+router.get('/:id/leaderboard', authenticate, async (req, res) => {
+  try {
+    const competitionId = parseInt(req.params.id, 10);
+    const limit = req.query.limit ? Math.max(1, parseInt(req.query.limit, 10) || 0) : null;
+    const board = await computeCompetitionLeaderboard(competitionId, { limit });
+    res.json(board);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:id/bracket', authenticate, async (req, res) => {
   try {
     const compRes = await pool.query('SELECT * FROM competitions WHERE id=$1', [req.params.id]);

@@ -19,6 +19,7 @@ const {
   buildNextKnockout,
   rankQualificationParticipants,
 } = require('../services/bracket');
+const { computeStageLeaderboard } = require('../services/leaderboard');
 
 const STAGE_ORDER = {
   qualification: 1, round_of_16: 2, quarterfinal: 3, semifinal: 4, final: 5,
@@ -369,6 +370,17 @@ router.post('/competitions/:id/stages/advance',
     }
   }
 );
+
+// GET /api/stages/:id/leaderboard — spectator-facing standings across all groups.
+router.get('/stages/:id/leaderboard', authenticate, async (req, res) => {
+  try {
+    const board = await computeStageLeaderboard(req.params.id);
+    if (!board) return res.status(404).json({ error: 'Stage not found' });
+    res.json(board);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ─── GET single stage / group ────────────────────────────────────────────────
 router.get('/stages/:id', authenticate, async (req, res) => {

@@ -7,6 +7,7 @@ const {
   classifyReflightImpact,
   detectChannelConflicts,
 } = require('../services/flightTiming');
+const { computeHeatLeaderboard } = require('../services/leaderboard');
 
 // Heat reads are scoped to judging/admin roles — pilots use the dedicated
 // leaderboard endpoints instead (см. §2.4.2 — пилоты получают информацию
@@ -83,6 +84,17 @@ router.get('/:id/results', authenticate, judgesOnly, async (req, res) => {
       [req.params.id]
     );
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/heats/:id/leaderboard — spectator-facing, available to any role.
+router.get('/:id/leaderboard', authenticate, async (req, res) => {
+  try {
+    const board = await computeHeatLeaderboard(req.params.id);
+    if (!board) return res.status(404).json({ error: 'Heat not found' });
+    res.json(board);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
