@@ -3,14 +3,16 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Navigation.scss';
 
-// type: 'link' — внутренний NavLink, 'external' — window.open
+// type: 'link' - internal NavLink, 'external' - opens in a new tab.
+const TMX_URL = import.meta.env.VITE_TMX_URL || '/tmx/';
+
 const NAV_ITEMS = [
   { to: '/',             label: 'Таблица',    icon: '◈', roles: null,                                    type: 'link' },
   { to: '/bracket',      label: 'Сетка',      icon: '⬡', roles: null,                                    type: 'link' },
   { to: '/judge',        label: 'Судья',      icon: '⊕', roles: ['judge', 'chief_judge', 'admin'],        type: 'link' },
   { to: '/pilots',       label: 'Пилоты',     icon: '◉', roles: ['admin', 'chief_judge'],                 type: 'link' },
   { to: '/participants', label: 'Участники',  icon: '⊞', roles: ['admin'],                                type: 'link' },
-  { to: '/tmx/',         label: 'TMX',        icon: '⬡', roles: ['admin', 'chief_judge'],                 type: 'external' },
+  { to: TMX_URL,         label: 'TMX',        icon: '⬡', roles: ['admin', 'chief_judge'],                 type: 'external' },
   { to: '/admin',        label: 'Аккаунты',   icon: '⚙', roles: ['admin'],                                type: 'link' },
   { to: '/docs',         label: 'Справка',    icon: '?', roles: ['admin', 'chief_judge'],                  type: 'link' },
 ];
