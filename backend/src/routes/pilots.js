@@ -38,6 +38,7 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: err.detail || 'Duplicate' });
     res.status(500).json({ error: err.message });
   }
 });

@@ -6,7 +6,9 @@ function loadBundledEnv(appDir) {
   const envPath = path.join(appDir, '.env');
   const exists = fs.existsSync(envPath);
   if (exists) {
-    dotenv.config({ path: envPath });
+    // `.env` рядом с инсталлятором — каноничный источник конфигурации,
+    // переопределяет любые pre-existing env var (унаследованные от системы).
+    dotenv.config({ path: envPath, override: true });
   }
   return { envPath, exists };
 }

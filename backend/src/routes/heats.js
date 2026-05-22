@@ -1,10 +1,20 @@
 const router = require('express').Router();
 const pool   = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
-const { summarizeLaps, shouldRequestWholeGroupReflight } = require('../services/flightTiming');
+const {
+  summarizeLaps,
+  shouldRequestWholeGroupReflight,
+  classifyReflightImpact,
+  detectChannelConflicts,
+} = require('../services/flightTiming');
+
+// Heat reads are scoped to judging/admin roles — pilots use the dedicated
+// leaderboard endpoints instead (см. §2.4.2 — пилоты получают информацию
+// о результатах через табло/секретариат, а не через служебный API судей).
+const judgesOnly = authorize('judge', 'chief_judge', 'admin');
 
 // GET /api/heats?competition_id=X&round_type=qualification
-router.get('/', authenticate, async (req, res) => {
+router.get('/', authenticate, judgesOnly, async (req, res) => {
   const { competition_id, round_type } = req.query;
   const params = [];
   let where = 'WHERE 1=1';
@@ -38,8 +48,32 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/heats/:id  — single heat with participants
+router.get('/:id', authenticate, judgesOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT h.*,
+              COALESCE(
+                json_agg(
+                  json_build_object('pilot_id', hp.pilot_id, 'lane', hp.lane)
+                ) FILTER (WHERE hp.pilot_id IS NOT NULL),
+                '[]'
+              ) AS participants
+         FROM heats h
+         LEFT JOIN heat_participants hp ON hp.heat_id = h.id
+        WHERE h.id = $1
+        GROUP BY h.id`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/heats/:id/results
-router.get('/:id/results', authenticate, async (req, res) => {
+router.get('/:id/results', authenticate, judgesOnly, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT r.*, p.first_name, p.last_name, p.team
@@ -54,7 +88,7 @@ router.get('/:id/results', authenticate, async (req, res) => {
   }
 });
 
-router.get('/:id/laps', authenticate, async (req, res) => {
+router.get('/:id/laps', authenticate, judgesOnly, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT l.*, p.first_name, p.last_name, p.team
@@ -71,6 +105,9 @@ router.get('/:id/laps', authenticate, async (req, res) => {
 });
 
 // POST /api/heats  (chief_judge | admin)
+//
+// Body может содержать `participants: [{ pilot_id, lane }]` — записываем в
+// `heat_participants` атомарно с самим heat.
 router.post('/', authenticate, authorize('chief_judge', 'admin'), async (req, res) => {
   const {
     competition_id,
@@ -81,9 +118,12 @@ router.post('/', authenticate, authorize('chief_judge', 'admin'), async (req, re
     group_id,
     lap_limit,
     time_limit_seconds,
+    participants,
   } = req.body;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+    const { rows } = await client.query(
       `INSERT INTO heats
          (competition_id, round_type, heat_number, judge_id, scheduled_at,
           group_id, lap_limit, time_limit_seconds)
@@ -100,10 +140,26 @@ router.post('/', authenticate, authorize('chief_judge', 'admin'), async (req, re
         time_limit_seconds || null,
       ]
     );
-    res.status(201).json(rows[0]);
+    const heat = rows[0];
+
+    if (Array.isArray(participants) && participants.length) {
+      for (const p of participants) {
+        if (!p || !p.pilot_id) continue;
+        await client.query(
+          `INSERT INTO heat_participants (heat_id, pilot_id, lane)
+           VALUES ($1, $2, $3)`,
+          [heat.id, p.pilot_id, p.lane || null]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    res.status(201).json(heat);
   } catch (err) {
+    await client.query('ROLLBACK');
     if (err.code === '23505') return res.status(409).json({ error: 'Heat already exists' });
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -166,7 +222,7 @@ router.post('/:id/laps', authenticate, authorize('judge', 'chief_judge', 'admin'
   }
 });
 
-router.get('/:id/lap-summary', authenticate, async (req, res) => {
+router.get('/:id/lap-summary', authenticate, judgesOnly, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT pilot_id, lap_number, duration_ms, valid
@@ -206,6 +262,47 @@ router.post('/:id/falsestarts', authenticate, authorize('judge', 'chief_judge', 
     res.status(500).json({ error: err.message });
   }
 });
+
+// GET /api/heats/:id/channel-conflicts — pre-flight check (§5.5.7.1.4-9).
+// Возвращает список каналов 5.8 ГГц, на которые претендуют ≥2 активных дрона
+// участников вылета. Используется судьёй в зоне пилотов перед стартом.
+router.get('/:id/channel-conflicts',
+  authenticate, judgesOnly,
+  async (req, res) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT hp.pilot_id,
+                d.id AS drone_id,
+                d.video_channel_id,
+                vc.code AS video_channel_code
+           FROM heat_participants hp
+           LEFT JOIN drones d ON d.pilot_id = hp.pilot_id AND d.is_active = true
+           LEFT JOIN video_channels vc ON vc.id = d.video_channel_id
+          WHERE hp.heat_id = $1`,
+        [req.params.id]
+      );
+      const conflicts = detectChannelConflicts(rows);
+      res.json({ heat_id: Number(req.params.id), assignments: rows, conflicts });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+// POST /api/heats/:id/reflight-impact — classify a proposed reflight reason.
+// Body: { reason, guilty_pilot_id? }
+// Doesn't write to DB; useful for UI to display impact before persisting.
+router.post('/:id/reflight-impact',
+  authenticate, judgesOnly,
+  (req, res) => {
+    const { reason, guilty_pilot_id } = req.body;
+    if (!reason) return res.status(400).json({ error: 'reason required' });
+    res.json({
+      heat_id: Number(req.params.id),
+      ...classifyReflightImpact(reason, { guilty_pilot_id: guilty_pilot_id || null }),
+    });
+  }
+);
 
 router.post('/:id/reflights', authenticate, authorize('chief_judge', 'admin'), async (req, res) => {
   const { reason, notes, status } = req.body;

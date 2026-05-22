@@ -8,10 +8,11 @@ const { pool, cleanupDB, seedBaselineData, createTestUser, createTestCompetition
 const { generateToken } = require('./helpers/jwt');
 
 describe('WebSocket Real-time Scoring', () => {
-  let httpServer, ioServer;
+  let httpServer, ioServer, WS_BASE_URL;
   let judgeUser, chiefJudgeUser, adminUser, pilotUser;
   let testCompetition, testHeat, testPilot;
-  const WS_PORT = 3333;
+  // Dynamic port (0) — let the OS assign a free port so parallel/repeat runs don't collide.
+  const WS_PORT = 0;
 
   beforeAll(async () => {
     await seedBaselineData();
@@ -30,9 +31,11 @@ describe('WebSocket Real-time Scoring', () => {
     httpServer = http.createServer();
     ioServer = initSocket(httpServer);
 
-    // Start listening
+    // Start listening on an OS-assigned port; expose base URL for clients.
     return new Promise((resolve) => {
       httpServer.listen(WS_PORT, () => {
+        const addr = httpServer.address();
+        WS_BASE_URL = `http://localhost:${addr.port}`;
         resolve();
       });
     });
@@ -49,15 +52,15 @@ describe('WebSocket Real-time Scoring', () => {
   });
 
   afterAll(async () => {
-    ioServer.close();
-    httpServer.close();
+    await new Promise((resolve) => ioServer.close(() => resolve()));
+    await new Promise((resolve) => httpServer.close(() => resolve()));
     await cleanupDB();
     await pool.end();
   });
 
   describe('Connection Authentication', () => {
     test('Socket connection requires JWT token', (done) => {
-      const socket = ioClient(`http://localhost:${WS_PORT}`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: {} // No token
       });
@@ -72,7 +75,7 @@ describe('WebSocket Real-time Scoring', () => {
     });
 
     test('Invalid JWT token rejected', (done) => {
-      const socket = ioClient(`http://localhost:${WS_PORT}`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token: 'invalid.jwt.token' }
       });
@@ -88,7 +91,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Valid JWT token allows connection', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         autoConnect: false,
         auth: { token }
@@ -113,7 +116,7 @@ describe('WebSocket Real-time Scoring', () => {
 
       // Wait a tiny bit to ensure expiration
       setTimeout(() => {
-        const socket = ioClient(`http://localhost:${WS_PORT}`, {
+        const socket = ioClient(`${WS_BASE_URL}`, {
           reconnection: false,
           auth: { token }
         });
@@ -132,7 +135,7 @@ describe('WebSocket Real-time Scoring', () => {
   describe('Competition Room Management', () => {
     test('Judge can join competition room', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         autoConnect: false,
         auth: { token }
@@ -156,7 +159,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Pilot cannot join competition room (authorization still works)', (done) => {
       const token = generateToken(pilotUser.id, 'pilot');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -180,7 +183,7 @@ describe('WebSocket Real-time Scoring', () => {
   describe('Score Submission (submit_score Event)', () => {
     test('Judge can submit valid score', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -220,7 +223,7 @@ describe('WebSocket Real-time Scoring', () => {
       }).catch(done);
 
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -251,7 +254,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Pilot cannot submit score (Forbidden)', (done) => {
       const token = generateToken(pilotUser.id, 'pilot');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -281,7 +284,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Submitting to non-existent heat returns error', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -320,7 +323,7 @@ describe('WebSocket Real-time Scoring', () => {
       }).catch(done);
 
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -351,7 +354,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('DNF and DSQ flags work', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -386,12 +389,12 @@ describe('WebSocket Real-time Scoring', () => {
       const token1 = generateToken(judgeUser.id, 'judge');
       const token2 = generateToken(chiefJudgeUser.id, 'chief_judge');
 
-      const judge1 = ioClient(`http://localhost:3333`, {
+      const judge1 = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token: token1 }
       });
 
-      const judge2 = ioClient(`http://localhost:3333`, {
+      const judge2 = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token: token2 }
       });
@@ -457,7 +460,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Leaderboard update broadcast after score submission', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -512,7 +515,7 @@ describe('WebSocket Real-time Scoring', () => {
   describe('Heat Locking (lock_heat Event)', () => {
     test('Chief judge can lock heat', (done) => {
       const token = generateToken(chiefJudgeUser.id, 'chief_judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -540,7 +543,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Judge cannot lock heat (Forbidden)', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -567,12 +570,12 @@ describe('WebSocket Real-time Scoring', () => {
       const token1 = generateToken(chiefJudgeUser.id, 'chief_judge');
       const token2 = generateToken(judgeUser.id, 'judge');
 
-      const chiefJudge = ioClient(`http://localhost:3333`, {
+      const chiefJudge = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token: token1 }
       });
 
-      const judge = ioClient(`http://localhost:3333`, {
+      const judge = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token: token2 }
       });
@@ -588,8 +591,7 @@ describe('WebSocket Real-time Scoring', () => {
         if (lockComplete && statusChangeReceived) {
           chiefJudge.close();
           judge.close();
-          // Unlock for other tests
-          pool.query('UPDATE heats SET status = $1 WHERE id = $2', ['pending', testHeat.id]);
+          // afterEach() resets the heat — no inline reset needed.
           done();
         }
       });
@@ -634,7 +636,7 @@ describe('WebSocket Real-time Scoring', () => {
   describe('Flight Timing Events', () => {
     test('Judge can start a flight and broadcast flight_start', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -663,7 +665,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Judge can record a lap and receive lap summary', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -700,7 +702,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Falsestart event recommends whole-group reflight', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -736,11 +738,11 @@ describe('WebSocket Real-time Scoring', () => {
     test('Only chief judge or admin can request reflight', (done) => {
       const judgeToken = generateToken(judgeUser.id, 'judge');
       const chiefToken = generateToken(chiefJudgeUser.id, 'chief_judge');
-      const judge = ioClient(`http://localhost:3333`, {
+      const judge = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token: judgeToken }
       });
-      const chiefJudge = ioClient(`http://localhost:3333`, {
+      const chiefJudge = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token: chiefToken }
       });
@@ -792,7 +794,7 @@ describe('WebSocket Real-time Scoring', () => {
   describe('Disconnection Handling', () => {
     test('Socket disconnect is logged', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });
@@ -815,7 +817,7 @@ describe('WebSocket Real-time Scoring', () => {
 
     test('Judge can reconnect and rejoin competition', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
-      const socket = ioClient(`http://localhost:3333`, {
+      const socket = ioClient(`${WS_BASE_URL}`, {
         reconnection: false,
         auth: { token }
       });

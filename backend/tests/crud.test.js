@@ -17,9 +17,11 @@ describe('API CRUD Operations', () => {
   });
 
   afterEach(async () => {
-    // Clear test data between tests
-    await pool.query('DELETE FROM pilots WHERE first_name LIKE $1', ['Test_%']);
+    // Удаляем competitions первыми — каскад снимает heats и heat_participants,
+    // освобождая FK на пилотов. Иначе DELETE pilots падает на ссылающихся
+    // heat_participants (см. init.sql — FK без ON DELETE CASCADE).
     await pool.query('DELETE FROM competitions WHERE name LIKE $1', ['Test_%']);
+    await pool.query('DELETE FROM pilots WHERE first_name LIKE $1', ['Test_%']);
   });
 
   afterAll(async () => {

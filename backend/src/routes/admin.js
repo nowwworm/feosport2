@@ -8,13 +8,18 @@ const pool     = require('../config/db');
 const { getDbAdminStatus, startPgAdmin } = require('../services/dbAdminTools');
 const { authenticate, authorize } = require('../middleware/auth');
 
-// ── Все admin-маршруты требуют авторизации ──────────────────────────────────
-router.use(authenticate, authorize('admin'));
+// ── Все admin-маршруты требуют аутентификации ──────────────────────────────
+// Авторизация задаётся per-route, потому что chief_judge имеет read-доступ
+// (см. auth.test.js «Chief judge can access admin endpoints»), а write-доступ
+// — только admin (см. admin.test.js «Non-admin cannot create user»).
+router.use(authenticate);
+const adminOnly      = authorize('admin');
+const adminOrChief   = authorize('admin', 'chief_judge');
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GET /api/admin/users  — список всех пользователей
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/users', async (req, res) => {
+router.get('/users', adminOrChief, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT u.id, u.email, r.name AS role, u.is_active, u.created_at
@@ -32,7 +37,7 @@ router.get('/users', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 //  GET /api/admin/db/status — безопасная сводка по PostgreSQL для админки
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/db/status', async (req, res) => {
+router.get('/db/status', adminOnly, async (req, res) => {
   try {
     const status = await getDbAdminStatus(pool, process.env);
     res.json(status);
@@ -48,7 +53,7 @@ router.get('/db/status', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/admin/db/pgadmin/start — открыть pgAdmin на Windows-хосте
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/db/pgadmin/start', async (req, res) => {
+router.post('/db/pgadmin/start', adminOnly, async (req, res) => {
   try {
     const result = await startPgAdmin();
     if (!result.ok) {
@@ -68,10 +73,13 @@ router.post('/db/pgadmin/start', async (req, res) => {
 //  POST /api/admin/users  — создать нового пользователя
 //  Body: { email, password, role }  где role — строка: admin|chief_judge|judge|pilot
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/users', async (req, res) => {
+router.post('/users', adminOnly, async (req, res) => {
   const { email, password, role } = req.body;
   if (!email || !password || !role) {
     return res.status(400).json({ error: 'email, password, role required' });
+  }
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'password must be at least 8 characters' });
   }
 
   try {
@@ -101,13 +109,13 @@ router.post('/users', async (req, res) => {
 //  PATCH /api/admin/users/:id  — изменить роль и/или активность
 //  Body: { role?, is_active? }
 // ─────────────────────────────────────────────────────────────────────────────
-router.patch('/users/:id', async (req, res) => {
+router.patch('/users/:id', adminOnly, async (req, res) => {
   const userId = parseInt(req.params.id, 10);
   if (isNaN(userId)) return res.status(400).json({ error: 'Invalid id' });
 
-  // Запрет снимать права с самого себя
+  // Запрет снимать права с самого себя (см. §1.5.3 — самосанкция запрещена).
   if (userId === req.user.id) {
-    return res.status(400).json({ error: 'Cannot modify your own account' });
+    return res.status(403).json({ error: 'Cannot modify your own account' });
   }
 
   const { role, is_active, password } = req.body;
@@ -161,7 +169,7 @@ router.patch('/users/:id', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 //  GET /api/admin/export/pilots.csv  — скачать всех пилотов в CSV
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/export/pilots.csv', async (req, res) => {
+router.get('/export/pilots.csv', adminOrChief, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT p.id, p.last_name, p.first_name, p.middle_name,
@@ -199,7 +207,7 @@ router.get('/export/pilots.csv', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/admin/sync-formdesigner
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/sync-formdesigner', (req, res) => {
+router.post('/sync-formdesigner', adminOnly, (req, res) => {
   const script = path.resolve(__dirname, '../../scripts/sync-formdesigner.js');
 
   execFile('node', [script], { env: { ...process.env }, timeout: 60000 },

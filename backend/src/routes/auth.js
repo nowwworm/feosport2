@@ -42,18 +42,30 @@ router.post('/login', async (req, res) => {
 });
 
 // POST /api/auth/register  (admin-only in production)
+// Body: { email, password, role | role_id }
+//   - role: string ('admin'|'chief_judge'|'judge'|'pilot') — preferred
+//   - role_id: integer — accepted for backwards compatibility
 router.post('/register', async (req, res) => {
-  const { email, password, role_id } = req.body;
-  if (!email || !password || !role_id) {
-    return res.status(400).json({ error: 'email, password, role_id required' });
+  const { email, password, role, role_id } = req.body;
+  if (!email || !password || (!role && !role_id)) {
+    return res.status(400).json({ error: 'email, password, role required' });
+  }
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'password must be at least 8 characters' });
   }
   try {
+    let effectiveRoleId = role_id;
+    if (!effectiveRoleId) {
+      const r = await pool.query('SELECT id FROM roles WHERE name = $1', [role]);
+      if (!r.rows.length) return res.status(400).json({ error: `Unknown role: ${role}` });
+      effectiveRoleId = r.rows[0].id;
+    }
     const hash = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
       `INSERT INTO users (email, password_hash, role_id)
        VALUES ($1, $2, $3)
        RETURNING id, email, role_id`,
-      [email.toLowerCase(), hash, role_id]
+      [email.toLowerCase(), hash, effectiveRoleId]
     );
     res.status(201).json(rows[0]);
   } catch (err) {

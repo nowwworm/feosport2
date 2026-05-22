@@ -29,8 +29,10 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/competitions  (admin only)
-router.post('/', authenticate, authorize('admin'), async (req, res) => {
+// POST /api/competitions  (chief_judge | admin)
+// Раздел 3.1.3: создание соревнования и Положение — функция оргкомитета во главе
+// с главным судьёй, не только администратора платформы.
+router.post('/', authenticate, authorize('chief_judge', 'admin'), async (req, res) => {
   const { name, location, start_date, end_date, playoff_size } = req.body;
   try {
     const { rows } = await pool.query(
@@ -39,6 +41,50 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
       [name, location, start_date, end_date, playoff_size || 16, req.user.id]
     );
     res.status(201).json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/competitions/:id  (chief_judge | admin)
+router.patch('/:id', authenticate, authorize('chief_judge', 'admin'), async (req, res) => {
+  const allowed = [
+    'name', 'location', 'start_date', 'end_date', 'status', 'playoff_size',
+    'discipline_id', 'race_system_id', 'race_format_id', 'age_group_id',
+    'gender', 'entry_fee_rub', 'registration_deadline', 'organizer_id',
+    'venue_address',
+  ];
+  const updates = [];
+  const values  = [];
+  for (const f of allowed) {
+    if (req.body[f] !== undefined) {
+      values.push(req.body[f]);
+      updates.push(`${f} = $${values.length}`);
+    }
+  }
+  if (!updates.length) return res.status(400).json({ error: 'No fields to update' });
+  values.push(req.params.id);
+  try {
+    const { rows } = await pool.query(
+      `UPDATE competitions SET ${updates.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/competitions/:id  (admin only)
+router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      'DELETE FROM competitions WHERE id = $1',
+      [req.params.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ deleted: 1 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
