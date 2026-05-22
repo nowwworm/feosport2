@@ -14,10 +14,11 @@ jobs:
     name: AQA before installer build
     uses: ./.github/workflows/aqa.yml
     with:
-      run_e2e: false
+      run_e2e: true
 
   build:
     needs: aqa
+    if: success()
     runs-on: windows-2025
     timeout-minutes: 60
 
