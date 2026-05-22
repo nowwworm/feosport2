@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'feosport2_dev_secret_change_in_prod';
+const DEFAULT_JWT_SECRET = process.env.NODE_ENV === 'test'
+  ? 'test_secret_key_do_not_use_in_production'
+  : 'feosport2_dev_secret_change_in_prod';
+
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
 
 /**
  * Verifies Bearer JWT and attaches decoded payload to req.user.

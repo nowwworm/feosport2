@@ -8,6 +8,7 @@ DECLARE
   judge_hash TEXT := '$2a$10$o8Ywy/SljigQxIFmfKlp2.78.zVdSYyM4csHKJ9cdwY3VnXAzkf5S';
   admin_id  INT; cj_id INT;
   p  INT[]; -- pilot ids [1..16]
+  pid INT;
   cid1 INT; cid2 INT;
   -- heat ids (comp1)
   q1h1 INT; q1h2 INT; q1h3 INT; q1h4 INT;
@@ -50,22 +51,22 @@ INSERT INTO users (email, password_hash, role_id) VALUES ('pilot@feosport.local'
 
 -- ── Пилоты (16 человек, 2 команды) ───────────────────────────────────────
 p := ARRAY[]::INT[];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Алексей','Иванов',  'Феодосия FPV') RETURNING id INTO p[1];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Дмитрий','Петров',  'Феодосия FPV') RETURNING id INTO p[2];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Никита', 'Сидоров', 'Феодосия FPV') RETURNING id INTO p[3];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Максим', 'Козлов',  'Феодосия FPV') RETURNING id INTO p[4];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Артём',  'Морозов', 'Феодосия FPV') RETURNING id INTO p[5];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Игорь',  'Новиков', 'Феодосия FPV') RETURNING id INTO p[6];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Сергей', 'Попов',   'Феодосия FPV') RETURNING id INTO p[7];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Кирилл', 'Лебедев', 'Феодосия FPV') RETURNING id INTO p[8];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Виктор', 'Соколов', 'Крым Racing')  RETURNING id INTO p[9];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Андрей', 'Волков',  'Крым Racing')  RETURNING id INTO p[10];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Роман',  'Захаров', 'Крым Racing')  RETURNING id INTO p[11];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Денис',  'Степанов','Крым Racing')  RETURNING id INTO p[12];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Евгений','Орлов',   'Крым Racing')  RETURNING id INTO p[13];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Павел',  'Зайцев',  'Крым Racing')  RETURNING id INTO p[14];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Вадим',  'Медведев','Крым Racing')  RETURNING id INTO p[15];
-INSERT INTO pilots (first_name, last_name, team) VALUES ('Илья',   'Фёдоров', 'Крым Racing')  RETURNING id INTO p[16];
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Алексей','Иванов',  'Феодосия FPV') RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Дмитрий','Петров',  'Феодосия FPV') RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Никита', 'Сидоров', 'Феодосия FPV') RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Максим', 'Козлов',  'Феодосия FPV') RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Артём',  'Морозов', 'Феодосия FPV') RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Игорь',  'Новиков', 'Феодосия FPV') RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Сергей', 'Попов',   'Феодосия FPV') RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Кирилл', 'Лебедев', 'Феодосия FPV') RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Виктор', 'Соколов', 'Крым Racing')  RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Андрей', 'Волков',  'Крым Racing')  RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Роман',  'Захаров', 'Крым Racing')  RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Денис',  'Степанов','Крым Racing')  RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Евгений','Орлов',   'Крым Racing')  RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Павел',  'Зайцев',  'Крым Racing')  RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Вадим',  'Медведев','Крым Racing')  RETURNING id INTO pid; p := array_append(p, pid);
+INSERT INTO pilots (first_name, last_name, team) VALUES ('Илья',   'Фёдоров', 'Крым Racing')  RETURNING id INTO pid; p := array_append(p, pid);
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- СОРЕВНОВАНИЕ 1 — Кубок Феодосии 2024

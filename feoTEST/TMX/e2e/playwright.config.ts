@@ -47,7 +47,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: process.env.TEST_PROD ? 'pnpm build && pnpm preview' : 'pnpm start',
+    command: process.env.TEST_PROD
+      ? 'pnpm build && pnpm preview --host 127.0.0.1'
+      : 'pnpm run config --check && pnpm exec vite --host 127.0.0.1',
     url: process.env.TEST_PROD ? 'http://localhost:4173' : 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

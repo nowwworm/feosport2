@@ -66,6 +66,9 @@ Source: "staging\database\init.sql";     DestDir: "{app}\database";          Fla
 Source: "staging\database\seed-users.sql"; DestDir: "{app}\database";        Flags: ignoreversion
 Source: "staging\database\seed.sql";     DestDir: "{app}\database";          Flags: ignoreversion
 
+; Миграции (накатываются автоматически при старте exe — см. backend/scripts/migrate.js)
+Source: "staging\database\migrations\*"; DestDir: "{app}\database\migrations"; Flags: ignoreversion recursesubdirs createallsubdirs
+
 ; Вспомогательные скрипты
 Source: "bundled-scripts\setup-db.ps1";     DestDir: "{app}";               Flags: ignoreversion
 Source: "bundled-scripts\start-feosport.bat"; DestDir: "{app}";             Flags: ignoreversion

@@ -51,5 +51,11 @@ feoTEST/scoringVisualizations/
 feoTEST/**/node_modules/
 feoTEST/**/.git/
 feoTEST/**/dist/
+feoTEST/**/playwright-report/
 
 .claude/skills/run-feosport2/.server.pid
+
+# ── Загруженные документы (локальное хранение) ─────────────────────────────
+data/
+backend/data/
+uploads/

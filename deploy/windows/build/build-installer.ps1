@@ -178,12 +178,22 @@ if (-not (Test-Path $tmxDir)) {
     }
 }
 
-# ── Шаг 3: init.sql ──────────────────────────────────────────────────────────
+# ── Шаг 3: init.sql + миграции ───────────────────────────────────────────────
 Write-Step 3 "Копирование database/"
 Copy-Item (Join-Path $ProjectRoot "database\init.sql") "$StagingDir\database\init.sql" -Force
 Copy-Item (Join-Path $ProjectRoot "database\seed-users.sql") "$StagingDir\database\seed-users.sql" -Force
 Copy-Item (Join-Path $ProjectRoot "database\seed.sql") "$StagingDir\database\seed.sql" -Force
-Write-Ok "init.sql + seed-users.sql + seed.sql скопированы"
+
+$migrationsSrc = Join-Path $ProjectRoot "database\migrations"
+$migrationsDst = Join-Path $StagingDir "database\migrations"
+New-Item -ItemType Directory -Force -Path $migrationsDst | Out-Null
+if (Test-Path $migrationsSrc) {
+    Copy-Item "$migrationsSrc\*" $migrationsDst -Force
+    $migCount = (Get-ChildItem $migrationsDst -Filter *.sql).Count
+    Write-Ok "init.sql + seed.sql + seed-users.sql + $migCount миграций скопировано"
+} else {
+    Write-Warn "database\migrations\ не найден — миграции не будут включены"
+}
 
 # ── Шаг 4: PostgreSQL installer ───────────────────────────────────────────────
 Write-Step 4 "PostgreSQL 16 installer"

@@ -7,6 +7,12 @@ const heatRoutes        = require('./routes/heats');
 const pilotRoutes       = require('./routes/pilots');
 const webhookRoutes     = require('./routes/webhook');
 const adminRoutes       = require('./routes/admin');
+const referenceRoutes   = require('./routes/reference');
+const teamRoutes        = require('./routes/teams');
+const applicationRoutes = require('./routes/applications');
+const droneRoutes       = require('./routes/drones');
+const documentRoutes    = require('./routes/documents');
+const stageRoutes       = require('./routes/stages');
 
 const app = express();
 
@@ -43,7 +49,13 @@ app.use('/api/heats',        heatRoutes);
 app.use('/api/pilots',       pilotRoutes);
 app.use('/api/webhook',      webhookRoutes);
 app.use('/api/admin',        adminRoutes);
+app.use('/api/reference',    referenceRoutes);
+app.use('/api/teams',        teamRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/drones',       droneRoutes);
+app.use('/api/documents',    documentRoutes);
+app.use('/api',              stageRoutes); // /competitions/:id/stages, /stages/:id, /groups/:id, /group-participants/:id
 
-app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
+app.get(['/healthz', '/api/healthz'], (_req, res) => res.json({ status: 'ok' }));
 
 module.exports = app;

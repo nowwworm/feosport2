@@ -144,6 +144,28 @@ $userCount = & $psql -U feosport -d feosport2 -tAc "SELECT COUNT(*) FROM users W
 Log "Baseline users available: $($userCount.Trim())/4"
 $env:PGPASSWORD = ""
 
+# Папка для загружаемых документов (раздел 2.2.3 правил, локальное оффлайн-хранение).
+# Фаза 3.5: Windows installer хранит upload-файлы в профиле пользователя,
+# чтобы обновления приложения не трогали документы.
+$DocumentsRoot = Join-Path $env:APPDATA "FeoSport2\uploads"
+New-Item -ItemType Directory -Force -Path $DocumentsRoot | Out-Null
+# Оставляем ACL best-effort: при %APPDATA% владелец обычно уже имеет запись,
+# но явное правило помогает при установке/запуске из разных контекстов.
+try {
+    $acl = Get-Acl $DocumentsRoot
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        "BUILTIN\Users",
+        "Modify",
+        "ContainerInherit,ObjectInherit",
+        "None",
+        "Allow")
+    $acl.AddAccessRule($rule)
+    Set-Acl -Path $DocumentsRoot -AclObject $acl
+    Log "Uploads ACL: BUILTIN\Users granted Modify on $DocumentsRoot"
+} catch {
+    Log "WARN: could not adjust ACL on $DocumentsRoot — $($_.Exception.Message)"
+}
+
 # Записать .env рядом с exe
 $envPath = Join-Path $InstallDir ".env"
 @"
@@ -155,9 +177,11 @@ DB_USER=feosport
 DB_PASSWORD=$DbPassword
 JWT_SECRET=$JwtSecret
 NODE_ENV=production
+DOCUMENTS_ROOT=$DocumentsRoot
 "@ | Set-Content -Encoding UTF8 $envPath
 Log ".env written to $envPath"
 Log ".env settings: PORT=8090 DB_HOST=localhost DB_PORT=5432 DB_NAME=feosport2 DB_USER=feosport NODE_ENV=production"
+Log "Documents root: $DocumentsRoot"
 
 # Открыть порт 8090 в firewall
 $ruleName = "FeoSport2"

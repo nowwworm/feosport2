@@ -21,7 +21,9 @@ logRuntimeSummary(getRuntimeSummary(appDir, envInfo));
 const http    = require('http');
 const express = require('express');
 const app     = require('./app');
-const { initSocket } = require('./services/socket');
+const pool    = require('./config/db');
+const { initSocket }   = require('./services/socket');
+const { runMigrations } = require('../scripts/migrate');
 
 // Serve pre-built frontend (placed next to the exe by the installer)
 const frontendDist = path.join(appDir, 'frontend-dist');
@@ -45,6 +47,15 @@ const PORT = parseInt(process.env.PORT || '8090', 10);
 const httpServer = http.createServer(app);
 initSocket(httpServer);
 
-httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`FeoSport2 listening on http://localhost:${PORT}`);
-});
+(async () => {
+  try {
+    await runMigrations(pool, { log: (m) => console.log(m) });
+  } catch (err) {
+    console.error('[bundled] migrations failed:', err.message);
+    process.exit(1);
+  }
+
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`FeoSport2 listening on http://localhost:${PORT}`);
+  });
+})();

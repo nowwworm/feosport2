@@ -7,7 +7,7 @@ const pool = new Pool({
   database: process.env.DB_NAME     || 'feosport2',
   user:     process.env.DB_USER     || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
-  port:     5432,
+  port:     parseInt(process.env.DB_PORT || '5432', 10),
 });
 
 async function insertHeat(c, competitionId, roundType, heatNumber, judgeId) {
@@ -48,22 +48,35 @@ async function main() {
 
     await client.query('BEGIN');
 
+    await client.query(
+      `INSERT INTO roles (id, name)
+       VALUES (1, 'admin'), (2, 'chief_judge'), (3, 'judge'), (4, 'pilot')
+       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`
+    );
+    await client.query(
+      `SELECT setval(
+         pg_get_serial_sequence('roles', 'id'),
+         GREATEST((SELECT MAX(id) FROM roles), 1)
+       )`
+    );
+
     // ── Users ────────────────────────────────────────────────────────────────
     const adminHash = await bcrypt.hash('admin123', 10);
     const judgeHash = await bcrypt.hash('judge123', 10);
 
     // admin — upsert (may already exist if created via API)
-    await client.query(
+    const { rows: [admin] } = await client.query(
       `INSERT INTO users (email, password_hash, role_id)
        VALUES ('admin@feosport.local', $1, 1)
-       ON CONFLICT (email) DO UPDATE SET password_hash = $1`,
+       ON CONFLICT (email) DO UPDATE SET password_hash = $1, role_id = 1, is_active = true
+       RETURNING id`,
       [adminHash]
     );
 
     const { rows: [cj] } = await client.query(
       `INSERT INTO users (email, password_hash, role_id)
        VALUES ('chief@feosport.local', $1, 2)
-       ON CONFLICT (email) DO UPDATE SET password_hash = $1
+       ON CONFLICT (email) DO UPDATE SET password_hash = $1, role_id = 2, is_active = true
        RETURNING id`,
       [judgeHash]
     );
@@ -107,7 +120,7 @@ async function main() {
     // pids[0]=Иванов pids[2]=Сидоров pids[4]=Морозов pids[6]=Попов
     // pids[8]=Соколов pids[10]=Захаров pids[12]=Орлов pids[14]=Медведев
 
-    const adminId = 1;
+    const adminId = admin.id;
 
     // ════════════════════════════════════════════════════════════════════════
     // COMPETITION 1 — Кубок Феодосии 2024

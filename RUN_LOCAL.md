@@ -43,7 +43,7 @@ cd backend
 npm run dev
 ```
 
-Backend по умолчанию слушает `http://localhost:4000`, если `PORT` не задан.
+Backend по умолчанию слушает `http://localhost:8090`, если `PORT` не задан.
 
 ## 3. Запустить frontend
 
@@ -84,4 +84,3 @@ npm run build
 cd ..\feoTEST\TMX
 corepack pnpm run build
 ```
-

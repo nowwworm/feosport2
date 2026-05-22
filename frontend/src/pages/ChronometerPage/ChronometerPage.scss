@@ -1,0 +1,247 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.chronometer-page {
+  &__content {
+    padding: $space-md;
+    max-width: $max-content-width;
+    margin: 0 auto;
+    @include flex-col($gap: $space-md);
+  }
+
+  &__toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $space-sm;
+
+    label {
+      @include flex-col($gap: $space-xs);
+
+      span {
+        font-size: $font-size-sm;
+        color: $clr-text-muted;
+      }
+    }
+  }
+
+  &__feedback {
+    padding: $space-sm $space-md;
+    border-radius: 6px;
+    font-size: $font-size-sm;
+
+    &--success {
+      border: 1px solid $clr-success;
+      color: $clr-success;
+      background: rgba($clr-success, 0.12);
+    }
+
+    &--error {
+      border: 1px solid $clr-error;
+      color: $clr-error;
+      background: rgba($clr-error, 0.12);
+    }
+  }
+
+  &__flight {
+    @include card;
+    @include flex-col($gap: $space-md);
+  }
+
+  &__flight-meta {
+    display: flex;
+    align-items: center;
+    gap: $space-sm;
+    color: $clr-text-muted;
+
+    strong {
+      margin-left: auto;
+      color: $clr-text;
+      font-size: $font-size-sm;
+    }
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+
+    &--online { background: $clr-success; }
+    &--offline { background: $clr-error; }
+  }
+
+  &__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-sm;
+
+    button {
+      min-height: 46px;
+      border-radius: 8px;
+      background: $clr-surface-2;
+      color: $clr-text;
+      font-weight: 700;
+
+      &:disabled {
+        opacity: 0.42;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  &__danger {
+    border: 1px solid $clr-error;
+    color: $clr-error !important;
+  }
+
+  &__lanes {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $space-sm;
+  }
+
+  &__lane,
+  &__empty,
+  &__events {
+    @include card;
+  }
+
+  &__lane {
+    @include flex-col($gap: $space-md);
+  }
+
+  &__lane-head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-sm;
+
+    strong {
+      min-width: 0;
+      @include truncate;
+    }
+
+    small {
+      color: $clr-text-muted;
+      font-family: $font-mono;
+    }
+  }
+
+  &__lane-num {
+    color: $clr-accent-2;
+    font-size: $font-size-sm;
+    font-weight: 800;
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: $space-sm;
+
+    span {
+      padding: $space-sm;
+      border-radius: 6px;
+      background: $clr-bg;
+      color: $clr-text-muted;
+      font-size: $font-size-sm;
+      min-width: 0;
+    }
+
+    strong {
+      display: block;
+      margin-top: 2px;
+      color: $clr-text;
+      font-family: $font-mono;
+    }
+  }
+
+  &__lap-form {
+    display: grid;
+    grid-template-columns: 72px 1fr auto 76px;
+    gap: $space-sm;
+    align-items: end;
+
+    label {
+      @include flex-col($gap: $space-xs);
+
+      span {
+        color: $clr-text-muted;
+        font-size: $font-size-sm;
+      }
+    }
+
+    button {
+      min-height: 44px;
+      border-radius: 8px;
+      background: $clr-accent;
+      color: #fff;
+      font-weight: 800;
+    }
+  }
+
+  &__check {
+    height: 44px;
+    flex-direction: row !important;
+    align-items: center;
+    gap: $space-xs;
+    color: $clr-text-muted;
+
+    input {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  &__events {
+    @include flex-col($gap: $space-sm);
+
+    h2 {
+      margin: 0;
+      font-size: $font-size-lg;
+    }
+
+    p {
+      margin: 0;
+      color: $clr-text-muted;
+    }
+  }
+
+  &__event {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: $space-sm;
+    padding: $space-sm 0;
+    border-top: 1px solid $clr-border;
+
+    span {
+      color: $clr-text-muted;
+      font-family: $font-mono;
+      font-size: $font-size-sm;
+    }
+  }
+
+  @include respond(md) {
+    &__toolbar {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    &__actions {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    &__lanes {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: $bp-sm) {
+    &__stats,
+    &__lap-form {
+      grid-template-columns: 1fr;
+    }
+
+    &__check {
+      height: auto;
+    }
+  }
+}

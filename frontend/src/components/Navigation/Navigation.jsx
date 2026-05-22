@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/',             label: 'Таблица',    icon: '◈', roles: null,                                    type: 'link' },
   { to: '/bracket',      label: 'Сетка',      icon: '⬡', roles: null,                                    type: 'link' },
   { to: '/judge',        label: 'Судья',      icon: '⊕', roles: ['judge', 'chief_judge', 'admin'],        type: 'link' },
+  { to: '/chronometer',  label: 'Тайминг',    icon: '◷', roles: ['judge', 'chief_judge', 'admin'],        type: 'link' },
   { to: '/pilots',       label: 'Пилоты',     icon: '◉', roles: ['admin', 'chief_judge'],                 type: 'link' },
   { to: '/participants', label: 'Участники',  icon: '⊞', roles: ['admin'],                                type: 'link' },
   { to: TMX_URL,         label: 'TMX',        icon: '⬡', roles: ['admin', 'chief_judge'],                 type: 'external' },

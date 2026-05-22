@@ -11,6 +11,27 @@ function loadBundledEnv(appDir) {
   return { envPath, exists };
 }
 
+function loadLocalEnv(projectRoot = path.resolve(__dirname, '../../..')) {
+  const rootEnvPath = path.join(projectRoot, '.env');
+  const backendEnvPath = path.join(projectRoot, 'backend', '.env');
+  const loaded = [];
+
+  if (fs.existsSync(rootEnvPath)) {
+    dotenv.config({ path: rootEnvPath });
+    loaded.push(rootEnvPath);
+  }
+
+  if (fs.existsSync(backendEnvPath)) {
+    dotenv.config({ path: backendEnvPath, override: true });
+    loaded.push(backendEnvPath);
+  }
+
+  return {
+    envPath: loaded.join(', '),
+    exists: loaded.length > 0,
+  };
+}
+
 function getRuntimeSummary(appDir, envInfo = {}) {
   return {
     appDir,
@@ -36,6 +57,7 @@ function logRuntimeSummary(summary) {
 
 module.exports = {
   loadBundledEnv,
+  loadLocalEnv,
   getRuntimeSummary,
   logRuntimeSummary,
 };

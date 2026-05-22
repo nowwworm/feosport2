@@ -49,6 +49,184 @@
   }
 }
 
+// ── Group stages ─────────────────────────────────────────────────────────────
+.stage-board {
+  @include flex-col($gap: $space-lg);
+}
+
+.stage-round {
+  @include flex-col($gap: $space-sm);
+
+  &__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: $space-md;
+
+    h3 {
+      font-size: $font-size-base;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: $clr-text-muted;
+    }
+
+    p,
+    span {
+      font-size: $font-size-sm;
+      color: $clr-text-muted;
+    }
+  }
+
+  &__groups {
+    display: grid;
+    gap: $space-sm;
+
+    @include respond(md) {
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+  }
+}
+
+.stage-group {
+  @include card;
+  @include flex-col($gap: $space-sm);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: $space-sm;
+
+    h4 {
+      font-size: $font-size-sm;
+      font-weight: 700;
+    }
+
+    span {
+      font-size: 11px;
+      color: $clr-text-muted;
+    }
+  }
+
+  &__participants {
+    @include flex-col($gap: 2px);
+  }
+}
+
+.stage-participant {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  min-height: 42px;
+  padding: $space-xs $space-sm;
+  border-radius: 6px;
+  background: $clr-surface-2;
+
+  &--replaced {
+    border-left: 3px solid $clr-warning;
+  }
+
+  &--no-show {
+    opacity: .55;
+  }
+
+  &__slot {
+    min-width: 26px;
+    font-size: 11px;
+    font-weight: 700;
+    color: $clr-text-muted;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+    @include flex-col;
+  }
+
+  &__name {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    @include truncate;
+  }
+
+  &__meta {
+    min-height: 14px;
+    font-size: 11px;
+    color: $clr-text-muted;
+    @include truncate;
+  }
+
+  &__metric {
+    flex-shrink: 0;
+    font-family: $font-mono;
+    font-size: 12px;
+    font-weight: 700;
+    color: $clr-accent-2;
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
+
+    button {
+      min-width: 28px;
+      height: 28px;
+      border: 1px solid $clr-border;
+      border-radius: 6px;
+      background: $clr-surface;
+      color: $clr-text;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: .45;
+        cursor: default;
+      }
+    }
+  }
+
+  &__form {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+
+    input {
+      width: 58px;
+      height: 28px;
+      padding: 0 6px;
+      border: 1px solid $clr-border;
+      border-radius: 6px;
+      background: $clr-bg;
+      color: $clr-text;
+      font-family: $font-mono;
+      font-size: 12px;
+    }
+
+    &--place input {
+      width: 46px;
+    }
+  }
+
+  @media (max-width: #{$bp-md - 1px}) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+
+    &__controls {
+      width: 100%;
+      justify-content: flex-start;
+      padding-left: 34px;
+    }
+  }
+}
+
 // ── Qual leaderboard ──────────────────────────────────────────────────────────
 .qual-board {
   @include card;

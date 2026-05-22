@@ -6,6 +6,7 @@ import { SocketProvider }        from './context/SocketContext';
 import AuthPage        from './pages/AuthPage/AuthPage';
 import LeaderboardPage from './pages/LeaderboardPage/LeaderboardPage';
 import JudgePage       from './pages/JudgePage/JudgePage';
+import ChronometerPage from './pages/ChronometerPage/ChronometerPage';
 import PilotsPage      from './pages/PilotsPage/PilotsPage';
 import BracketPage      from './pages/BracketPage/BracketPage';
 import ParticipantsPage from './pages/ParticipantsPage/ParticipantsPage';
@@ -53,6 +54,15 @@ function AppRoutes() {
             element={
               <PrivateRoute roles={['judge', 'chief_judge', 'admin']}>
                 <JudgePage />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/chronometer"
+            element={
+              <PrivateRoute roles={['judge', 'chief_judge', 'admin']}>
+                <ChronometerPage />
               </PrivateRoute>
             }
           />

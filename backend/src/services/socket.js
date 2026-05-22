@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const jwt        = require('jsonwebtoken');
 const pool       = require('../config/db');
+const { summarizeLaps, shouldRequestWholeGroupReflight } = require('./flightTiming');
 const { getQualificationLeaderboard } = require('./tournament');
 const { JWT_SECRET } = require('../middleware/auth');
 
@@ -161,6 +162,188 @@ function initSocket(httpServer) {
       }
     });
 
+    // ── flight_start — Chronometer starts an active flight ───────────────────
+    socket.on('flight_start', async (payload, ack) => {
+      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+        return ack?.({ error: 'Forbidden' });
+      }
+      try {
+        const { heat_id } = payload;
+        const { rows } = await pool.query(
+          `UPDATE heats
+              SET status = 'active',
+                  started_at = COALESCE(started_at, NOW()),
+                  updated_at = NOW()
+            WHERE id = $1 AND status != 'locked'
+            RETURNING *`,
+          [heat_id]
+        );
+        if (!rows.length) return ack?.({ error: 'Heat not found or locked' });
+
+        ack?.({ ok: true, heat: rows[0] });
+        io.to(`competition:${rows[0].competition_id}`).emit('flight_start', {
+          heat_id,
+          heat: rows[0],
+        });
+        io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
+          heat_id,
+          status: 'active',
+        });
+      } catch (err) {
+        console.error('[ws] flight_start', err);
+        ack?.({ error: err.message });
+      }
+    });
+
+    // ── lap_complete — Chronometer records one pilot lap ─────────────────────
+    socket.on('lap_complete', async (payload, ack) => {
+      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+        return ack?.({ error: 'Forbidden' });
+      }
+      try {
+        const { heat_id, pilot_id, lap_number, duration_ms, valid, notes } = payload;
+        if (!heat_id || !pilot_id || !lap_number || !duration_ms) {
+          return ack?.({ error: 'heat_id, pilot_id, lap_number, duration_ms required' });
+        }
+
+        const { rows: heatRows } = await pool.query(
+          'SELECT status, competition_id FROM heats WHERE id = $1',
+          [heat_id]
+        );
+        if (!heatRows.length) return ack?.({ error: 'Heat not found' });
+        if (heatRows[0].status === 'locked') return ack?.({ error: 'Heat is locked' });
+
+        const { rows } = await pool.query(
+          `INSERT INTO laps
+             (heat_id, pilot_id, lap_number, duration_ms, valid, recorded_by, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (heat_id, pilot_id, lap_number)
+           DO UPDATE SET
+             duration_ms = EXCLUDED.duration_ms,
+             valid = EXCLUDED.valid,
+             recorded_by = EXCLUDED.recorded_by,
+             notes = EXCLUDED.notes,
+             completed_at = NOW()
+           RETURNING *`,
+          [
+            heat_id,
+            pilot_id,
+            lap_number,
+            duration_ms,
+            valid !== false,
+            userId,
+            notes || null,
+          ]
+        );
+
+        const summary = await getPilotLapSummary(heat_id, pilot_id);
+        ack?.({ ok: true, lap: rows[0], summary });
+        io.to(`competition:${heatRows[0].competition_id}`).emit('lap_complete', {
+          heat_id,
+          pilot_id,
+          lap: rows[0],
+          summary,
+        });
+      } catch (err) {
+        console.error('[ws] lap_complete', err);
+        ack?.({ error: err.message });
+      }
+    });
+
+    // ── falsestart — Judge records a false start, reflight recommended ───────
+    socket.on('falsestart', async (payload, ack) => {
+      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+        return ack?.({ error: 'Forbidden' });
+      }
+      try {
+        const { heat_id, pilot_id, reason } = payload;
+        const heat = await getHeatForEvent(heat_id);
+        if (!heat) return ack?.({ error: 'Heat not found' });
+        if (heat.status === 'locked') return ack?.({ error: 'Heat is locked' });
+
+        const { rows } = await pool.query(
+          `INSERT INTO falsestarts (heat_id, pilot_id, reason, recorded_by)
+           VALUES ($1, $2, $3, $4)
+           RETURNING *`,
+          [heat_id, pilot_id || null, reason || null, userId]
+        );
+        const reflightRecommended = shouldRequestWholeGroupReflight('falsestart');
+        ack?.({ ok: true, falsestart: rows[0], reflight_recommended: reflightRecommended });
+        io.to(`competition:${heat.competition_id}`).emit('falsestart', {
+          heat_id,
+          pilot_id: pilot_id || null,
+          falsestart: rows[0],
+          reflight_recommended: reflightRecommended,
+        });
+      } catch (err) {
+        console.error('[ws] falsestart', err);
+        ack?.({ error: err.message });
+      }
+    });
+
+    // ── reflight_requested — Chief judge requests/approves a reflight ────────
+    socket.on('reflight_requested', async (payload, ack) => {
+      if (!['chief_judge', 'admin'].includes(role)) {
+        return ack?.({ error: 'Forbidden' });
+      }
+      try {
+        const { heat_id, reason, notes, status } = payload;
+        if (!reason) return ack?.({ error: 'reason required' });
+
+        const heat = await getHeatForEvent(heat_id);
+        if (!heat) return ack?.({ error: 'Heat not found' });
+
+        const { rows } = await pool.query(
+          `INSERT INTO reflights (heat_id, group_id, reason, requested_by, status, notes)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING *`,
+          [heat_id, heat.group_id || null, reason, userId, status || 'requested', notes || null]
+        );
+        ack?.({ ok: true, reflight: rows[0] });
+        io.to(`competition:${heat.competition_id}`).emit('reflight_requested', {
+          heat_id,
+          reflight: rows[0],
+        });
+      } catch (err) {
+        console.error('[ws] reflight_requested', err);
+        ack?.({ error: err.message });
+      }
+    });
+
+    // ── flight_end — Chronometer closes an active flight ─────────────────────
+    socket.on('flight_end', async (payload, ack) => {
+      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+        return ack?.({ error: 'Forbidden' });
+      }
+      try {
+        const { heat_id } = payload;
+        const { rows } = await pool.query(
+          `UPDATE heats
+              SET status = 'completed',
+                  ended_at = COALESCE(ended_at, NOW()),
+                  updated_at = NOW()
+            WHERE id = $1 AND status != 'locked'
+            RETURNING *`,
+          [heat_id]
+        );
+        if (!rows.length) return ack?.({ error: 'Heat not found or locked' });
+
+        ack?.({ ok: true, heat: rows[0] });
+        io.to(`competition:${rows[0].competition_id}`).emit('flight_end', {
+          heat_id,
+          heat: rows[0],
+        });
+        io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
+          heat_id,
+          status: 'completed',
+        });
+        await broadcastLeaderboard(io, rows[0].competition_id);
+      } catch (err) {
+        console.error('[ws] flight_end', err);
+        ack?.({ error: err.message });
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`[ws] disconnected socket=${socket.id}`);
     });
@@ -180,6 +363,28 @@ async function broadcastLeaderboard(io, competitionId) {
   } catch (err) {
     console.error('[ws] broadcastLeaderboard', err);
   }
+}
+
+async function getHeatForEvent(heatId) {
+  const { rows } = await pool.query(
+    'SELECT id, competition_id, group_id, status FROM heats WHERE id = $1',
+    [heatId]
+  );
+  return rows[0] || null;
+}
+
+async function getPilotLapSummary(heatId, pilotId) {
+  const { rows } = await pool.query(
+    `SELECT pilot_id, lap_number, duration_ms, valid
+       FROM laps
+      WHERE heat_id = $1 AND pilot_id = $2
+      ORDER BY lap_number`,
+    [heatId, pilotId]
+  );
+  return {
+    pilot_id: pilotId,
+    ...summarizeLaps(rows),
+  };
 }
 
 module.exports = { initSocket };

@@ -1,18 +1,41 @@
-require('dotenv').config();
+const path = require('path');
+const {
+  getRuntimeSummary,
+  loadLocalEnv,
+  logRuntimeSummary,
+} = require('./config/runtimeEnv');
+
+const projectRoot = path.resolve(__dirname, '../..');
+const envInfo = loadLocalEnv(projectRoot);
+logRuntimeSummary(getRuntimeSummary(projectRoot, envInfo));
+
 const http = require('http');
 const app  = require('./app');
+const pool = require('./config/db');
 const { initSocket } = require('./services/socket');
+const { runMigrations } = require('../scripts/migrate');
 
-const PORT      = process.env.PORT || 4000;
+const PORT      = process.env.PORT || 8090;
 const SYNC_MS   = 5 * 60 * 1000; // 5 минут
 
 const httpServer = http.createServer(app);
 initSocket(httpServer);
 
-httpServer.listen(PORT, () => {
-  console.log(`[server] http://localhost:${PORT}`);
-  scheduleFdSync();
-});
+async function start() {
+  try {
+    await runMigrations(pool, { log: (m) => console.log(m) });
+  } catch (err) {
+    console.error('[server] migrations failed:', err.message);
+    process.exit(1);
+  }
+
+  httpServer.listen(PORT, () => {
+    console.log(`[server] http://localhost:${PORT}`);
+    scheduleFdSync();
+  });
+}
+
+start();
 
 function scheduleFdSync() {
   if (!process.env.FD_EMAIL || !process.env.FD_PASSWORD) {

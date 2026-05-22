@@ -40,8 +40,12 @@ describe('WebSocket Real-time Scoring', () => {
 
   afterEach(async () => {
     // Clear test results
+    await pool.query('DELETE FROM reflights WHERE heat_id = $1', [testHeat.id]);
+    await pool.query('DELETE FROM falsestarts WHERE heat_id = $1', [testHeat.id]);
+    await pool.query('DELETE FROM laps WHERE heat_id = $1', [testHeat.id]);
     await pool.query('DELETE FROM result_audit_log WHERE result_id IN (SELECT id FROM results WHERE heat_id = $1)', [testHeat.id]);
     await pool.query('DELETE FROM results WHERE heat_id = $1', [testHeat.id]);
+    await pool.query('UPDATE heats SET status = $1, started_at = NULL, ended_at = NULL WHERE id = $2', ['pending', testHeat.id]);
   });
 
   afterAll(async () => {
@@ -52,7 +56,7 @@ describe('WebSocket Real-time Scoring', () => {
   });
 
   describe('Connection Authentication', () => {
-    test('Socket connection requires JWT token', async (done) => {
+    test('Socket connection requires JWT token', (done) => {
       const socket = ioClient(`http://localhost:${WS_PORT}`, {
         reconnection: false,
         auth: {} // No token
@@ -67,7 +71,7 @@ describe('WebSocket Real-time Scoring', () => {
       socket.connect();
     });
 
-    test('Invalid JWT token rejected', async (done) => {
+    test('Invalid JWT token rejected', (done) => {
       const socket = ioClient(`http://localhost:${WS_PORT}`, {
         reconnection: false,
         auth: { token: 'invalid.jwt.token' }
@@ -86,6 +90,7 @@ describe('WebSocket Real-time Scoring', () => {
       const token = generateToken(judgeUser.id, 'judge');
       const socket = ioClient(`http://localhost:3333`, {
         reconnection: false,
+        autoConnect: false,
         auth: { token }
       });
 
@@ -103,7 +108,7 @@ describe('WebSocket Real-time Scoring', () => {
       socket.connect();
     });
 
-    test('Expired token rejected', async (done) => {
+    test('Expired token rejected', (done) => {
       const token = generateToken(judgeUser.id, 'judge', '0s'); // Expired immediately
 
       // Wait a tiny bit to ensure expiration
@@ -114,7 +119,7 @@ describe('WebSocket Real-time Scoring', () => {
         });
 
         socket.on('connect_error', (error) => {
-          expect(error.message).toContain('invalid');
+          expect(error.message).toMatch(/invalid/i);
           socket.close();
           done();
         });
@@ -129,6 +134,7 @@ describe('WebSocket Real-time Scoring', () => {
       const token = generateToken(judgeUser.id, 'judge');
       const socket = ioClient(`http://localhost:3333`, {
         reconnection: false,
+        autoConnect: false,
         auth: { token }
       });
 
@@ -190,7 +196,7 @@ describe('WebSocket Real-time Scoring', () => {
         }, (response) => {
           expect(response.ok).toBe(true);
           expect(response.result).toBeDefined();
-          expect(response.result.time_seconds).toBe(45.5);
+          expect(parseFloat(response.result.time_seconds)).toBe(45.5);
           socket.close();
           done();
         });
@@ -204,12 +210,14 @@ describe('WebSocket Real-time Scoring', () => {
       socket.connect();
     });
 
-    test('Cannot submit score to locked heat', async (done) => {
+    test('Cannot submit score to locked heat', (done) => {
       // First lock the heat
-      await pool.query(
+      pool.query(
         'UPDATE heats SET status = $1 WHERE id = $2',
         ['locked', testHeat.id]
-      );
+      ).then(() => {
+        socket.connect();
+      }).catch(done);
 
       const token = generateToken(judgeUser.id, 'judge');
       const socket = ioClient(`http://localhost:3333`, {
@@ -239,7 +247,6 @@ describe('WebSocket Real-time Scoring', () => {
         done(error);
       });
 
-      socket.connect();
     });
 
     test('Pilot cannot submit score (Forbidden)', (done) => {
@@ -302,13 +309,15 @@ describe('WebSocket Real-time Scoring', () => {
       socket.connect();
     });
 
-    test('Can update existing score (upsert)', async (done) => {
+    test('Can update existing score (upsert)', (done) => {
       // Insert initial score
-      await pool.query(
+      pool.query(
         `INSERT INTO results (heat_id, pilot_id, judge_id, time_seconds, penalty_seconds)
          VALUES ($1, $2, $3, $4, $5)`,
         [testHeat.id, testPilot.id, judgeUser.id, 50.0, 0]
-      );
+      ).then(() => {
+        socket.connect();
+      }).catch(done);
 
       const token = generateToken(judgeUser.id, 'judge');
       const socket = ioClient(`http://localhost:3333`, {
@@ -326,8 +335,8 @@ describe('WebSocket Real-time Scoring', () => {
           dsq: false
         }, (response) => {
           expect(response.ok).toBe(true);
-          expect(response.result.time_seconds).toBe(45.0);
-          expect(response.result.penalty_seconds).toBe(5.0);
+          expect(parseFloat(response.result.time_seconds)).toBe(45.0);
+          expect(parseFloat(response.result.penalty_seconds)).toBe(5.0);
           socket.close();
           done();
         });
@@ -338,7 +347,6 @@ describe('WebSocket Real-time Scoring', () => {
         done(error);
       });
 
-      socket.connect();
     });
 
     test('DNF and DSQ flags work', (done) => {
@@ -623,6 +631,164 @@ describe('WebSocket Real-time Scoring', () => {
     });
   });
 
+  describe('Flight Timing Events', () => {
+    test('Judge can start a flight and broadcast flight_start', (done) => {
+      const token = generateToken(judgeUser.id, 'judge');
+      const socket = ioClient(`http://localhost:3333`, {
+        reconnection: false,
+        auth: { token }
+      });
+
+      socket.on('flight_start', (data) => {
+        expect(data.heat_id).toBe(testHeat.id);
+        expect(data.heat.status).toBe('active');
+        socket.close();
+        done();
+      });
+
+      socket.on('connect', () => {
+        socket.emit('join_competition', { competition_id: testCompetition.id });
+        socket.emit('flight_start', { heat_id: testHeat.id }, (response) => {
+          expect(response.ok).toBe(true);
+        });
+      });
+
+      socket.on('connect_error', (error) => {
+        socket.close();
+        done(error);
+      });
+
+      socket.connect();
+    });
+
+    test('Judge can record a lap and receive lap summary', (done) => {
+      const token = generateToken(judgeUser.id, 'judge');
+      const socket = ioClient(`http://localhost:3333`, {
+        reconnection: false,
+        auth: { token }
+      });
+
+      socket.on('lap_complete', (data) => {
+        expect(data.heat_id).toBe(testHeat.id);
+        expect(data.pilot_id).toBe(testPilot.id);
+        expect(data.summary.total_laps).toBe(1);
+        expect(data.summary.best_lap_ms).toBe(42123);
+        socket.close();
+        done();
+      });
+
+      socket.on('connect', () => {
+        socket.emit('join_competition', { competition_id: testCompetition.id });
+        socket.emit('lap_complete', {
+          heat_id: testHeat.id,
+          pilot_id: testPilot.id,
+          lap_number: 1,
+          duration_ms: 42123,
+          valid: true
+        }, (response) => {
+          expect(response.ok).toBe(true);
+        });
+      });
+
+      socket.on('connect_error', (error) => {
+        socket.close();
+        done(error);
+      });
+
+      socket.connect();
+    });
+
+    test('Falsestart event recommends whole-group reflight', (done) => {
+      const token = generateToken(judgeUser.id, 'judge');
+      const socket = ioClient(`http://localhost:3333`, {
+        reconnection: false,
+        auth: { token }
+      });
+
+      socket.on('falsestart', (data) => {
+        expect(data.heat_id).toBe(testHeat.id);
+        expect(data.pilot_id).toBe(testPilot.id);
+        expect(data.reflight_recommended).toBe(true);
+        socket.close();
+        done();
+      });
+
+      socket.on('connect', () => {
+        socket.emit('join_competition', { competition_id: testCompetition.id });
+        socket.emit('falsestart', {
+          heat_id: testHeat.id,
+          pilot_id: testPilot.id,
+          reason: 'manual'
+        }, (response) => {
+          expect(response.ok).toBe(true);
+          expect(response.reflight_recommended).toBe(true);
+        });
+      });
+
+      socket.on('connect_error', (error) => {
+        socket.close();
+        done(error);
+      });
+
+      socket.connect();
+    });
+
+    test('Only chief judge or admin can request reflight', (done) => {
+      const judgeToken = generateToken(judgeUser.id, 'judge');
+      const chiefToken = generateToken(chiefJudgeUser.id, 'chief_judge');
+      const judge = ioClient(`http://localhost:3333`, {
+        reconnection: false,
+        auth: { token: judgeToken }
+      });
+      const chiefJudge = ioClient(`http://localhost:3333`, {
+        reconnection: false,
+        auth: { token: chiefToken }
+      });
+
+      chiefJudge.on('reflight_requested', (data) => {
+        expect(data.heat_id).toBe(testHeat.id);
+        expect(data.reflight.reason).toBe('falsestart');
+        judge.close();
+        chiefJudge.close();
+        done();
+      });
+
+      judge.on('connect', () => {
+        judge.emit('reflight_requested', {
+          heat_id: testHeat.id,
+          reason: 'falsestart'
+        }, (response) => {
+          expect(response.error).toContain('Forbidden');
+        });
+      });
+
+      chiefJudge.on('connect', () => {
+        chiefJudge.emit('join_competition', { competition_id: testCompetition.id });
+        chiefJudge.emit('reflight_requested', {
+          heat_id: testHeat.id,
+          reason: 'falsestart'
+        }, (response) => {
+          expect(response.ok).toBe(true);
+        });
+      });
+
+      judge.on('connect_error', (error) => {
+        judge.close();
+        chiefJudge.close();
+        done(error);
+      });
+
+      chiefJudge.on('connect_error', (error) => {
+        judge.close();
+        chiefJudge.close();
+        done(error);
+      });
+
+      judge.connect();
+      chiefJudge.connect();
+    });
+  });
+
   describe('Disconnection Handling', () => {
     test('Socket disconnect is logged', (done) => {
       const token = generateToken(judgeUser.id, 'judge');
@@ -655,6 +821,7 @@ describe('WebSocket Real-time Scoring', () => {
       });
 
       let firstConnection = true;
+      let finished = false;
 
       socket.on('connect', () => {
         if (firstConnection) {
@@ -664,8 +831,15 @@ describe('WebSocket Real-time Scoring', () => {
         } else {
           // Reconnected
           socket.emit('join_competition', { competition_id: testCompetition.id });
+          finished = true;
           socket.close();
           done();
+        }
+      });
+
+      socket.on('disconnect', () => {
+        if (!firstConnection && !finished && !socket.connected) {
+          socket.connect();
         }
       });
 

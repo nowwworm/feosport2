@@ -1,6 +1,7 @@
 'use strict';
 
 const pool = require('../../src/config/db');
+const { runMigrations } = require('../../scripts/migrate');
 
 /**
  * Clear all test data and reset sequences
@@ -28,9 +29,14 @@ async function cleanupDB() {
 }
 
 /**
- * Seed baseline roles and users for testing
+ * Seed baseline roles and users for testing.
+ * Also ensures all incremental migrations are applied — the reference tables
+ * (disciplines, age_groups, video_channels, drone_specs) come from migrations
+ * 001–004, not from init.sql.
  */
 async function seedBaselineData() {
+  await runMigrations(pool);
+
   // Roles (if not exists)
   const roles = [
     { name: 'admin' },

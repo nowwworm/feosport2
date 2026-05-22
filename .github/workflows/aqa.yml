@@ -67,6 +67,10 @@ jobs:
         working-directory: frontend
         run: npm ci --include=dev --no-audit --no-fund
 
+      - name: Run frontend unit tests
+        working-directory: frontend
+        run: npm test
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build
@@ -99,17 +103,9 @@ jobs:
         working-directory: feoTEST/TMX
         run: pnpm install --ignore-scripts --frozen-lockfile
 
-      - name: Typecheck TMX (advisory)
+      - name: Typecheck TMX
         working-directory: feoTEST/TMX
-        run: |
-          set +e
-          pnpm run check-types > tmx-typecheck.log 2>&1
-          code=$?
-          set -e
-          if [ "$code" -ne 0 ]; then
-            echo "::warning title=TMX typecheck advisory::Existing TMX TypeScript issues detected; see tmx-typecheck-log artifact."
-          fi
-          exit 0
+        run: pnpm run check-types 2>&1 | tee tmx-typecheck.log
 
       - name: Upload TMX typecheck log
         if: ${{ always() }}

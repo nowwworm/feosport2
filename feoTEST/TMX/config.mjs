@@ -24,6 +24,18 @@ const base = {
   ...(localEnvFileExists && parse(await readFile(localEnvPath))),
 };
 
+if (args.check) {
+  await writeFile(
+    localEnvPath,
+    stringify({
+      ...base,
+      SERVER: base.SERVER || localServerUrl,
+      ENVIRONMENT: base.ENVIRONMENT || 'local',
+    }),
+  );
+  process.exit(0);
+}
+
 const { environment } = {
   ...args,
   ...(await inquirer.prompt(
