@@ -8,6 +8,7 @@ const {
   detectChannelConflicts,
 } = require('../services/flightTiming');
 const { computeHeatLeaderboard } = require('../services/leaderboard');
+const { computeTeamHeatLeaderboard, recordHandoff } = require('../services/teamRelay');
 
 // Heat reads are scoped to judging/admin roles — pilots use the dedicated
 // leaderboard endpoints instead (см. §2.4.2 — пилоты получают информацию
@@ -99,6 +100,52 @@ router.get('/:id/leaderboard', authenticate, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// GET /api/heats/:id/team-leaderboard — team-aggregate standings (§5.5.8.x).
+router.get('/:id/team-leaderboard', authenticate, async (req, res) => {
+  try {
+    const board = await computeTeamHeatLeaderboard(req.params.id);
+    if (!board) return res.status(404).json({ error: 'Heat not found' });
+    res.json(board);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/heats/:id/handoffs — list relay handoffs for this heat.
+router.get('/:id/handoffs', authenticate, judgesOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT rh.*, t.name AS team_name
+         FROM relay_handoffs rh
+         JOIN teams t ON t.id = rh.team_id
+        WHERE rh.heat_id = $1
+        ORDER BY rh.recorded_at ASC`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/heats/:id/handoffs — record a relay handoff (chief_judge+).
+router.post('/:id/handoffs',
+  authenticate, authorize('chief_judge', 'admin'),
+  async (req, res) => {
+    try {
+      const heatId = parseInt(req.params.id, 10);
+      const result = await recordHandoff(req.app.get('io') || null, {
+        heat_id: heatId,
+        ...req.body,
+      }, req.user.id);
+      res.status(201).json(result);
+    } catch (err) {
+      const status = /required/.test(err.message) ? 400 : 500;
+      res.status(status).json({ error: err.message });
+    }
+  }
+);
 
 router.get('/:id/laps', authenticate, judgesOnly, async (req, res) => {
   try {

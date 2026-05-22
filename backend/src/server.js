@@ -19,7 +19,8 @@ const PORT      = process.env.PORT || 8090;
 const SYNC_MS   = 5 * 60 * 1000; // 5 минут
 
 const httpServer = http.createServer(app);
-initSocket(httpServer);
+const io = initSocket(httpServer);
+app.set('io', io);
 
 async function start() {
   try {

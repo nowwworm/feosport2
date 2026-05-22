@@ -3,6 +3,7 @@ const jwt        = require('jsonwebtoken');
 const pool       = require('../config/db');
 const { summarizeLaps, shouldRequestWholeGroupReflight } = require('./flightTiming');
 const { getQualificationLeaderboard } = require('./tournament');
+const { recordHandoff } = require('./teamRelay');
 const { JWT_SECRET } = require('../middleware/auth');
 
 /**
@@ -307,6 +308,25 @@ function initSocket(httpServer) {
         });
       } catch (err) {
         console.error('[ws] reflight_requested', err);
+        ack?.({ error: err.message });
+      }
+    });
+
+    // ── relay_handoff — Judge in the team pit records a relay exchange ───────
+    socket.on('relay_handoff', async (payload, ack) => {
+      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+        return ack?.({ error: 'Forbidden' });
+      }
+      try {
+        const result = await recordHandoff(io, payload, userId);
+        ack?.({ ok: true, ...result });
+        const { rows: heatRows } = await pool.query(
+          'SELECT competition_id FROM heats WHERE id = $1',
+          [payload.heat_id]
+        );
+        if (heatRows.length) broadcastLeaderboard(io, heatRows[0].competition_id);
+      } catch (err) {
+        console.error('[ws] relay_handoff', err);
         ack?.({ error: err.message });
       }
     });
