@@ -49,6 +49,159 @@
   }
 }
 
+// ── Stage controls ───────────────────────────────────────────────────────────
+.stage-controls {
+  @include card;
+  @include flex-col($gap: $space-md);
+
+  &__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: $space-md;
+
+    h3 {
+      font-size: $font-size-base;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: $clr-text;
+    }
+
+    p,
+    span {
+      font-size: $font-size-sm;
+      color: $clr-text-muted;
+    }
+  }
+
+  &__panel {
+    display: grid;
+    gap: $space-sm;
+
+    @include respond(md) {
+      grid-template-columns: 1fr 110px 120px;
+      align-items: end;
+    }
+
+    &--advance {
+      @include respond(md) {
+        grid-template-columns: minmax(240px, 320px);
+      }
+    }
+  }
+
+  &__field {
+    @include flex-col($gap: $space-xs);
+
+    label {
+      font-size: 11px;
+      font-weight: 700;
+      color: $clr-text-muted;
+      text-transform: uppercase;
+    }
+
+    input,
+    select {
+      height: 36px;
+      width: 100%;
+      padding: 0 $space-sm;
+      border: 1px solid $clr-border;
+      border-radius: 6px;
+      background: $clr-bg;
+      color: $clr-text;
+      font-size: $font-size-sm;
+    }
+  }
+
+  &__pilots {
+    grid-column: 1 / -1;
+    @include flex-col($gap: $space-xs);
+  }
+
+  &__pilotbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-sm;
+
+    span {
+      font-size: 11px;
+      font-weight: 700;
+      color: $clr-text-muted;
+      text-transform: uppercase;
+    }
+
+    button {
+      height: 28px;
+      padding: 0 $space-sm;
+      border: 1px solid $clr-border;
+      border-radius: 6px;
+      background: $clr-surface-2;
+      color: $clr-text;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  }
+
+  &__pilotlist {
+    display: grid;
+    gap: 4px;
+    max-height: 180px;
+    overflow: auto;
+    padding: $space-xs;
+    border: 1px solid $clr-border;
+    border-radius: 6px;
+    background: $clr-bg;
+
+    @include respond(sm) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @include respond(md) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  &__pilot {
+    display: flex;
+    align-items: center;
+    gap: $space-xs;
+    min-width: 0;
+    font-size: $font-size-sm;
+    color: $clr-text;
+
+    input {
+      flex-shrink: 0;
+    }
+
+    span {
+      @include truncate;
+    }
+  }
+
+  &__primary {
+    height: 38px;
+    padding: 0 $space-md;
+    border: 1px solid $clr-accent;
+    border-radius: 6px;
+    background: $clr-accent;
+    color: #fff;
+    font-size: $font-size-sm;
+    font-weight: 800;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: .45;
+      cursor: default;
+    }
+
+    @include respond(md) {
+      justify-self: start;
+    }
+  }
+}
+
 // ── Group stages ─────────────────────────────────────────────────────────────
 .stage-board {
   @include flex-col($gap: $space-lg);

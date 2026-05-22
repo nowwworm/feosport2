@@ -16,6 +16,22 @@ const ROUND_LABELS = {
 const ROUND_ORDER = ['round_of_16', 'quarterfinal', 'semifinal', 'bronze_final', 'final'];
 const STAGE_ORDER = ['qualification', 'round_of_16', 'quarterfinal', 'semifinal', 'final'];
 
+function lastStage(stages) {
+  return STAGE_ORDER
+    .map(type => stages.find(stage => stage.stage_type === type))
+    .filter(Boolean)
+    .at(-1);
+}
+
+function advanceLabel(stageType) {
+  if (!stageType) return 'Создать квалификацию';
+  if (stageType === 'qualification') return 'Сформировать первый плей-офф';
+  if (stageType === 'round_of_16') return 'Сформировать четвертьфинал';
+  if (stageType === 'quarterfinal') return 'Сформировать полуфинал';
+  if (stageType === 'semifinal') return 'Сформировать финал';
+  return 'Сетка завершена';
+}
+
 function groupIntoMatches(slots) {
   const matches = [];
   for (let i = 0; i < slots.length; i += 2) {
@@ -304,23 +320,179 @@ function GroupStageView({ stages, canEdit, savingId, onPatch, onReplace }) {
   );
 }
 
+function StageControls({
+  pilots,
+  stages,
+  canEdit,
+  actionBusy,
+  selectedPilotIds,
+  qualificationMode,
+  qualificationGroupSize,
+  targetLaps,
+  timeLimitSeconds,
+  onSelectedPilotIdsChange,
+  onQualificationModeChange,
+  onQualificationGroupSizeChange,
+  onTargetLapsChange,
+  onTimeLimitSecondsChange,
+  onCreateQualification,
+  onAdvanceStage,
+}) {
+  if (!canEdit) return null;
+
+  const currentStage = lastStage(stages);
+  const hasQualification = stages.some(stage => stage.stage_type === 'qualification');
+  const canAdvance = currentStage && currentStage.stage_type !== 'final';
+  const selectedCount = selectedPilotIds.length;
+
+  const togglePilot = (pilotId) => {
+    onSelectedPilotIdsChange(
+      selectedPilotIds.includes(pilotId)
+        ? selectedPilotIds.filter(id => id !== pilotId)
+        : [...selectedPilotIds, pilotId]
+    );
+  };
+
+  const selectAll = () => onSelectedPilotIdsChange(pilots.map(pilot => pilot.id));
+
+  return (
+    <section className="stage-controls">
+      <header className="stage-controls__header">
+        <div>
+          <h3>Управление этапами</h3>
+          <p>{currentStage ? `Текущий этап: ${ROUND_LABELS[currentStage.stage_type]}` : 'Квалификация ещё не создана'}</p>
+        </div>
+        <span>{selectedCount} пилотов</span>
+      </header>
+
+      {!hasQualification && (
+        <div className="stage-controls__panel">
+          <div className="stage-controls__field">
+            <label htmlFor="qualification-mode">Режим квалификации</label>
+            <select
+              id="qualification-mode"
+              value={qualificationMode}
+              onChange={event => onQualificationModeChange(event.target.value)}
+            >
+              <option value="laps_time">N кругов на время</option>
+              <option value="max_laps">Максимум кругов</option>
+            </select>
+          </div>
+
+          <div className="stage-controls__field">
+            <label htmlFor="qualification-group-size">Размер группы</label>
+            <select
+              id="qualification-group-size"
+              value={qualificationGroupSize}
+              onChange={event => onQualificationGroupSizeChange(event.target.value)}
+            >
+              <option value="4">4</option>
+              <option value="8">8</option>
+            </select>
+          </div>
+
+          {qualificationMode === 'laps_time' ? (
+            <div className="stage-controls__field">
+              <label htmlFor="target-laps">Круги</label>
+              <input
+                id="target-laps"
+                type="number"
+                min="1"
+                value={targetLaps}
+                onChange={event => onTargetLapsChange(event.target.value)}
+              />
+            </div>
+          ) : (
+            <div className="stage-controls__field">
+              <label htmlFor="time-limit-seconds">Лимит, сек</label>
+              <input
+                id="time-limit-seconds"
+                type="number"
+                min="1"
+                value={timeLimitSeconds}
+                onChange={event => onTimeLimitSecondsChange(event.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="stage-controls__pilots">
+            <div className="stage-controls__pilotbar">
+              <span>Допущенные пилоты</span>
+              <button type="button" onClick={selectAll} disabled={actionBusy || !pilots.length}>
+                Все
+              </button>
+            </div>
+            <div className="stage-controls__pilotlist">
+              {pilots.map(pilot => (
+                <label key={pilot.id} className="stage-controls__pilot">
+                  <input
+                    type="checkbox"
+                    checked={selectedPilotIds.includes(pilot.id)}
+                    onChange={() => togglePilot(pilot.id)}
+                  />
+                  <span>{pilot.last_name} {pilot.first_name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="stage-controls__primary"
+            disabled={actionBusy || selectedCount === 0}
+            onClick={onCreateQualification}
+          >
+            Создать квалификацию
+          </button>
+        </div>
+      )}
+
+      {hasQualification && (
+        <div className="stage-controls__panel stage-controls__panel--advance">
+          <button
+            type="button"
+            className="stage-controls__primary"
+            disabled={actionBusy || !canAdvance}
+            onClick={() => onAdvanceStage(currentStage.stage_type)}
+          >
+            {advanceLabel(currentStage?.stage_type)}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function BracketPage() {
   const { user } = useAuth();
   const [competitions, setCompetitions] = useState([]);
   const [selectedId,   setSelectedId]   = useState(null);
+  const [pilots,       setPilots]       = useState([]);
   const [bracketData,  setBracketData]  = useState(null);
   const [stageData,    setStageData]    = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState(null);
   const [savingId,     setSavingId]     = useState(null);
+  const [actionBusy,   setActionBusy]   = useState(false);
+  const [selectedPilotIds, setSelectedPilotIds] = useState([]);
+  const [qualificationMode, setQualificationMode] = useState('laps_time');
+  const [qualificationGroupSize, setQualificationGroupSize] = useState('4');
+  const [targetLaps, setTargetLaps] = useState('3');
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState('120');
   const canEditStages = ['admin', 'chief_judge'].includes(user?.role);
 
   useEffect(() => {
-    api.get('/competitions').then(r => {
-      const visible = r.data || [];
+    Promise.all([
+      api.get('/competitions'),
+      api.get('/pilots').catch(() => ({ data: [] })),
+    ]).then(([competitionResponse, pilotResponse]) => {
+      const visible = competitionResponse.data || [];
+      const loadedPilots = pilotResponse.data || [];
       setCompetitions(visible);
+      setPilots(loadedPilots);
+      setSelectedPilotIds(loadedPilots.map(pilot => pilot.id));
       if (visible.length) setSelectedId(visible[0].id);
-    });
+    }).catch(e => setError(e.response?.data?.error || e.message));
   }, []);
 
   const loadCompetitionData = useCallback((competitionId) => {
@@ -368,6 +540,46 @@ export default function BracketPage() {
     }
   };
 
+  const createQualification = async () => {
+    if (!selectedId) return;
+    setActionBusy(true);
+    setError(null);
+    try {
+      const payload = {
+        admitted_pilot_ids: selectedPilotIds,
+        group_size: Number(qualificationGroupSize),
+        qualification_mode: qualificationMode,
+      };
+      if (qualificationMode === 'laps_time') {
+        payload.target_laps = Number(targetLaps);
+      } else {
+        payload.time_limit_seconds = Number(timeLimitSeconds);
+      }
+      await api.post(`/competitions/${selectedId}/stages/qualification`, payload);
+      await loadCompetitionData(selectedId);
+    } catch (e) {
+      setError(e.response?.data?.error || e.message);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const advanceStage = async (stageType) => {
+    if (!selectedId || !stageType || stageType === 'final') return;
+    setActionBusy(true);
+    setError(null);
+    try {
+      await api.post(`/competitions/${selectedId}/stages/advance`, {
+        from_stage_type: stageType,
+      });
+      await loadCompetitionData(selectedId);
+    } catch (e) {
+      setError(e.response?.data?.error || e.message);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const roundSlots = useMemo(() => {
     if (!bracketData?.brackets) return {};
     return bracketData.brackets.reduce((acc, slot) => {
@@ -399,6 +611,27 @@ export default function BracketPage() {
 
         {loading && <div className="bracket-page__loading">Загрузка…</div>}
         {error   && <div className="bracket-page__error">{error}</div>}
+
+        {!loading && (
+          <StageControls
+            pilots={pilots}
+            stages={stageData}
+            canEdit={canEditStages}
+            actionBusy={actionBusy}
+            selectedPilotIds={selectedPilotIds}
+            qualificationMode={qualificationMode}
+            qualificationGroupSize={qualificationGroupSize}
+            targetLaps={targetLaps}
+            timeLimitSeconds={timeLimitSeconds}
+            onSelectedPilotIdsChange={setSelectedPilotIds}
+            onQualificationModeChange={setQualificationMode}
+            onQualificationGroupSizeChange={setQualificationGroupSize}
+            onTargetLapsChange={setTargetLaps}
+            onTimeLimitSecondsChange={setTimeLimitSeconds}
+            onCreateQualification={createQualification}
+            onAdvanceStage={advanceStage}
+          />
+        )}
 
         {stageData.length > 0 && !loading && (
           <GroupStageView
