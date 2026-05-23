@@ -4,9 +4,60 @@
 .leaderboard-page {
   &__content {
     padding:     $space-md;
-    @include flex-col($gap: $space-sm);
+    @include flex-col($gap: $space-md);
     max-width:   $max-content-width;
     margin:      0 auto;
+  }
+
+  &__controls {
+    @include flex-col($gap: $space-sm);
+  }
+
+  &__field {
+    @include flex-col($gap: $space-xs);
+
+    span {
+      font-size: $font-size-sm;
+      color:     $clr-text-muted;
+    }
+
+    select {
+      width: 100%;
+      padding: $space-sm;
+      background: $clr-surface-2;
+      border: 1px solid $clr-border;
+      border-radius: 6px;
+      color: $clr-text;
+      font-size: $font-size-base;
+    }
+  }
+
+  &__tabs {
+    display: flex;
+    gap: $space-xs;
+    flex-wrap: wrap;
+  }
+
+  &__tab {
+    @include touch-target(40px);
+    padding: 0 $space-md;
+    background: $clr-surface-2;
+    border: 1px solid $clr-border;
+    border-radius: 6px;
+    color: $clr-text-muted;
+    font-weight: 600;
+    cursor: pointer;
+
+    &--active {
+      background: $clr-accent;
+      color: #fff;
+      border-color: $clr-accent;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
   }
 
   &__status {
@@ -27,8 +78,18 @@
     &--offline { background: $clr-error; }
   }
 
+  &__mode {
+    margin-left: $space-sm;
+    padding: 2px 8px;
+    background: $clr-surface-2;
+    border-radius: 4px;
+    font-family: $font-mono;
+    font-size: 11px;
+  }
+
   &__ts {
     margin-left: auto;
+    font-family: $font-mono;
   }
 
   &__empty {
@@ -41,6 +102,8 @@
   &__list {
     list-style: none;
     @include flex-col($gap: $space-xs);
+    padding: 0;
+    margin: 0;
   }
 
   &__row {
@@ -50,12 +113,14 @@
     gap:         $space-md;
 
     &--podium { border-color: $clr-accent-2; }
+    &--out    { opacity: 0.55; }
 
     .rank {
       font-size:   $font-size-xl;
       font-weight: 900;
-      min-width:   32px;
+      min-width:   48px;
       color:       $clr-text-muted;
+      text-align:  center;
     }
 
     .pilot-info {
@@ -66,8 +131,8 @@
       .name {
         font-weight: 600;
         @include truncate;
+        font-size: $font-size-lg;
       }
-
       .team {
         font-size: $font-size-sm;
         color:     $clr-text-muted;
@@ -75,21 +140,52 @@
       }
     }
 
+    .laps {
+      font-family: $font-mono;
+      font-weight: 700;
+      font-size:   $font-size-base;
+      min-width:   70px;
+      text-align:  right;
+    }
+
     .time {
       font-family: $font-mono;
-      font-size:   $font-size-lg;
+      font-size:   $font-size-base;
       font-weight: 700;
       color:       $clr-accent-2;
       flex-shrink: 0;
+      min-width:   100px;
+      text-align:  right;
+    }
+
+    .best {
+      font-family: $font-mono;
+      color: $clr-text-muted;
+      font-size: $font-size-sm;
+      min-width: 100px;
+      text-align: right;
     }
   }
 
-  // Expand to 2-column grid on wider screens
-  @include respond(md) {
-    &__list {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: $space-sm;
+  &--kiosk {
+    .leaderboard-page__content { padding: $space-lg; max-width: 1400px; }
+
+    .leaderboard-page__row {
+      padding: $space-md;
+      .rank { font-size: $font-size-2xl; min-width: 64px; }
+      .pilot-info .name { font-size: $font-size-xl; }
+      .time { font-size: $font-size-xl; min-width: 140px; }
+      .laps, .best { font-size: $font-size-lg; min-width: 100px; }
     }
+  }
+
+  @include respond(md) {
+    &__controls {
+      display: grid;
+      grid-template-columns: 2fr 3fr;
+      gap: $space-md;
+      align-items: end;
+    }
+    &__tabs { grid-column: 1 / -1; }
   }
 }

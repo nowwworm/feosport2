@@ -24,10 +24,11 @@ function PrivateRoute({ children, roles }) {
 
 function AppRoutes() {
   const { user } = useAuth();
+  const isKiosk = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('kiosk') === '1';
 
   return (
     <div className="app-shell">
-      {user && <Navigation />}
+      {user && !isKiosk && <Navigation />}
       <main className="app-main">
         <Routes>
           <Route path="/login" element={<AuthPage />} />
