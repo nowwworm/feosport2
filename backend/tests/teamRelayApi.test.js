@@ -177,7 +177,7 @@ describe('Team relay API', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    test('judge role denied (chief_judge+ only)', async () => {
+    test('generic judge denied (pit-specialist only — §1.5.15)', async () => {
       const res = await request(app)
         .post(`/api/heats/${heat.id}/handoffs`)
         .set('Authorization', authHeader(judgeUser.id, 'judge'))

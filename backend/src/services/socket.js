@@ -5,6 +5,7 @@ const { summarizeLaps, shouldRequestWholeGroupReflight } = require('./flightTimi
 const { getQualificationLeaderboard } = require('./tournament');
 const { recordHandoff } = require('./teamRelay');
 const { recordDisconnect } = require('./simulator');
+const { can } = require('./permissions');
 const { JWT_SECRET } = require('../middleware/auth');
 
 /**
@@ -327,9 +328,9 @@ function initSocket(httpServer) {
       }
     });
 
-    // ── relay_handoff — Judge in the team pit records a relay exchange ───────
+    // ── relay_handoff — Pit-zone judge records a relay exchange ──────────────
     socket.on('relay_handoff', async (payload, ack) => {
-      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+      if (!can(role, 'relay.handoff')) {
         return ack?.({ error: 'Forbidden' });
       }
       try {

@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const pool   = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
+const { rolesFor } = require('../services/permissions');
 const {
   summarizeLaps,
   shouldRequestWholeGroupReflight,
@@ -167,9 +168,9 @@ router.post('/:id/disconnects',
   }
 );
 
-// POST /api/heats/:id/handoffs — record a relay handoff (chief_judge+).
+// POST /api/heats/:id/handoffs — record a relay handoff (pit-zone judges).
 router.post('/:id/handoffs',
-  authenticate, authorize('chief_judge', 'admin'),
+  authenticate, authorize(...rolesFor('relay.handoff')),
   async (req, res) => {
     try {
       const heatId = parseInt(req.params.id, 10);
@@ -260,7 +261,7 @@ router.post('/', authenticate, authorize('chief_judge', 'admin'), async (req, re
   }
 });
 
-router.patch('/:id/start', authenticate, authorize('judge', 'chief_judge', 'admin'), async (req, res) => {
+router.patch('/:id/start', authenticate, authorize(...rolesFor('flight.start')), async (req, res) => {
   try {
     const { rows } = await pool.query(
       `UPDATE heats
@@ -278,7 +279,7 @@ router.patch('/:id/start', authenticate, authorize('judge', 'chief_judge', 'admi
   }
 });
 
-router.post('/:id/laps', authenticate, authorize('judge', 'chief_judge', 'admin'), async (req, res) => {
+router.post('/:id/laps', authenticate, authorize(...rolesFor('lap.record')), async (req, res) => {
   const { pilot_id, lap_number, duration_ms, valid, notes } = req.body;
   if (!pilot_id || !lap_number || !duration_ms) {
     return res.status(400).json({ error: 'pilot_id, lap_number, duration_ms required' });
@@ -342,7 +343,7 @@ router.get('/:id/lap-summary', authenticate, judgesOnly, async (req, res) => {
   }
 });
 
-router.post('/:id/falsestarts', authenticate, authorize('judge', 'chief_judge', 'admin'), async (req, res) => {
+router.post('/:id/falsestarts', authenticate, authorize(...rolesFor('falsestart.record')), async (req, res) => {
   const { pilot_id, reason } = req.body;
   try {
     const { rows } = await pool.query(
@@ -442,7 +443,7 @@ router.post('/:id/reflights', authenticate, authorize('chief_judge', 'admin'), a
   }
 });
 
-router.patch('/:id/end', authenticate, authorize('judge', 'chief_judge', 'admin'), async (req, res) => {
+router.patch('/:id/end', authenticate, authorize(...rolesFor('flight.end')), async (req, res) => {
   try {
     const { rows } = await pool.query(
       `UPDATE heats

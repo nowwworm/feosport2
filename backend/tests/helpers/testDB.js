@@ -37,18 +37,18 @@ async function cleanupDB() {
 async function seedBaselineData() {
   await runMigrations(pool);
 
-  // Roles (if not exists)
+  // Baseline roles plus Phase 11 specialist judging panel.
   const roles = [
-    { name: 'admin' },
-    { name: 'chief_judge' },
-    { name: 'judge' },
-    { name: 'pilot' }
+    'admin', 'chief_judge', 'judge', 'pilot',
+    'deputy_chief_judge', 'chief_secretary', 'deputy_secretary',
+    'pilot_zone_judge', 'tech_control_judge', 'senior_pit_judge', 'pit_judge',
+    'chronometer_judge', 'informer_judge', 'tech_director', 'competition_doctor',
   ];
 
-  for (const role of roles) {
+  for (const name of roles) {
     await pool.query(
       'INSERT INTO roles (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
-      [role.name]
+      [name]
     );
   }
 
