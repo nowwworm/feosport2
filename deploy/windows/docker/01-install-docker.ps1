@@ -4,7 +4,15 @@
     Устанавливает Docker Desktop на Windows 11.
     Запускать из корня проекта:
     powershell -ExecutionPolicy Bypass -File deploy\windows\docker\01-install-docker.ps1
+
+    ВАЖНО: по умолчанию скрипт НЕ включает Windows Optional Features.
+    Для включения WSL2/Virtual Machine Platform запусти явно:
+    powershell -ExecutionPolicy Bypass -File deploy\windows\docker\01-install-docker.ps1 -EnableWindowsFeatures
 #>
+param(
+    [switch]$EnableWindowsFeatures,
+    [switch]$RestartWhenReady
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -21,24 +29,32 @@ if ($build -lt 19041) {
 Write-Ok "Windows build $build — OK"
 
 # ── WSL 2 ─────────────────────────────────────────────────────────────────────
-Write-Step 2 "Включение WSL 2 и Virtual Machine Platform"
+Write-Step 2 "WSL 2 и Virtual Machine Platform"
 
 $wslFeature = (Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux).State
-if ($wslFeature -ne "Enabled") {
+if ($wslFeature -ne "Enabled" -and $EnableWindowsFeatures) {
     dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart | Out-Null
     Write-Ok "WSL включён"
+} elseif ($wslFeature -ne "Enabled") {
+    Write-Warn "WSL выключен. Не включаю без параметра -EnableWindowsFeatures."
 } else { Write-Ok "WSL уже включён" }
 
 $vmpFeature = (Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform).State
-if ($vmpFeature -ne "Enabled") {
+if ($vmpFeature -ne "Enabled" -and $EnableWindowsFeatures) {
     dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart | Out-Null
     Write-Ok "Virtual Machine Platform включён"
+} elseif ($vmpFeature -ne "Enabled") {
+    Write-Warn "Virtual Machine Platform выключен. Не включаю без параметра -EnableWindowsFeatures."
 } else { Write-Ok "Virtual Machine Platform уже включён" }
 
-# Обновление ядра WSL 2
-wsl --update 2>$null
-wsl --set-default-version 2 2>$null
-Write-Ok "WSL 2 установлен как версия по умолчанию"
+if ($EnableWindowsFeatures) {
+    # Обновление ядра WSL 2
+    wsl --update 2>$null
+    wsl --set-default-version 2 2>$null
+    Write-Ok "WSL 2 установлен как версия по умолчанию"
+} else {
+    Write-Warn "Пропускаю wsl --update и wsl --set-default-version."
+}
 
 # ── Docker Desktop ────────────────────────────────────────────────────────────
 Write-Step 3 "Установка Docker Desktop"
@@ -73,13 +89,12 @@ try {
 Write-Host ""
 Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Green
 Write-Host "║  Установка завершена! Следующие шаги:              ║" -ForegroundColor Green
-Write-Host "║  1. ПЕРЕЗАГРУЗИ компьютер                          ║" -ForegroundColor Green
+Write-Host "║  1. Если включал Windows Features — перезагрузи ПК  ║" -ForegroundColor Green
 Write-Host "║  2. Дождись запуска Docker Desktop (иконка в трее) ║" -ForegroundColor Green
 Write-Host "║  3. Запусти: deploy\windows\docker\02-setup-env.ps1║" -ForegroundColor Green
 Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
 
-$restart = Read-Host "Перезагрузить сейчас? (y/N)"
-if ($restart -eq "y" -or $restart -eq "Y") {
+if ($RestartWhenReady -and $EnableWindowsFeatures) {
     Restart-Computer -Force
 }
