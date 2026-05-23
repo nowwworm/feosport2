@@ -5,11 +5,16 @@ import { useAuth } from '../../context/AuthContext';
 import './ProtocolsPage.scss';
 
 const PROTOCOL_TYPES = [
-  { key: 'qualification',   label: 'Квалификация',     needsStage: true },
-  { key: 'stage_results',   label: 'Результаты этапа', needsStage: true },
-  { key: 'final',           label: 'Финал',            needsStage: true },
-  { key: 'final_standings', label: 'Итоговый',         needsStage: false },
-  { key: 'team_summary',    label: 'Командный зачёт',  needsStage: false },
+  { key: 'qualification',           label: 'Квалификация',          needsStage: true },
+  { key: 'stage_results',           label: 'Результаты этапа',      needsStage: true },
+  { key: 'final',                   label: 'Финал',                 needsStage: true },
+  { key: 'team_relay',              label: 'Командная гонка',       needsStage: true },
+  { key: 'simulator_qualification', label: 'Квалификация симулятора', needsStage: true },
+  { key: 'simulator_results',       label: 'Ход симулятора',        needsStage: true },
+  { key: 'final_standings',         label: 'Итоговый',              needsStage: false },
+  { key: 'team_summary',            label: 'Командный зачёт',       needsStage: false },
+  { key: 'tiebreak',                label: 'Дуэль при равенстве',   needsStage: false },
+  { key: 'event_report',            label: 'Отчёт о проведении',    needsStage: false },
 ];
 
 const TYPE_LABEL_BY_KEY = Object.fromEntries(PROTOCOL_TYPES.map(t => [t.key, t.label]));

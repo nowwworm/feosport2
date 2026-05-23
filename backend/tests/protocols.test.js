@@ -1,6 +1,7 @@
 'use strict';
 
 const {
+  PROTOCOL_TYPES,
   canonicalize,
   hashPayload,
   renderHtml,
@@ -104,5 +105,62 @@ describe('renderHtml', () => {
     }));
     expect(html).not.toContain('<script>alert');
     expect(html).toContain('&lt;script&gt;');
+  });
+
+  test('catalog exposes all Phase 10 protocol documents', () => {
+    expect(PROTOCOL_TYPES.map(t => t.key)).toEqual([
+      'qualification',
+      'stage_results',
+      'final',
+      'team_relay',
+      'simulator_qualification',
+      'simulator_results',
+      'final_standings',
+      'team_summary',
+      'tiebreak',
+      'event_report',
+    ]);
+  });
+
+  test('renders newly added Phase 10 protocol templates', () => {
+    const records = [
+      fakeRecord('team_relay', {
+        competition: { name: 'Relay Cup' },
+        stage: { type: 'final', ordinal: 3 },
+        groups: [{ group_number: 1, teams: [{ slot: 1, team_name: 'Team A', finish_place: 1, points: 3 }] }],
+        handoffs: [{ group_number: 1, heat_number: 1, team_name: 'Team A', incoming_pilot_name: 'Pilot In', valid: true }],
+      }),
+      fakeRecord('simulator_qualification', {
+        competition: { name: 'Sim Cup', discipline: 'симулятор' },
+        stage: { type: 'qualification', ordinal: 1, qualification_mode: 'max_laps' },
+        simulator: { simulator_software_name: 'Liftoff' },
+        participants: [],
+      }),
+      fakeRecord('simulator_results', {
+        competition: { name: 'Sim Cup' },
+        stage: { type: 'final', ordinal: 2 },
+        groups: [],
+        simulator: { simulator_software_name: 'Liftoff', simulator_max_attempts: 2 },
+        disconnects: [{ group_number: 1, heat_number: 1, scope: 'single', pilot_name: 'A B', reason: 'network' }],
+      }),
+      fakeRecord('tiebreak', {
+        competition: { name: 'Tie Cup' },
+        ties: [{ points: 5, entries: [{ pilot_id: 1, total_points: 5, stages: [] }] }],
+        standings: [],
+      }),
+      fakeRecord('event_report', {
+        competition: { name: 'Report Cup', status: 'completed' },
+        counts: { pilots_total: 4, teams_total: 1, stages_total: 2, heats_total: 3 },
+        stages: [{ ordinal: 1, stage_type: 'qualification', status: 'completed' }],
+        standings: [],
+        ties: [],
+      }),
+    ];
+
+    for (const record of records) {
+      const html = renderHtml(record);
+      expect(html).toContain(record.payload_hash);
+      expect(html).not.toContain('Неизвестный тип');
+    }
   });
 });

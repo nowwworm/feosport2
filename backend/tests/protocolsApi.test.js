@@ -105,6 +105,36 @@ describe('Protocols API', () => {
       expect(res.body.payload.standings.length).toBe(4);
     });
 
+    test.each([
+      'team_relay',
+      'simulator_qualification',
+      'simulator_results',
+    ])('%s stage-bound protocol generates and stores', async (type) => {
+      const res = await request(app)
+        .post(`/api/competitions/${competition.id}/protocols/${type}`)
+        .set('Authorization', authHeader(chiefJudgeUser.id, 'chief_judge'))
+        .send({ stage_id: stage.id });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body.protocol_type).toBe(type);
+      expect(res.body.stage_id).toBe(stage.id);
+      expect(res.body.payload_hash).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    test.each([
+      'tiebreak',
+      'event_report',
+    ])('%s competition protocol generates and stores', async (type) => {
+      const res = await request(app)
+        .post(`/api/competitions/${competition.id}/protocols/${type}`)
+        .set('Authorization', authHeader(chiefJudgeUser.id, 'chief_judge'));
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body.protocol_type).toBe(type);
+      expect(res.body.stage_id).toBe(null);
+      expect(res.body.payload_hash).toMatch(/^[a-f0-9]{64}$/);
+    });
+
     test('unsupported type returns 400', async () => {
       const res = await request(app)
         .post(`/api/competitions/${competition.id}/protocols/garbage`)
@@ -115,6 +145,14 @@ describe('Protocols API', () => {
     test('missing stage_id for stage-bound type returns 400', async () => {
       const res = await request(app)
         .post(`/api/competitions/${competition.id}/protocols/qualification`)
+        .set('Authorization', authHeader(chiefJudgeUser.id, 'chief_judge'))
+        .send({});
+      expect(res.statusCode).toBe(400);
+    });
+
+    test('missing stage_id for extended stage-bound type returns 400', async () => {
+      const res = await request(app)
+        .post(`/api/competitions/${competition.id}/protocols/team_relay`)
         .set('Authorization', authHeader(chiefJudgeUser.id, 'chief_judge'))
         .send({});
       expect(res.statusCode).toBe(400);

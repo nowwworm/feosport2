@@ -12,6 +12,8 @@ test.describe('Protocols page', () => {
     await expect(page.getByRole('heading', { name: 'Сгенерировать протокол' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'История протоколов' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Создать и подписать/ })).toBeVisible();
+    await expect(page.locator('.protocols-page__form select').first()).toContainText('Квалификация симулятора');
+    await expect(page.locator('.protocols-page__form select').first()).toContainText('Отчёт о проведении');
 
     expect(errors).toEqual([]);
   });
