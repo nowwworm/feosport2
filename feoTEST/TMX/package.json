@@ -28,7 +28,7 @@
     "prepare": "husky",
     "postinstall": "playwright install chromium",
     "preview": "vite preview",
-    "start": "pnpm run config --check && vite --open",
+    "start": "node config.mjs --check && vite --open",
     "lint:report": "eslint src & eslint --cache src -f json > eslint-report.json",
     "test": "TZ=UTC vitest",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",

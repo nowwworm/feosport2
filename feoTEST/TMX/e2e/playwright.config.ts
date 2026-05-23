@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * Playwright E2E configuration for TMX.
@@ -47,9 +51,13 @@ export default defineConfig({
   ],
 
   webServer: {
+    cwd: projectRoot,
     command: process.env.TEST_PROD
       ? 'pnpm build && pnpm preview --host 127.0.0.1'
-      : 'pnpm run config --check && pnpm exec vite --host 127.0.0.1',
+      // Use node directly so pnpm argument forwarding cannot drop --check and
+      // use the local Vite binary so CI cannot block inside pnpm exec/fetch.
+      // strictPort keeps Playwright's baseURL and Vite's bound port identical.
+      : 'node config.mjs --check && node_modules/.bin/vite --host 127.0.0.1 --port 5173 --strictPort',
     url: process.env.TEST_PROD ? 'http://localhost:4173' : 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

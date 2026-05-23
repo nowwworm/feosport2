@@ -71,9 +71,8 @@ test.describe('Journey 12 — Qualifiers count inference', () => {
     await tournamentPage.navigateToEvents();
     await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
     await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-    await page.getByRole('button', { name: 'Add draw' }).click();
     const drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
 
     // The model should infer a non-zero qualifiersCount when qualifying
     // entries exist and there's a power-of-2 gap.
@@ -122,9 +121,8 @@ test.describe('Journey 12 — Qualifiers count inference', () => {
     await tournamentPage.navigateToEvents();
     await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
     await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-    await page.getByRole('button', { name: 'Add draw' }).click();
     const drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
 
     const drawSize = Number(await drawer.getInputValue('Draw size'));
     expect(drawSize).toBe(16);
@@ -166,9 +164,8 @@ test.describe('Journey 12 — Qualifiers count inference', () => {
     await tournamentPage.navigateToEvents();
     await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
     await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-    await page.getByRole('button', { name: 'Add draw' }).click();
     const drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
 
     // Switch to RR: drawSize = raw = 5, gap = 0
     await drawer.selectDrawType('ROUND_ROBIN');

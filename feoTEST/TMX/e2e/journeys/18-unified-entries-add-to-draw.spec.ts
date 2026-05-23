@@ -180,9 +180,8 @@ test.describe('Journey 18 — Add entries to draws + post-draw flow', () => {
     expect(initialCount.participants).toBe(32); // 16 original + 16 extra
 
     // Step 2: Generate a draw via the "Add draw" button
-    await page.getByRole('button', { name: 'Add draw' }).click();
     const drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
     await drawer.setInputValue('Draw name', 'Main Draw');
     await drawer.clickGenerate();
 

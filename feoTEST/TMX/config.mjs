@@ -14,7 +14,9 @@ const fileExists = (path) =>
     () => true,
     () => false,
   );
-const args = yargs(hideBin(process.argv)).argv;
+// yargs v18 returns argv asynchronously in ESM; awaiting it keeps --check from
+// falling through into the interactive prompt during Playwright webServer boot.
+const args = await yargs(hideBin(process.argv)).argv;
 
 const localEnvFileExists = await fileExists(localEnvPath);
 if (args.check && localEnvFileExists) process.exit(0);

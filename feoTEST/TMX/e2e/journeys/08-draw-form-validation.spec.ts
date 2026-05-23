@@ -27,9 +27,8 @@ async function seedAndOpenDrawForm(page: any): Promise<DrawFormDrawer> {
   await tournamentPage.navigateToEvents();
   await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
   await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-  await page.getByRole('button', { name: 'Add draw' }).click();
   const drawer = new DrawFormDrawer(page);
-  await drawer.waitForOpen();
+  await drawer.openFromAddDrawButton();
   return drawer;
 }
 
@@ -134,9 +133,8 @@ test.describe('Journey 8 — Draw form validation and edge cases', () => {
     await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
 
     // Open and generate first draw
-    await page.getByRole('button', { name: 'Add draw' }).click();
     let drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
     await drawer.setInputValue('Draw name', 'Draw 1');
     await drawer.clickGenerate();
     await collector.waitForMethod('addDrawDefinition', 10_000);
@@ -149,9 +147,8 @@ test.describe('Journey 8 — Draw form validation and edge cases', () => {
     await page.waitForTimeout(500);
 
     // Open drawer for second draw
-    await page.getByRole('button', { name: 'Add draw' }).click();
     drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
 
     // The default name should be "Draw 2" (drawsCount + 1)
     const drawName = await drawer.getInputValue('Draw name');

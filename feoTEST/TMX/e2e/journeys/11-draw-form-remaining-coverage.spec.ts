@@ -52,9 +52,8 @@ async function seedAndOpenDrawForm(page: any, profile: MockProfile): Promise<Dra
   await tournamentPage.navigateToEvents();
   await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
   await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-  await page.getByRole('button', { name: 'Add draw' }).click();
   const drawer = new DrawFormDrawer(page);
-  await drawer.waitForOpen();
+  await drawer.openFromAddDrawButton();
   return drawer;
 }
 
@@ -137,9 +136,8 @@ test.describe('Journey 11 — Remaining coverage gaps', () => {
     await tournamentPage.navigateToEvents();
     await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
     await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-    await page.getByRole('button', { name: 'Add draw' }).click();
     const drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
 
     const formDrawSize = Number(await drawer.getInputValue('Draw size'));
     expect(formDrawSize).toBe(16); // nextPowerOf2(16) = 16
@@ -177,9 +175,8 @@ test.describe('Journey 11 — Remaining coverage gaps', () => {
     await tournamentPage.navigateToEvents();
     await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
     await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-    await page.getByRole('button', { name: 'Add draw' }).click();
     const drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
 
     // 12 accepted → nextPowerOf2(12) = 16 for SE
     const formDrawSize = Number(await drawer.getInputValue('Draw size'));

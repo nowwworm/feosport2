@@ -35,12 +35,19 @@ export class TMXDatabase {
     });
   };
 
-  resetDB = (callback?: () => void): void => {
+  resetDB = async (callback?: () => void): Promise<void> => {
     this.dex.close();
-    Dexie.delete('TMX').then(callback, (err: any) => {
+    try {
+      await Dexie.delete('TMX');
+      // E2E tests seed data immediately after reset; reopen the Dexie
+      // handle here so callers do not race against a closed database.
+      await this.initDB();
+      callback?.();
+    } catch (err: any) {
       console.error('[IndexedDB] Failed to reset database:', err);
       tmxToast({ message: 'Failed to reset database', intent: 'is-danger' });
-    });
+      throw err;
+    }
   };
 
   findAll = (table: string): Promise<any[]> => {

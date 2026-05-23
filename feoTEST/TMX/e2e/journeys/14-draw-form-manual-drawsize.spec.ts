@@ -31,9 +31,8 @@ async function seedAndOpenDrawForm(page: any): Promise<DrawFormDrawer> {
   await tournamentPage.navigateToEvents();
   await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
   await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-  await page.getByRole('button', { name: 'Add draw' }).click();
   const drawer = new DrawFormDrawer(page);
-  await drawer.waitForOpen();
+  await drawer.openFromAddDrawButton();
   return drawer;
 }
 

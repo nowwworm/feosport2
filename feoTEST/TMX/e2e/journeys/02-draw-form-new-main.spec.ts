@@ -59,11 +59,8 @@ async function seedAndOpenDrawForm(
   // Wait for the event tabs bar to appear
   await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
 
-  // Click "Add draw" button
-  await page.getByRole('button', { name: 'Add draw' }).click();
-
   const drawer = new DrawFormDrawer(page);
-  await drawer.waitForOpen();
+  await drawer.openFromAddDrawButton();
   return { tournamentPage, drawer };
 }
 
@@ -380,10 +377,9 @@ test.describe('Journey 2 — Draw form NEW_MAIN', () => {
     await tournamentPage.navigateToEvents();
     await tournamentPage.eventsTable.locator('.tabulator-row').first().click();
     await page.waitForSelector('#eventTabsBar', { state: 'visible', timeout: 10_000 });
-    await page.getByRole('button', { name: 'Add draw' }).click();
 
     const drawer = new DrawFormDrawer(page);
-    await drawer.waitForOpen();
+    await drawer.openFromAddDrawButton();
 
     // Score format should be hidden for TEAM events
     await drawer.expectFieldHidden('Score format');

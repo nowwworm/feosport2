@@ -24,20 +24,24 @@ export class DrawFormDrawer {
 
   /* ─── Waiting ──────────────────────────────────────────────────────── */
 
-  /** Wait for the drawer to be visible and the form to be rendered.
-   *  The #tmxDrawer section is a wrapper — the actual visible content
-   *  lives inside .drawer__wrapper which slides in via CSS transform.
-   *  We wait for the wrapper to become visible (transform complete),
-   *  then for the drawType select to confirm the form is rendered. */
-  async waitForOpen(): Promise<void> {
-    await this.page.locator(`${S.TMX_DRAWER} .drawer__wrapper`).waitFor({ state: 'visible', timeout: 15_000 });
+  /** Wait for the drawer to be open and the form to be rendered.
+   *  Playwright's generic `visible` state is true even while the drawer
+   *  wrapper is translated off-screen; the component marks the completed
+   *  open transition with `is-active is-visible`, so wait for those classes
+   *  before touching controls. */
+  async waitForOpen(timeout = 15_000): Promise<void> {
+    await this.page.locator(`${S.TMX_DRAWER}.is-active.is-visible .drawer__wrapper`).waitFor({
+      state: 'visible',
+      timeout,
+    });
     await this.fieldSelect('Draw Type').waitFor({ state: 'visible', timeout: 5_000 });
   }
 
-  /** Wait for the drawer to close. The drawer section itself may remain
-   *  in the DOM with display:none — wait for the wrapper to not be visible. */
+  /** Wait for the drawer to close. The component can leave a stale
+   *  `is-visible` class behind, but without `is-active` CSS sets
+   *  `.drawer` to display:none, which is the actual closed state. */
   async waitForClose(): Promise<void> {
-    await this.page.locator(`${S.TMX_DRAWER} .drawer__wrapper`).waitFor({ state: 'hidden', timeout: 10_000 });
+    await expect(this.drawer).not.toHaveClass(/is-active/, { timeout: 10_000 });
   }
 
   /* ─── Field locators ───────────────────────────────────────────────── */
@@ -85,6 +89,26 @@ export class DrawFormDrawer {
     await expect(this.checkbox(id).locator('..')).toBeHidden();
   }
 
+  /** Open the event-level Add draw drawer with a bounded retry.
+   *  The Entries table can still be settling when the button appears; a
+   *  click may focus the button before the drawer transition starts. */
+  async openFromAddDrawButton(): Promise<void> {
+    const button = this.page.getByRole('button', { name: 'Add draw' });
+    await expect(button).toBeVisible({ timeout: 10_000 });
+    await expect(button).toBeEnabled({ timeout: 10_000 });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await button.click({ force: true });
+      try {
+        await this.waitForOpen(5_000);
+        return;
+      } catch (error) {
+        if (attempt === 2) throw error;
+        await this.page.waitForTimeout(150);
+      }
+    }
+  }
+
   /* ─── Value getters ────────────────────────────────────────────────── */
 
   async getSelectValue(labelText: string): Promise<string> {
@@ -99,7 +123,17 @@ export class DrawFormDrawer {
 
   /** Select a draw type by its value (e.g. 'ROUND_ROBIN'). */
   async selectDrawType(value: string): Promise<void> {
-    await this.fieldSelect('Draw Type').selectOption(value);
+    const select = this.fieldSelect('Draw Type');
+    // Dispatch the same change event without opening Chromium's native
+    // select UI; native option picking can bubble through the document
+    // click handler and close the drawer mid-assertion.
+    await select.evaluate((node, nextValue) => {
+      const el = node as HTMLSelectElement;
+      el.value = nextValue as string;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+    await expect(select).toHaveValue(value);
   }
 
   /** Set a numeric input value (clears first). */
@@ -161,13 +195,10 @@ export class DrawFormDrawer {
    *  rendered (e.g. ATTACH_QUALIFYING mode where the drawer opens
    *  without an overlay). */
   async clickCancel(): Promise<void> {
-    const overlay = this.page.locator(`${S.TMX_DRAWER} .drawer__overlay`);
-    if (await overlay.isVisible().catch(() => false)) {
-      await overlay.click({ force: true });
-    } else {
-      // Fallback: click at (0,0) — outside the drawer wrapper
-      await this.page.mouse.click(0, 0);
-    }
+    // Escape exercises the drawer's public close path without relying on
+    // overlay hit testing, which can report visible while display is already
+    // being removed during the close transition.
+    await this.page.keyboard.press('Escape');
     await this.waitForClose();
   }
 }
