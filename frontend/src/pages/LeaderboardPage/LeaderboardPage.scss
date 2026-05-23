@@ -97,6 +97,11 @@
     text-align: center;
     padding:    $space-2xl $space-md;
     color:      $clr-text-muted;
+
+    &--error {
+      color: $clr-error;
+      border-color: rgba(255, 80, 80, 0.35);
+    }
   }
 
   &__list {

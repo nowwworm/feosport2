@@ -12,6 +12,20 @@ const ROLE_LABEL = {
 };
 
 const EMPTY_FORM = { email: '', password: '', role: 'judge' };
+const TMX_URL = import.meta.env.VITE_TMX_URL || '/tmx/';
+const TMX_LINKS = [
+  { label: 'Турниры', href: '#/tournaments' },
+  { label: 'Топологии', href: '#/templates/topologies' },
+  { label: 'Форматы матчей', href: '#/templates/tieformats' },
+  { label: 'Композиции', href: '#/templates/compositions' },
+  { label: 'Политики', href: '#/policies' },
+  { label: 'Настройки', href: '#/settings' },
+];
+
+function tmxHref(hash = '') {
+  if (!hash) return TMX_URL;
+  return `${TMX_URL.replace(/\/?$/, '/')}${hash}`;
+}
 
 export default function AdminPage() {
   const [users,   setUsers]   = useState([]);
@@ -21,6 +35,9 @@ export default function AdminPage() {
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState('');
   const [pgAdminStarting, setPgAdminStarting] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoResult, setDemoResult] = useState(null);
+  const [demoError, setDemoError] = useState('');
 
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
@@ -62,6 +79,20 @@ export default function AdminPage() {
       alert(err.response?.data?.error || 'Не удалось запустить pgAdmin');
     } finally {
       setPgAdminStarting(false);
+    }
+  }
+
+  async function handleGenerateDemoData() {
+    setDemoLoading(true);
+    setDemoResult(null);
+    setDemoError('');
+    try {
+      const { data } = await api.post('/admin/demo-data');
+      setDemoResult(data);
+    } catch (err) {
+      setDemoError(err.response?.data?.details || err.response?.data?.error || 'Не удалось сгенерировать тестовые данные');
+    } finally {
+      setDemoLoading(false);
     }
   }
 
@@ -174,6 +205,68 @@ export default function AdminPage() {
                 <span>pgAdmin</span>
                 <strong>{dbStatus?.pgAdmin?.available ? 'Найден' : 'Не найден'}</strong>
               </div>
+            </div>
+          )}
+        </section>
+
+        <section className="admin-page__tmx-panel">
+          <div className="admin-page__tmx-head">
+            <div>
+              <h2>TMX</h2>
+              <p>Отдельный модуль турнирных сеток, шаблонов форматов, политик и печати сетки.</p>
+            </div>
+            <a
+              className="admin-page__btn admin-page__btn--primary admin-page__tmx-main"
+              href={tmxHref()}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Открыть TMX ↗
+            </a>
+          </div>
+          <div className="admin-page__tmx-links" aria-label="Быстрые ссылки TMX">
+            {TMX_LINKS.map(link => (
+              <a
+                key={link.href}
+                className="admin-page__tmx-link"
+                href={tmxHref(link.href)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <section className="admin-page__demo-panel">
+          <div className="admin-page__demo-head">
+            <div>
+              <h2>Демо-данные</h2>
+              <p>Создаёт витринный набор для презентации: Кубок Севастополя 2025, команды, пилоты, судьи, заявки, документы, дроны, вылеты, штрафы, протест и протоколы.</p>
+            </div>
+            <button
+              className="admin-page__btn admin-page__btn--primary admin-page__demo-main"
+              type="button"
+              onClick={handleGenerateDemoData}
+              disabled={demoLoading}
+            >
+              {demoLoading ? 'Генерация…' : 'Сгенерировать тестовые данные'}
+            </button>
+          </div>
+
+          {demoError && (
+            <p className="admin-page__demo-error">{demoError}</p>
+          )}
+
+          {demoResult && (
+            <div className="admin-page__demo-result">
+              <strong>{demoResult.competition_name}</strong>
+              <span>ID соревнования: {demoResult.competition_id}</span>
+              <span>Команды: {demoResult.summary?.teams}</span>
+              <span>Пилоты: {demoResult.summary?.pilots}</span>
+              <span>Вылеты: {demoResult.summary?.heats}</span>
+              <span>Протоколы: {demoResult.summary?.protocols}</span>
             </div>
           )}
         </section>

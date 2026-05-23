@@ -12,7 +12,9 @@
     margin-bottom: 16px;
   }
 
-  &__db-panel {
+  &__db-panel,
+  &__tmx-panel,
+  &__demo-panel {
     background: var(--color-surface, #1a1a2e);
     border: 1px solid var(--color-border, #2a2a4a);
     border-radius: 8px;
@@ -20,7 +22,9 @@
     margin-bottom: 16px;
   }
 
-  &__db-head {
+  &__db-head,
+  &__tmx-head,
+  &__demo-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -39,6 +43,81 @@
       color: var(--color-text-secondary, #8888aa);
       font-size: 13px;
       word-break: break-word;
+    }
+  }
+
+  &__tmx-head {
+    align-items: center;
+  }
+
+  &__demo-head {
+    align-items: center;
+  }
+
+  &__tmx-main {
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  &__demo-main {
+    white-space: nowrap;
+  }
+
+  &__demo-error {
+    margin: 0;
+    color: var(--color-error, #ff5555);
+    font-size: 13px;
+  }
+
+  &__demo-result {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    color: var(--color-text-secondary, #8888aa);
+    font-size: 12px;
+
+    strong {
+      color: var(--color-text-primary, #e0e0ff);
+      font-size: 13px;
+      margin-right: 4px;
+    }
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 8px;
+      background: var(--color-input-bg, #111128);
+      border: 1px solid var(--color-border, #2a2a4a);
+      border-radius: 6px;
+    }
+  }
+
+  &__tmx-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__tmx-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 12px;
+    background: var(--color-input-bg, #111128);
+    border: 1px solid var(--color-border, #2a2a4a);
+    border-radius: 6px;
+    color: var(--color-text-primary, #e0e0ff);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.15s, border-color 0.15s;
+
+    &:hover {
+      opacity: 0.85;
+      border-color: var(--color-accent, #6c63ff);
     }
   }
 
@@ -294,12 +373,21 @@
 
 @media (max-width: 720px) {
   .admin-page {
-    &__db-head {
+    &__db-head,
+    &__tmx-head,
+    &__demo-head {
       flex-direction: column;
     }
 
     &__db-actions {
       justify-content: flex-start;
+    }
+
+    &__tmx-main,
+    &__demo-main {
+      width: 100%;
+      justify-content: center;
+      box-sizing: border-box;
     }
 
     &__db-grid {

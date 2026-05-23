@@ -38,20 +38,50 @@ export default function LeaderboardPage() {
   const [board, setBoard] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [competitionsLoading, setCompetitionsLoading] = useState(true);
+  const [competitionsError, setCompetitionsError] = useState('');
+  const [boardError, setBoardError] = useState('');
 
   // ─── Initial: load competitions ───────────────────────────────────────────
   useEffect(() => {
+    let alive = true;
+    setCompetitionsLoading(true);
+    setCompetitionsError('');
+
     api.get('/competitions').then(({ data }) => {
-      setCompetitions(data);
-      if (!competitionId && data[0]) {
-        setCompetitionId(String(data[0].id));
+      if (!alive) return;
+      const list = Array.isArray(data) ? data : [];
+      setCompetitions(list);
+      const selectedExists = competitionId && list.some(c => String(c.id) === String(competitionId));
+      if ((!competitionId || !selectedExists) && list[0]) {
+        setCompetitionId(String(list[0].id));
       }
-    }).catch(() => {});
+    }).catch((err) => {
+      if (!alive) return;
+      setCompetitions([]);
+      setCompetitionId('');
+      const status = err.response?.status;
+      setCompetitionsError(
+        status === 401
+          ? 'Сессия устарела. Выйдите и войдите снова.'
+          : err.response?.data?.error || 'Не удалось загрузить список соревнований'
+      );
+    }).finally(() => {
+      if (alive) setCompetitionsLoading(false);
+    });
+
+    return () => { alive = false; };
   }, []);
 
   // ─── On competition change: load stages + heats + join WS room ────────────
   useEffect(() => {
-    if (!competitionId) return;
+    if (!competitionId) {
+      setStages([]);
+      setHeats([]);
+      setStageId('');
+      setHeatId('');
+      return;
+    }
     Promise.all([
       api.get('/competitions/' + competitionId + '/stages').catch(() => ({ data: [] })),
       api.get('/heats', { params: { competition_id: competitionId } }).catch(() => ({ data: [] })),
@@ -60,8 +90,8 @@ export default function LeaderboardPage() {
       const heatList  = h.data || [];
       setStages(stageList);
       setHeats(heatList);
-      if (stageList[0]) setStageId(String(stageList[0].id));
-      if (heatList[0])  setHeatId(String(heatList[0].id));
+      setStageId(stageList[0] ? String(stageList[0].id) : '');
+      setHeatId(heatList[0] ? String(heatList[0].id) : '');
     });
   }, [competitionId]);
 
@@ -74,6 +104,7 @@ export default function LeaderboardPage() {
   const fetchBoard = useCallback(async () => {
     if (!competitionId) return;
     setLoading(true);
+    setBoardError('');
     try {
       let res;
       if (view === 'competition') {
@@ -91,8 +122,9 @@ export default function LeaderboardPage() {
       }
       setBoard(res.data);
       setUpdatedAt(new Date().toISOString());
-    } catch {
+    } catch (err) {
       setBoard(null);
+      setBoardError(err.response?.data?.error || 'Не удалось загрузить таблицу результатов');
     } finally {
       setLoading(false);
     }
@@ -118,6 +150,18 @@ export default function LeaderboardPage() {
     return board.standings || board.leaderboard || [];
   }, [board]);
 
+  const emptyMessage = useMemo(() => {
+    if (competitionsLoading) return 'Загрузка соревнований…';
+    if (competitionsError) return competitionsError;
+    if (competitions.length === 0) return 'Нет соревнований. Создайте соревнование или выполните seed dev-данных.';
+    if (!competitionId) return 'Выберите соревнование.';
+    if (boardError) return boardError;
+    if (loading) return 'Загрузка…';
+    return 'Ожидание результатов…';
+  }, [boardError, competitionId, competitions.length, competitionsError, competitionsLoading, loading]);
+
+  const hasBlockingError = Boolean(competitionsError || boardError);
+
   return (
     <div className={`leaderboard-page${kiosk ? ' leaderboard-page--kiosk' : ''}`}>
       {!kiosk && <Header title="Таблица" />}
@@ -127,7 +171,13 @@ export default function LeaderboardPage() {
           <div className="leaderboard-page__controls">
             <label className="leaderboard-page__field">
               <span>Соревнование</span>
-              <select value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
+              <select
+                value={competitionId}
+                disabled={competitionsLoading || competitions.length === 0}
+                onChange={(e) => setCompetitionId(e.target.value)}
+              >
+                {competitionsLoading && <option value="">Загрузка…</option>}
+                {!competitionsLoading && competitions.length === 0 && <option value="">Нет соревнований</option>}
                 {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
@@ -181,10 +231,12 @@ export default function LeaderboardPage() {
           )}
         </div>
 
-        {loading && !rows.length ? (
-          <div className="leaderboard-page__empty"><p>Загрузка…</p></div>
+        {(loading || competitionsLoading || hasBlockingError || !competitionId) && !rows.length ? (
+          <div className={`leaderboard-page__empty${hasBlockingError ? ' leaderboard-page__empty--error' : ''}`}>
+            <p>{emptyMessage}</p>
+          </div>
         ) : rows.length === 0 ? (
-          <div className="leaderboard-page__empty"><p>Ожидание результатов…</p></div>
+          <div className="leaderboard-page__empty"><p>{emptyMessage}</p></div>
         ) : view === 'team' ? (
           <TeamList rows={rows} />
         ) : view === 'heat' || view === 'stage' ? (
