@@ -14,6 +14,7 @@
 
 const crypto = require('crypto');
 const pool = require('../config/db');
+const { recordAudit } = require('./audit');
 
 const SUPPORTED_TYPES = new Set([
   'qualification', 'stage_results', 'final', 'final_standings', 'team_summary',
@@ -219,7 +220,18 @@ async function signAndStore({ competitionId, stageId = null, type, payload }, us
      RETURNING *`,
     [competitionId, stageId, type, payload, hash, userId]
   );
-  return rows[0];
+  const protocol = rows[0];
+
+  await recordAudit({
+    competitionId,
+    action: 'protocol.signed',
+    actorUserId: userId,
+    targetKind: 'protocol',
+    targetId: protocol.id,
+    payload: { type, stage_id: stageId, payload_hash: hash },
+  });
+
+  return protocol;
 }
 
 // ─── HTML rendering (template literals + print CSS) ─────────────────────────

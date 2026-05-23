@@ -6,6 +6,7 @@ const { getQualificationLeaderboard } = require('./tournament');
 const { recordHandoff } = require('./teamRelay');
 const { recordDisconnect } = require('./simulator');
 const { can } = require('./permissions');
+const { recordAuditAsync } = require('./audit');
 const { JWT_SECRET } = require('../middleware/auth');
 
 /**
@@ -73,6 +74,14 @@ function initSocket(httpServer) {
 
         ack?.({ ok: true, result: rows[0] });
         io.to(`competition:${competitionId}`).emit('score_update', { heat_id, pilot_id, result: rows[0] });
+        recordAuditAsync({
+          competitionId,
+          action: 'score.submitted',
+          actorUserId: userId,
+          targetKind: 'result',
+          targetId: rows[0].id,
+          payload: { heat_id, pilot_id, time_seconds, penalty_seconds, dnf, dsq },
+        });
         await broadcastLeaderboard(io, competitionId);
       } catch (err) {
         console.error('[ws] submit_score', err);
@@ -127,6 +136,18 @@ function initSocket(httpServer) {
           pilot_id: rows[0].pilot_id,
           result:   rows[0],
         });
+        recordAuditAsync({
+          competitionId: prev.competition_id,
+          action: 'score.edited',
+          actorUserId: userId,
+          targetKind: 'result',
+          targetId: result_id,
+          payload: {
+            before: { time_seconds: prev.time_seconds, penalty_seconds: prev.penalty_seconds, dnf: prev.dnf, dsq: prev.dsq },
+            after:  { time_seconds, penalty_seconds, dnf, dsq },
+            change_reason,
+          },
+        });
         await broadcastLeaderboard(io, prev.competition_id);
       } catch (err) {
         console.error('[ws] edit_score', err);
@@ -157,6 +178,14 @@ function initSocket(httpServer) {
         io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
           heat_id,
           status: 'locked',
+        });
+        recordAuditAsync({
+          competitionId: rows[0].competition_id,
+          action: 'heat.locked',
+          actorUserId: userId,
+          targetKind: 'heat',
+          targetId: heat_id,
+          payload: { heat_id },
         });
         await broadcastLeaderboard(io, rows[0].competition_id);
       } catch (err) {

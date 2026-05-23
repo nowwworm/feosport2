@@ -9,6 +9,7 @@
 //             валидация на уровне UI/процесса, не схемы).
 
 const pool = require('../config/db');
+const { recordAudit } = require('./audit');
 
 const PROTEST_WINDOW_MINUTES = 5;
 const PROTEST_WINDOW_MS = PROTEST_WINDOW_MINUTES * 60 * 1000;
@@ -66,6 +67,17 @@ async function fileProtest(io, params, userId) {
   );
   const protest = rows[0];
 
+  await recordAudit({
+    competitionId: competition_id,
+    action: 'protest.filed',
+    actorUserId: userId,
+    targetKind: 'protest',
+    targetId: protest.id,
+    payload: {
+      heat_id, subject_pilot_id, subject_team_id, rules_clause, description,
+    },
+  });
+
   if (io) {
     io.to(`competition:${competition_id}`).emit('protest_filed', { protest });
   }
@@ -94,6 +106,15 @@ async function resolveProtest(io, protestId, params, userId) {
     throw err;
   }
   const protest = rows[0];
+
+  await recordAudit({
+    competitionId: protest.competition_id,
+    action: 'protest.resolved',
+    actorUserId: userId,
+    targetKind: 'protest',
+    targetId: protest.id,
+    payload: { status, resolution },
+  });
 
   if (io) {
     io.to(`competition:${protest.competition_id}`).emit('protest_resolved', { protest });

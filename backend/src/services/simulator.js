@@ -10,6 +10,7 @@
 // Решение принимает ГСК (chief judge), но классификатор даёт рекомендацию.
 
 const pool = require('../config/db');
+const { recordAudit } = require('./audit');
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 
@@ -98,6 +99,17 @@ async function recordDisconnect(io, params, userId) {
     );
     verdict = classifyDisconnect(history, {
       maxAttempts: heatCtx[0].simulator_max_attempts,
+    });
+  }
+
+  if (competitionId && (verdict.verdict === 'technical_defeat' || verdict.verdict === 'replay_group')) {
+    await recordAudit({
+      competitionId,
+      action: 'simulator.disconnect_verdict',
+      actorUserId: userId,
+      targetKind: 'heat',
+      targetId: heat_id,
+      payload: { scope, pilot_id, verdict },
     });
   }
 

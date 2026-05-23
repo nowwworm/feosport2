@@ -3,6 +3,7 @@
 // Penalties (§5.10) — лестница санкций главного судьи.
 
 const pool = require('../config/db');
+const { recordAudit } = require('./audit');
 
 const PENALTY_TYPES = new Set([
   'oral_warning',
@@ -72,6 +73,17 @@ async function recordPenalty(io, params, userId) {
     }
 
     await client.query('COMMIT');
+
+    await recordAudit({
+      competitionId: competition_id,
+      action: 'penalty.issued',
+      actorUserId: userId,
+      targetKind: 'penalty',
+      targetId: penalty.id,
+      payload: {
+        penalty_type, pilot_id, team_id, points, reason, rules_clause, heat_id,
+      },
+    });
 
     if (io) {
       io.to(`competition:${competition_id}`).emit('penalty_issued', { penalty });
