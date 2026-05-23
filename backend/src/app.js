@@ -13,6 +13,7 @@ const applicationRoutes = require('./routes/applications');
 const droneRoutes       = require('./routes/drones');
 const documentRoutes    = require('./routes/documents');
 const stageRoutes       = require('./routes/stages');
+const sanctionRoutes    = require('./routes/sanctions');
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/drones',       droneRoutes);
 app.use('/api/documents',    documentRoutes);
 app.use('/api',              stageRoutes); // /competitions/:id/stages, /stages/:id, /groups/:id, /group-participants/:id
+app.use('/api',              sanctionRoutes); // /competitions/:id/penalties, /competitions/:id/protests, /protests/:id
 
 app.get(['/healthz', '/api/healthz'], (_req, res) => res.json({ status: 'ok' }));
 
