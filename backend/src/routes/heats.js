@@ -9,6 +9,7 @@ const {
 } = require('../services/flightTiming');
 const { computeHeatLeaderboard } = require('../services/leaderboard');
 const { computeTeamHeatLeaderboard, recordHandoff } = require('../services/teamRelay');
+const { loadHeatCompetitionContext, isSimulator } = require('../services/competitionContext');
 
 // Heat reads are scoped to judging/admin roles — pilots use the dedicated
 // leaderboard endpoints instead (см. §2.4.2 — пилоты получают информацию
@@ -329,6 +330,18 @@ router.get('/:id/channel-conflicts',
   authenticate, judgesOnly,
   async (req, res) => {
     try {
+      const heatId = Number(req.params.id);
+      const ctx = await loadHeatCompetitionContext(heatId);
+      if (isSimulator(ctx)) {
+        return res.json({
+          heat_id: heatId,
+          assignments: [],
+          conflicts: [],
+          skipped: true,
+          reason: 'simulator',
+        });
+      }
+
       const { rows } = await pool.query(
         `SELECT hp.pilot_id,
                 d.id AS drone_id,
@@ -338,10 +351,10 @@ router.get('/:id/channel-conflicts',
            LEFT JOIN drones d ON d.pilot_id = hp.pilot_id AND d.is_active = true
            LEFT JOIN video_channels vc ON vc.id = d.video_channel_id
           WHERE hp.heat_id = $1`,
-        [req.params.id]
+        [heatId]
       );
       const conflicts = detectChannelConflicts(rows);
-      res.json({ heat_id: Number(req.params.id), assignments: rows, conflicts });
+      res.json({ heat_id: heatId, assignments: rows, conflicts });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
