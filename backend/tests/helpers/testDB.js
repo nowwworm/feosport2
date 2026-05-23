@@ -1,7 +1,66 @@
 'use strict';
 
 const pool = require('../../src/config/db');
+const { describePoolConfig } = require('../../src/config/db');
 const { runMigrations } = require('../../scripts/migrate');
+
+// Preflight: one clear failure instead of an avalanche.
+//
+// When PostgreSQL is unreachable (CI service missing, dev DB not started,
+// wrong env vars), every test that calls seedBaselineData()/createTestX()
+// throws an AggregateError deep inside pg-pool, and every afterEach throws
+// a cascading "Cannot read properties of undefined". You get hundreds of
+// stack traces obscuring the one fact you need: the DB is down.
+//
+// assertDbReachable does ONE SELECT 1 with retry. On success it caches and
+// returns instantly for the rest of the run. On failure it throws a single
+// formatted error with the connection target, retry count, and the
+// underlying socket error — actionable, not a wall of noise.
+let _dbReachable = false;
+
+async function assertDbReachable({ attempts = 5, delayMs = 500 } = {}) {
+  if (_dbReachable) return;
+  const target = describePoolConfig();
+  const start = Date.now();
+  let lastError = null;
+
+  for (let i = 1; i <= attempts; i += 1) {
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query('SELECT 1');
+      } finally {
+        client.release();
+      }
+      _dbReachable = true;
+      return;
+    } catch (err) {
+      lastError = err;
+      if (i < attempts) await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+
+  const elapsedMs = Date.now() - start;
+  // pg-pool wraps the real socket failure in AggregateError; pick the first
+  // child for the human-readable line.
+  const rootMessage =
+    (lastError && Array.isArray(lastError.errors) && lastError.errors[0]?.message) ||
+    lastError?.message ||
+    String(lastError);
+
+  const banner = '\n┌─────────────────────────────────────────────────────────────┐\n' +
+                 '│  PostgreSQL test database is unreachable.                   │\n' +
+                 '└─────────────────────────────────────────────────────────────┘\n';
+  throw new Error(
+    `${banner}  Target:     ${target}\n` +
+    `  Attempts:   ${attempts} (waited ~${elapsedMs} ms)\n` +
+    `  Root error: ${rootMessage}\n\n` +
+    `  How to fix:\n` +
+    `    • Local:  start PostgreSQL (docker-compose up -d  or  brew services start postgresql)\n` +
+    `    • CI:     ensure the postgres service is healthy before "npm test" runs\n` +
+    `    • Env:    DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD\n`
+  );
+}
 
 /**
  * Clear all test data and reset sequences
@@ -35,6 +94,7 @@ async function cleanupDB() {
  * 001–004, not from init.sql.
  */
 async function seedBaselineData() {
+  await assertDbReachable();
   await runMigrations(pool);
 
   // Baseline roles plus Phase 11 specialist judging panel.
@@ -173,6 +233,7 @@ async function getAllUsers() {
 
 module.exports = {
   pool,
+  assertDbReachable,
   cleanupDB,
   seedBaselineData,
   createTestUser,

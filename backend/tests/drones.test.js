@@ -256,8 +256,15 @@ describe('Drones & Equipment Inspections', () => {
     });
 
     afterEach(async () => {
-      await pool.query(`DELETE FROM applications WHERE id = $1`, [application.id]);
-      await pool.query(`DELETE FROM competitions WHERE id = $1`, [comp.id]);
+      // Skip cleanup when beforeEach bailed (e.g. DB unreachable) so the test
+      // log surfaces the real beforeAll/beforeEach error instead of cascading
+      // "Cannot read properties of undefined".
+      if (application?.id) {
+        await pool.query(`DELETE FROM applications WHERE id = $1`, [application.id]);
+      }
+      if (comp?.id) {
+        await pool.query(`DELETE FROM competitions WHERE id = $1`, [comp.id]);
+      }
     });
 
     test('approved app + 0 drones — not fully admitted (need 2)', async () => {

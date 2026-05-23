@@ -18,6 +18,7 @@ const fs   = require('fs');
 const path = require('path');
 
 const DEFAULT_MIGRATIONS_DIR = path.resolve(__dirname, '..', '..', 'database', 'migrations');
+const DEFAULT_INIT_SQL = path.resolve(__dirname, '..', '..', 'database', 'init.sql');
 
 function resolveMigrationsDir(override) {
   if (override) return override;
@@ -28,6 +29,34 @@ function resolveMigrationsDir(override) {
     return path.join(path.dirname(process.execPath), 'database', 'migrations');
   }
   return DEFAULT_MIGRATIONS_DIR;
+}
+
+function resolveInitSqlPath() {
+  if (process.env.INIT_SQL_PATH) return process.env.INIT_SQL_PATH;
+  if (process.pkg) {
+    return path.join(path.dirname(process.execPath), 'database', 'init.sql');
+  }
+  return DEFAULT_INIT_SQL;
+}
+
+function shouldEnsureBaseSchema(migrationsDir) {
+  // Custom migration dirs are used by migration-runner tests; only the app's
+  // real migration stream depends on the v1 baseline from database/init.sql.
+  return !migrationsDir && !process.env.MIGRATIONS_DIR;
+}
+
+async function ensureBaseSchema(client) {
+  const { rows } = await client.query(`SELECT to_regclass('public.roles') AS roles_table`);
+  if (rows[0].roles_table) return;
+
+  const initSqlPath = resolveInitSqlPath();
+  if (!fs.existsSync(initSqlPath)) {
+    throw new Error(`Base schema is missing and init.sql was not found at ${initSqlPath}`);
+  }
+
+  // Fresh CI/Railway databases do not run Docker's /docker-entrypoint-initdb.d
+  // hook, so the migration runner bootstraps the immutable v1 schema itself.
+  await client.query(fs.readFileSync(initSqlPath, 'utf8'));
 }
 
 async function ensureTrackingTable(client) {
@@ -76,6 +105,9 @@ async function runMigrations(pool, { log = () => {}, migrationsDir } = {}) {
   const client = await pool.connect();
   let applied;
   try {
+    if (shouldEnsureBaseSchema(migrationsDir)) {
+      await ensureBaseSchema(client);
+    }
     await ensureTrackingTable(client);
     applied = await listAppliedMigrations(client);
   } finally {

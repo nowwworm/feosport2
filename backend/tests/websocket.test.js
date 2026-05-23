@@ -42,7 +42,11 @@ describe('WebSocket Real-time Scoring', () => {
   });
 
   afterEach(async () => {
-    // Clear test results
+    // If beforeAll failed (e.g. DB unreachable), testHeat was never created.
+    // Skip cleanup silently — the original beforeAll error is what the user
+    // needs to see, not a cascade of "Cannot read properties of undefined".
+    if (!testHeat?.id) return;
+
     await pool.query('DELETE FROM reflights WHERE heat_id = $1', [testHeat.id]);
     await pool.query('DELETE FROM falsestarts WHERE heat_id = $1', [testHeat.id]);
     await pool.query('DELETE FROM laps WHERE heat_id = $1', [testHeat.id]);
@@ -52,8 +56,10 @@ describe('WebSocket Real-time Scoring', () => {
   });
 
   afterAll(async () => {
-    await new Promise((resolve) => ioServer.close(() => resolve()));
-    await new Promise((resolve) => httpServer.close(() => resolve()));
+    // Each close is guarded — the helper may not exist if beforeAll bailed
+    // before assigning it (DB connect failure, port collision, etc.).
+    if (ioServer) await new Promise((resolve) => ioServer.close(() => resolve()));
+    if (httpServer) await new Promise((resolve) => httpServer.close(() => resolve()));
     await cleanupDB();
     await pool.end();
   });

@@ -26,6 +26,28 @@ jobs:
   backend-tests:
     name: Backend tests
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: feosport2
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        # Backend tests are real integration tests; wait for Postgres before
+        # Jest starts seeding and applying SQL migrations.
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feosport2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_NAME: feosport2
+      DB_USER: postgres
+      DB_PASSWORD: postgres
 
     steps:
       - name: Checkout repository

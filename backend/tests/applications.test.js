@@ -45,12 +45,15 @@ describe('Applications API', () => {
   });
 
   afterEach(async () => {
+    if (!comp?.id) return; // beforeAll bailed — let its real error surface
     await pool.query(`DELETE FROM applications WHERE competition_id = $1`, [comp.id]);
     await pool.query(`DELETE FROM pilots WHERE first_name LIKE 'Test_App_%'`);
   });
 
   afterAll(async () => {
-    await pool.query(`DELETE FROM competitions WHERE id = $1`, [comp.id]);
+    if (comp?.id) {
+      await pool.query(`DELETE FROM competitions WHERE id = $1`, [comp.id]);
+    }
     await cleanupDB();
     await pool.end();
   });
