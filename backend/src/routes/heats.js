@@ -10,6 +10,7 @@ const {
 const { computeHeatLeaderboard } = require('../services/leaderboard');
 const { computeTeamHeatLeaderboard, recordHandoff } = require('../services/teamRelay');
 const { loadHeatCompetitionContext, isSimulator } = require('../services/competitionContext');
+const { recordDisconnect } = require('../services/simulator');
 
 // Heat reads are scoped to judging/admin roles — pilots use the dedicated
 // leaderboard endpoints instead (см. §2.4.2 — пилоты получают информацию
@@ -129,6 +130,42 @@ router.get('/:id/handoffs', authenticate, judgesOnly, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// GET /api/heats/:id/disconnects — list simulator disconnects for this heat.
+router.get('/:id/disconnects', authenticate, judgesOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT d.*, p.first_name, p.last_name
+         FROM disconnects d
+         LEFT JOIN pilots p ON p.id = d.pilot_id
+        WHERE d.heat_id = $1
+        ORDER BY d.occurred_at ASC`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/heats/:id/disconnects — record a simulator disconnect (chief_judge+).
+// Returns { disconnect, verdict } so UI can immediately show the recommendation.
+router.post('/:id/disconnects',
+  authenticate, authorize('chief_judge', 'admin'),
+  async (req, res) => {
+    try {
+      const heatId = parseInt(req.params.id, 10);
+      const result = await recordDisconnect(req.app.get('io') || null, {
+        heat_id: heatId,
+        ...req.body,
+      }, req.user.id);
+      res.status(201).json(result);
+    } catch (err) {
+      const status = /required|must be/.test(err.message) ? 400 : 500;
+      res.status(status).json({ error: err.message });
+    }
+  }
+);
 
 // POST /api/heats/:id/handoffs — record a relay handoff (chief_judge+).
 router.post('/:id/handoffs',

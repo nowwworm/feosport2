@@ -4,6 +4,7 @@ const pool       = require('../config/db');
 const { summarizeLaps, shouldRequestWholeGroupReflight } = require('./flightTiming');
 const { getQualificationLeaderboard } = require('./tournament');
 const { recordHandoff } = require('./teamRelay');
+const { recordDisconnect } = require('./simulator');
 const { JWT_SECRET } = require('../middleware/auth');
 
 /**
@@ -308,6 +309,20 @@ function initSocket(httpServer) {
         });
       } catch (err) {
         console.error('[ws] reflight_requested', err);
+        ack?.({ error: err.message });
+      }
+    });
+
+    // ── simulator_disconnect — Chief judge records a simulator disconnect ────
+    socket.on('simulator_disconnect', async (payload, ack) => {
+      if (!['chief_judge', 'admin'].includes(role)) {
+        return ack?.({ error: 'Forbidden' });
+      }
+      try {
+        const result = await recordDisconnect(io, payload, userId);
+        ack?.({ ok: true, ...result });
+      } catch (err) {
+        console.error('[ws] simulator_disconnect', err);
         ack?.({ error: err.message });
       }
     });
