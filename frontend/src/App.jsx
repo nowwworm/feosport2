@@ -12,6 +12,7 @@ import BracketPage      from './pages/BracketPage/BracketPage';
 import ParticipantsPage from './pages/ParticipantsPage/ParticipantsPage';
 import AdminPage        from './pages/AdminPage/AdminPage';
 import DocsPage         from './pages/DocsPage/DocsPage';
+import PenaltiesPage    from './pages/PenaltiesPage/PenaltiesPage';
 import Navigation       from './components/Navigation/Navigation';
 
 function PrivateRoute({ children, roles }) {
@@ -99,6 +100,15 @@ function AppRoutes() {
             element={
               <PrivateRoute roles={['admin', 'chief_judge']}>
                 <DocsPage />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/penalties"
+            element={
+              <PrivateRoute>
+                <PenaltiesPage />
               </PrivateRoute>
             }
           />
