@@ -98,6 +98,10 @@ $jwtBytes  = New-Object byte[] 32
 [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($jwtBytes)
 $jwtSecret = -join ($jwtBytes | ForEach-Object { $_.ToString("x2") })
 
+$docKeyBytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($docKeyBytes)
+$docKey = -join ($docKeyBytes | ForEach-Object { $_.ToString("x2") })
+
 @"
 PORT=8090
 DB_HOST=localhost
@@ -106,6 +110,8 @@ DB_NAME=feosport2
 DB_USER=feosport
 DB_PASSWORD=$dbPassword
 JWT_SECRET=$jwtSecret
+DOCUMENT_ENCRYPTION_KEY=$docKey
+DOCUMENT_ENCRYPTION_KEY_ID=local-v1
 NODE_ENV=development
 "@ | Set-Content -Encoding UTF8 $EnvFile
 

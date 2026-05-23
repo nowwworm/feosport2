@@ -55,6 +55,7 @@ try {
 if ([string]::IsNullOrWhiteSpace($JwtSecret)) {
     $JwtSecret = New-HexSecret
 }
+$DocumentEncryptionKey = New-HexSecret
 
 Log "=== FeoSport2 DB Setup START ==="
 Log "InstallDir: $InstallDir"
@@ -172,6 +173,8 @@ DB_NAME=feosport2
 DB_USER=feosport
 DB_PASSWORD=$DbPassword
 JWT_SECRET=$JwtSecret
+DOCUMENT_ENCRYPTION_KEY=$DocumentEncryptionKey
+DOCUMENT_ENCRYPTION_KEY_ID=local-v1
 NODE_ENV=production
 DOCUMENTS_ROOT=$DocumentsRoot
 "@ | Set-Content -Encoding UTF8 $envPath

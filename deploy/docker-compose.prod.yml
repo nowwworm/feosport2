@@ -39,6 +39,8 @@ services:
       DB_USER:     ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET:  ${JWT_SECRET}
+      DOCUMENT_ENCRYPTION_KEY:    ${DOCUMENT_ENCRYPTION_KEY}
+      DOCUMENT_ENCRYPTION_KEY_ID: ${DOCUMENT_ENCRYPTION_KEY_ID:-local-v1}
       NODE_ENV:    production
     networks: [internal]
     healthcheck:

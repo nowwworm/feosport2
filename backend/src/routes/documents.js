@@ -9,7 +9,7 @@
 //   DELETE /api/documents/:id   — admin only
 //
 // Хранение — локально, путь резолвится через uploadConfig.
-// Файлы лежат в подпапке по году/месяцу для предотвращения переполнения одной директории.
+// Файлы лежат в подпапке по году/месяцу и шифруются at-rest AES-256-GCM.
 
 const crypto = require('crypto');
 const fs     = require('fs');
@@ -22,6 +22,10 @@ const { authenticate, authorize } = require('../middleware/auth');
 const {
   resolveDocumentsRoot, ensureDir, MAX_UPLOAD_BYTES, ALLOWED_MIME,
 } = require('../services/uploadConfig');
+const {
+  encryptFileInPlace,
+  decryptFile,
+} = require('../services/documentEncryption');
 
 const VALID_DOC_TYPES = [
   'passport', 'birth_certificate',
@@ -94,11 +98,13 @@ router.post('/', authenticate, (req, res) => {
     }
 
     let hash;
+    let encryption;
     try {
       hash = await sha256OfFile(req.file.path);
+      encryption = await encryptFileInPlace(req.file.path);
     } catch (err) {
       fs.unlink(req.file.path, () => {});
-      return res.status(500).json({ error: 'hash_failed: ' + err.message });
+      return res.status(500).json({ error: 'document_secure_storage_failed: ' + err.message });
     }
 
     const root        = resolveDocumentsRoot();
@@ -109,8 +115,9 @@ router.post('/', authenticate, (req, res) => {
         `INSERT INTO documents
            (pilot_id, team_id, application_id, doc_type,
             file_name, file_path, file_size_bytes, file_hash_sha256,
-            mime_type, valid_until, uploaded_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            mime_type, valid_until, uploaded_by,
+            encryption_algorithm, encryption_key_id, encryption_iv, encryption_auth_tag)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING *`,
         [
           pilot_id || null,
@@ -124,6 +131,10 @@ router.post('/', authenticate, (req, res) => {
           req.file.mimetype,
           valid_until || null,
           req.user.id,
+          encryption.encryption_algorithm,
+          encryption.encryption_key_id,
+          encryption.encryption_iv,
+          encryption.encryption_auth_tag,
         ]
       );
       res.status(201).json(rows[0]);
@@ -184,10 +195,12 @@ router.get('/:id/download', authenticate, async (req, res) => {
     if (!fs.existsSync(absPath)) {
       return res.status(410).json({ error: 'file_gone' });
     }
+    const plaintext = await decryptFile(absPath, doc);
     res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
     res.setHeader('Content-Disposition',
       `attachment; filename*=UTF-8''${encodeURIComponent(doc.file_name)}`);
-    fs.createReadStream(absPath).pipe(res);
+    res.setHeader('Content-Length', plaintext.length);
+    res.send(plaintext);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

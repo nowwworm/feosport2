@@ -74,7 +74,7 @@ $envFile = Join-Path $InstallDir ".env"
 if (Test-Path $envFile) {
     $sanitizedEnv = Join-Path $bundleRoot "env.sanitized.txt"
     Get-Content $envFile |
-        ForEach-Object { $_ -replace "^(DB_PASSWORD|JWT_SECRET|FD_PASSWORD|PGPASSWORD)=.*$", '$1=<redacted>' } |
+        ForEach-Object { $_ -replace "^(DB_PASSWORD|JWT_SECRET|DOCUMENT_ENCRYPTION_KEY|FD_PASSWORD|PGPASSWORD)=.*$", '$1=<redacted>' } |
         Set-Content -Path $sanitizedEnv -Encoding UTF8
 }
 

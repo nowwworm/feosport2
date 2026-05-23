@@ -7,6 +7,8 @@ const crypto = require('crypto');
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'feosport-docs-'));
 process.env.DOCUMENTS_ROOT = tmpRoot;
+process.env.DOCUMENT_ENCRYPTION_SECRET = 'unit-test-document-encryption-secret';
+process.env.DOCUMENT_ENCRYPTION_KEY_ID = 'test-key-v1';
 
 const request = require('supertest');
 const app = require('../src/app');
@@ -67,10 +69,15 @@ describe('Documents API', () => {
     // file_size_bytes is BIGINT — pg returns it as a string.
     expect(Number(res.body.file_size_bytes)).toBeGreaterThan(0);
     expect(res.body.file_hash_sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(res.body.encryption_algorithm).toBe('aes-256-gcm');
+    expect(res.body.encryption_key_id).toBe('test-key-v1');
+    expect(res.body.encryption_iv).toBeTruthy();
+    expect(res.body.encryption_auth_tag).toBeTruthy();
 
-    // File should physically exist under tmpRoot.
+    // File should physically exist under tmpRoot and contain ciphertext.
     const absPath = path.join(tmpRoot, res.body.file_path);
     expect(fs.existsSync(absPath)).toBe(true);
+    expect(fs.readFileSync(absPath).toString()).not.toBe('passport scan bytes');
   });
 
   test('POST /api/documents — recorded sha256 matches the bytes', async () => {

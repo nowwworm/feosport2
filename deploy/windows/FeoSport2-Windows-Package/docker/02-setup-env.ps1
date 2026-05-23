@@ -39,6 +39,11 @@ $jwtBytes  = New-Object byte[] 32
 [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($jwtBytes)
 $jwtSecret = -join ($jwtBytes | ForEach-Object { $_.ToString("x2") })
 
+# Ключ шифрования документов AES-256-GCM (32 байта в hex)
+$docKeyBytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($docKeyBytes)
+$docKey = -join ($docKeyBytes | ForEach-Object { $_.ToString("x2") })
+
 # Пароль БД
 Write-Host ""
 $dbPassword = Read-Host "  Введи пароль для PostgreSQL (или Enter для случайного)"
@@ -58,6 +63,8 @@ POSTGRES_USER=feosport
 POSTGRES_PASSWORD=$dbPassword
 
 JWT_SECRET=$jwtSecret
+DOCUMENT_ENCRYPTION_KEY=$docKey
+DOCUMENT_ENCRYPTION_KEY_ID=local-v1
 
 HTTP_PORT=80
 "@ | Set-Content -Encoding UTF8 $EnvFile
