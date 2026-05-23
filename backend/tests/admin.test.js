@@ -239,4 +239,38 @@ describe('Admin Functions', () => {
       }
     });
   });
+
+  describe('POST /api/admin/demo-data', () => {
+    test('Admin can generate showcase demo data', async () => {
+      const res = await request(app)
+        .post('/api/admin/demo-data')
+        .set('Authorization', authHeader(adminUser.id, 'admin'));
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body).toHaveProperty('ok', true);
+      expect(res.body).toHaveProperty('competition_name', 'Кубок Севастополя 2025');
+      expect(res.body.summary).toMatchObject({
+        teams: 4,
+        pilots: 16,
+        applications: 4,
+        penalties: 2,
+        protests: 1,
+        protocols: 4,
+      });
+
+      const competitions = await pool.query(
+        'SELECT id FROM competitions WHERE name = $1',
+        ['Кубок Севастополя 2025']
+      );
+      expect(competitions.rowCount).toBe(1);
+    });
+
+    test('Non-admin cannot generate demo data', async () => {
+      const res = await request(app)
+        .post('/api/admin/demo-data')
+        .set('Authorization', authHeader(judgeUser.id, 'judge'));
+
+      expect(res.statusCode).toBe(403);
+    });
+  });
 });

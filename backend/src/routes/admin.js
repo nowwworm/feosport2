@@ -6,6 +6,7 @@ const path     = require('path');
 const bcrypt   = require('bcryptjs');
 const pool     = require('../config/db');
 const { getDbAdminStatus, startPgAdmin } = require('../services/dbAdminTools');
+const { generateDemoData } = require('../services/demoData');
 const { authenticate, authorize } = require('../middleware/auth');
 
 // ── Все admin-маршруты требуют аутентификации ──────────────────────────────
@@ -65,6 +66,23 @@ router.post('/db/pgadmin/start', adminOnly, async (req, res) => {
     res.status(500).json({
       ok: false,
       error: 'Не удалось запустить pgAdmin',
+    });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/admin/demo-data — пересоздать презентационный набор данных
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/demo-data', adminOnly, async (req, res) => {
+  try {
+    const result = await generateDemoData(req.user.id);
+    res.status(201).json(result);
+  } catch (err) {
+    console.error('[admin/demo-data]', err);
+    res.status(500).json({
+      ok: false,
+      error: 'Не удалось сгенерировать тестовые данные',
+      details: err.message,
     });
   }
 });
