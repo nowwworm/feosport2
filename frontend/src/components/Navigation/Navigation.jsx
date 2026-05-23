@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/participants', label: 'Участники',  icon: '⊞', roles: ['admin'],                                type: 'link' },
   { to: TMX_URL,         label: 'TMX',        icon: '⬡', roles: ['admin', 'chief_judge'],                 type: 'external' },
   { to: '/penalties',    label: 'Штрафы',     icon: '⚖', roles: ['judge', 'chief_judge', 'admin', 'pilot'], type: 'link' },
+  { to: '/protocols',    label: 'Протоколы',  icon: '📄', roles: ['judge', 'chief_judge', 'admin'],         type: 'link' },
   { to: '/admin',        label: 'Аккаунты',   icon: '⚙', roles: ['admin'],                                type: 'link' },
   { to: '/docs',         label: 'Справка',    icon: '?', roles: ['admin', 'chief_judge'],                  type: 'link' },
 ];

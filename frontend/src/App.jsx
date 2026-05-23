@@ -13,6 +13,7 @@ import ParticipantsPage from './pages/ParticipantsPage/ParticipantsPage';
 import AdminPage        from './pages/AdminPage/AdminPage';
 import DocsPage         from './pages/DocsPage/DocsPage';
 import PenaltiesPage    from './pages/PenaltiesPage/PenaltiesPage';
+import ProtocolsPage    from './pages/ProtocolsPage/ProtocolsPage';
 import Navigation       from './components/Navigation/Navigation';
 
 function PrivateRoute({ children, roles }) {
@@ -110,6 +111,15 @@ function AppRoutes() {
             element={
               <PrivateRoute>
                 <PenaltiesPage />
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/protocols"
+            element={
+              <PrivateRoute>
+                <ProtocolsPage />
               </PrivateRoute>
             }
           />
