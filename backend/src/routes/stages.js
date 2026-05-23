@@ -20,6 +20,7 @@ const {
   rankQualificationParticipants,
 } = require('../services/bracket');
 const { computeStageLeaderboard } = require('../services/leaderboard');
+const { computeStageScores } = require('../services/scoring');
 
 const STAGE_ORDER = {
   qualification: 1, round_of_16: 2, quarterfinal: 3, semifinal: 4, final: 5,
@@ -370,6 +371,17 @@ router.post('/competitions/:id/stages/advance',
     }
   }
 );
+
+// GET /api/stages/:id/scores — points + tie detection per §5.17.
+router.get('/stages/:id/scores', authenticate, async (req, res) => {
+  try {
+    const scored = await computeStageScores(req.params.id);
+    if (!scored) return res.status(404).json({ error: 'Stage not found' });
+    res.json(scored);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/stages/:id/leaderboard — spectator-facing standings across all groups.
 router.get('/stages/:id/leaderboard', authenticate, async (req, res) => {

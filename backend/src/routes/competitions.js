@@ -3,6 +3,7 @@ const pool   = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
 const { generatePlayoffs }        = require('../services/tournament');
 const { computeCompetitionLeaderboard } = require('../services/leaderboard');
+const { computeCompetitionStandings } = require('../services/scoring');
 
 // GET /api/competitions
 router.get('/', authenticate, async (req, res) => {
@@ -92,6 +93,17 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
 });
 
 // GET /api/competitions/:id/bracket
+// GET /api/competitions/:id/standings — final/current placement with points.
+router.get('/:id/standings', authenticate, async (req, res) => {
+  try {
+    const competitionId = parseInt(req.params.id, 10);
+    const out = await computeCompetitionStandings(competitionId);
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/competitions/:id/leaderboard?limit=N — live spectator standings.
 router.get('/:id/leaderboard', authenticate, async (req, res) => {
   try {
