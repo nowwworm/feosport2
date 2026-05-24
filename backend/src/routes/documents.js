@@ -83,7 +83,7 @@ router.post('/', authenticate, (req, res) => {
   upload.single('file')(req, res, async (uploadErr) => {
     if (uploadErr) {
       const status = uploadErr.status || (uploadErr.code === 'LIMIT_FILE_SIZE' ? 413 : 400);
-      return res.status(status).json({ error: uploadErr.message });
+      return (console.error(uploadErr), res.status(status).json({ error: 'Internal Server Error' }));
     }
     if (!req.file) return res.status(400).json({ error: 'file is required' });
 
@@ -104,7 +104,7 @@ router.post('/', authenticate, (req, res) => {
       encryption = await encryptFileInPlace(req.file.path);
     } catch (err) {
       fs.unlink(req.file.path, () => {});
-      return res.status(500).json({ error: 'document_secure_storage_failed: ' + err.message });
+      return (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
     }
 
     const root        = resolveDocumentsRoot();
@@ -140,7 +140,7 @@ router.post('/', authenticate, (req, res) => {
       res.status(201).json(rows[0]);
     } catch (err) {
       fs.unlink(req.file.path, () => {});
-      res.status(500).json({ error: err.message });
+      (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
     }
   });
 });
@@ -165,7 +165,7 @@ router.get('/', authenticate, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -175,7 +175,7 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -202,7 +202,7 @@ router.get('/:id/download', authenticate, async (req, res) => {
     res.setHeader('Content-Length', plaintext.length);
     res.send(plaintext);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -217,7 +217,7 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
     fs.unlink(absPath, () => {}); // best-effort, ignore missing
     res.json({ deleted: 1 });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 

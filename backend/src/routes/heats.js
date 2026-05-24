@@ -49,7 +49,7 @@ router.get('/', authenticate, judgesOnly, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -73,7 +73,7 @@ router.get('/:id', authenticate, judgesOnly, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -89,7 +89,7 @@ router.get('/:id/results', authenticate, judgesOnly, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -100,7 +100,7 @@ router.get('/:id/leaderboard', authenticate, async (req, res) => {
     if (!board) return res.status(404).json({ error: 'Heat not found' });
     res.json(board);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -111,7 +111,7 @@ router.get('/:id/team-leaderboard', authenticate, async (req, res) => {
     if (!board) return res.status(404).json({ error: 'Heat not found' });
     res.json(board);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -128,7 +128,7 @@ router.get('/:id/handoffs', authenticate, judgesOnly, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -145,7 +145,7 @@ router.get('/:id/disconnects', authenticate, judgesOnly, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -163,7 +163,7 @@ router.post('/:id/disconnects',
       res.status(201).json(result);
     } catch (err) {
       const status = /required|must be/.test(err.message) ? 400 : 500;
-      res.status(status).json({ error: err.message });
+      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
     }
   }
 );
@@ -181,7 +181,7 @@ router.post('/:id/handoffs',
       res.status(201).json(result);
     } catch (err) {
       const status = /required/.test(err.message) ? 400 : 500;
-      res.status(status).json({ error: err.message });
+      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
     }
   }
 );
@@ -198,7 +198,7 @@ router.get('/:id/laps', authenticate, judgesOnly, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -255,7 +255,7 @@ router.post('/', authenticate, authorize('chief_judge', 'admin'), async (req, re
   } catch (err) {
     await client.query('ROLLBACK');
     if (err.code === '23505') return res.status(409).json({ error: 'Heat already exists' });
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   } finally {
     client.release();
   }
@@ -275,7 +275,7 @@ router.patch('/:id/start', authenticate, authorize(...rolesFor('flight.start')),
     if (!rows.length) return res.status(404).json({ error: 'Heat not found or locked' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -316,7 +316,7 @@ router.post('/:id/laps', authenticate, authorize(...rolesFor('lap.record')), asy
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -339,7 +339,7 @@ router.get('/:id/lap-summary', authenticate, judgesOnly, async (req, res) => {
       ...summarizeLaps(laps),
     })));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -357,7 +357,7 @@ router.post('/:id/falsestarts', authenticate, authorize(...rolesFor('falsestart.
       reflight_recommended: shouldRequestWholeGroupReflight('falsestart'),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -394,7 +394,7 @@ router.get('/:id/channel-conflicts',
       const conflicts = detectChannelConflicts(rows);
       res.json({ heat_id: heatId, assignments: rows, conflicts });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
     }
   }
 );
@@ -439,7 +439,7 @@ router.post('/:id/reflights', authenticate, authorize('chief_judge', 'admin'), a
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -457,7 +457,7 @@ router.patch('/:id/end', authenticate, authorize(...rolesFor('flight.end')), asy
     if (!rows.length) return res.status(404).json({ error: 'Heat not found or locked' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -477,7 +477,7 @@ router.patch('/:id/lock', authenticate, authorize('chief_judge', 'admin'), async
     if (!rows.length) return res.status(404).json({ error: 'Heat not found or already locked' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 

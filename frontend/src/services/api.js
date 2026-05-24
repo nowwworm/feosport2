@@ -12,4 +12,18 @@ const api = axios.create({
 const token = localStorage.getItem('fs_token');
 if (token) api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('fs_token');
+      localStorage.removeItem('fs_user');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

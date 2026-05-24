@@ -8,6 +8,7 @@ const { recordDisconnect } = require('./simulator');
 const { can } = require('./permissions');
 const { recordAuditAsync } = require('./audit');
 const { JWT_SECRET } = require('../middleware/auth');
+const { ROLES, HEAT_STATUS } = require('../config/constants');
 
 /**
  * Attach Socket.io server to an existing HTTP server instance.
@@ -20,11 +21,28 @@ function initSocket(httpServer) {
   });
 
   // ── JWT authentication handshake ──────────────────────────────────────────
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('Authentication required'));
     try {
-      socket.user = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      const { rows } = await pool.query(
+        `SELECT u.is_active, r.name AS role 
+         FROM users u 
+         JOIN roles r ON r.id = u.role_id 
+         WHERE u.id = $1`,
+        [decoded.id]
+      );
+
+      if (!rows.length || !rows[0].is_active) {
+        return next(new Error('User is deactivated'));
+      }
+
+      socket.user = {
+        ...decoded,
+        role: rows[0].role
+      };
       next();
     } catch {
       next(new Error('Invalid token'));
@@ -42,7 +60,7 @@ function initSocket(httpServer) {
 
     // ── submit_score — Judge submits (or overwrites) a result ───────────────
     socket.on('submit_score', async (payload, ack) => {
-      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.JUDGE, ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
@@ -53,7 +71,7 @@ function initSocket(httpServer) {
           [heat_id]
         );
         if (!heatRows.length) return ack?.({ error: 'Heat not found' });
-        if (heatRows[0].status === 'locked') return ack?.({ error: 'Heat is locked' });
+        if (heatRows[0].status === HEAT_STATUS.LOCKED) return ack?.({ error: 'Heat is locked' });
 
         const competitionId = heatRows[0].competition_id;
 
@@ -85,13 +103,13 @@ function initSocket(httpServer) {
         await broadcastLeaderboard(io, competitionId);
       } catch (err) {
         console.error('[ws] submit_score', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
     // ── edit_score — Judge corrects an existing result ──────────────────────
     socket.on('edit_score', async (payload, ack) => {
-      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.JUDGE, ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
@@ -104,7 +122,7 @@ function initSocket(httpServer) {
           [result_id]
         );
         if (!existing.length) return ack?.({ error: 'Result not found' });
-        if (existing[0].heat_status === 'locked') return ack?.({ error: 'Heat is locked' });
+        if (existing[0].heat_status === HEAT_STATUS.LOCKED) return ack?.({ error: 'Heat is locked' });
 
         const prev = existing[0];
 
@@ -151,24 +169,24 @@ function initSocket(httpServer) {
         await broadcastLeaderboard(io, prev.competition_id);
       } catch (err) {
         console.error('[ws] edit_score', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
     // ── lock_heat — Chief judge locks a heat (no more edits) ────────────────
     socket.on('lock_heat', async (payload, ack) => {
-      if (!['chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
         const { heat_id } = payload;
         const { rows } = await pool.query(
           `UPDATE heats SET
-             status     = 'locked',
+             status     = '${HEAT_STATUS.LOCKED}',
              locked_at  = NOW(),
              locked_by  = $1,
              updated_at = NOW()
-           WHERE id = $2 AND status != 'locked'
+           WHERE id = $2 AND status != '${HEAT_STATUS.LOCKED}'
            RETURNING *`,
           [userId, heat_id]
         );
@@ -177,7 +195,7 @@ function initSocket(httpServer) {
         ack?.({ ok: true, heat: rows[0] });
         io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
           heat_id,
-          status: 'locked',
+          status: HEAT_STATUS.LOCKED,
         });
         recordAuditAsync({
           competitionId: rows[0].competition_id,
@@ -190,23 +208,23 @@ function initSocket(httpServer) {
         await broadcastLeaderboard(io, rows[0].competition_id);
       } catch (err) {
         console.error('[ws] lock_heat', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
     // ── flight_start — Chronometer starts an active flight ───────────────────
     socket.on('flight_start', async (payload, ack) => {
-      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.JUDGE, ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
         const { heat_id } = payload;
         const { rows } = await pool.query(
           `UPDATE heats
-              SET status = 'active',
+              SET status = '${HEAT_STATUS.ACTIVE}',
                   started_at = COALESCE(started_at, NOW()),
                   updated_at = NOW()
-            WHERE id = $1 AND status != 'locked'
+            WHERE id = $1 AND status != '${HEAT_STATUS.LOCKED}'
             RETURNING *`,
           [heat_id]
         );
@@ -219,17 +237,17 @@ function initSocket(httpServer) {
         });
         io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
           heat_id,
-          status: 'active',
+          status: HEAT_STATUS.ACTIVE,
         });
       } catch (err) {
         console.error('[ws] flight_start', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
     // ── lap_complete — Chronometer records one pilot lap ─────────────────────
     socket.on('lap_complete', async (payload, ack) => {
-      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.JUDGE, ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
@@ -243,7 +261,7 @@ function initSocket(httpServer) {
           [heat_id]
         );
         if (!heatRows.length) return ack?.({ error: 'Heat not found' });
-        if (heatRows[0].status === 'locked') return ack?.({ error: 'Heat is locked' });
+        if (heatRows[0].status === HEAT_STATUS.LOCKED) return ack?.({ error: 'Heat is locked' });
 
         const { rows } = await pool.query(
           `INSERT INTO laps
@@ -279,20 +297,20 @@ function initSocket(httpServer) {
         broadcastLeaderboard(io, heatRows[0].competition_id);
       } catch (err) {
         console.error('[ws] lap_complete', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
     // ── falsestart — Judge records a false start, reflight recommended ───────
     socket.on('falsestart', async (payload, ack) => {
-      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.JUDGE, ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
         const { heat_id, pilot_id, reason } = payload;
         const heat = await getHeatForEvent(heat_id);
         if (!heat) return ack?.({ error: 'Heat not found' });
-        if (heat.status === 'locked') return ack?.({ error: 'Heat is locked' });
+        if (heat.status === HEAT_STATUS.LOCKED) return ack?.({ error: 'Heat is locked' });
 
         const { rows } = await pool.query(
           `INSERT INTO falsestarts (heat_id, pilot_id, reason, recorded_by)
@@ -310,13 +328,13 @@ function initSocket(httpServer) {
         });
       } catch (err) {
         console.error('[ws] falsestart', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
     // ── reflight_requested — Chief judge requests/approves a reflight ────────
     socket.on('reflight_requested', async (payload, ack) => {
-      if (!['chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
@@ -339,13 +357,13 @@ function initSocket(httpServer) {
         });
       } catch (err) {
         console.error('[ws] reflight_requested', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
     // ── simulator_disconnect — Chief judge records a simulator disconnect ────
     socket.on('simulator_disconnect', async (payload, ack) => {
-      if (!['chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
@@ -353,7 +371,7 @@ function initSocket(httpServer) {
         ack?.({ ok: true, ...result });
       } catch (err) {
         console.error('[ws] simulator_disconnect', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
@@ -372,23 +390,23 @@ function initSocket(httpServer) {
         if (heatRows.length) broadcastLeaderboard(io, heatRows[0].competition_id);
       } catch (err) {
         console.error('[ws] relay_handoff', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 
     // ── flight_end — Chronometer closes an active flight ─────────────────────
     socket.on('flight_end', async (payload, ack) => {
-      if (!['judge', 'chief_judge', 'admin'].includes(role)) {
+      if (![ROLES.JUDGE, ROLES.CHIEF_JUDGE, ROLES.ADMIN].includes(role)) {
         return ack?.({ error: 'Forbidden' });
       }
       try {
         const { heat_id } = payload;
         const { rows } = await pool.query(
           `UPDATE heats
-              SET status = 'completed',
+              SET status = '${HEAT_STATUS.COMPLETED}',
                   ended_at = COALESCE(ended_at, NOW()),
                   updated_at = NOW()
-            WHERE id = $1 AND status != 'locked'
+            WHERE id = $1 AND status != '${HEAT_STATUS.LOCKED}'
             RETURNING *`,
           [heat_id]
         );
@@ -401,12 +419,12 @@ function initSocket(httpServer) {
         });
         io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
           heat_id,
-          status: 'completed',
+          status: HEAT_STATUS.COMPLETED,
         });
         await broadcastLeaderboard(io, rows[0].competition_id);
       } catch (err) {
         console.error('[ws] flight_end', err);
-        ack?.({ error: err.message });
+        (console.error(err), ack?.({ error: 'Internal Server Error' }));
       }
     });
 

@@ -33,7 +33,7 @@ router.get('/competitions/:id/audit',
       );
       res.json(rows);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
     }
   }
 );
@@ -46,7 +46,7 @@ router.post('/competitions/:id/audit/verify',
       const result = await verifyChain(competitionId);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
     }
   }
 );
@@ -57,7 +57,7 @@ router.get('/pilots/:id/sanction-status', authenticate, async (req, res) => {
     if (!status) return res.status(404).json({ error: 'pilot not found' });
     res.json(status);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -73,7 +73,7 @@ router.patch('/pilots/:id/ban',
       res.json(pilot);
     } catch (err) {
       const status = /required|must|not found/.test(err.message) ? 400 : 500;
-      res.status(err.message === 'pilot not found' ? 404 : status).json({ error: err.message });
+      (console.error(err), res.status(err.message === 'pilot not found' ? 404 : status).json({ error: 'Internal Server Error' }));
     }
   }
 );

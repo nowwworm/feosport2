@@ -32,7 +32,7 @@ router.post('/', authenticate, async (req, res) => {
     res.status(201).json(event);
   } catch (err) {
     const status = /required|must be|valid/.test(err.message) ? 400 : 500;
-    res.status(status).json({ error: err.message });
+    (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -41,7 +41,7 @@ router.get('/', authenticate, async (req, res) => {
     const rows = await listConsents(req.query);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 

@@ -87,18 +87,21 @@ router.post('/demo-data', adminOnly, async (req, res) => {
   }
 });
 
+const { z } = require('zod');
+const { validate } = require('../middleware/validate');
+
+const createUserSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(8, 'password must be at least 8 characters'),
+  role: z.string().min(1, 'role required')
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/admin/users  — создать нового пользователя
 //  Body: { email, password, role }  где role — строка: admin|chief_judge|judge|pilot
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/users', adminOnly, async (req, res) => {
+router.post('/users', adminOnly, validate(createUserSchema), async (req, res) => {
   const { email, password, role } = req.body;
-  if (!email || !password || !role) {
-    return res.status(400).json({ error: 'email, password, role required' });
-  }
-  if (typeof password !== 'string' || password.length < 8) {
-    return res.status(400).json({ error: 'password must be at least 8 characters' });
-  }
 
   try {
     // Найдём role_id по имени
