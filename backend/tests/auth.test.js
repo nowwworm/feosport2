@@ -78,9 +78,44 @@ describe('Authentication & Authorization', () => {
   });
 
   describe('POST /api/auth/register', () => {
-    test('Valid registration creates new user', async () => {
+    async function adminAuth() {
+      const users = await getAllUsers();
+      const adminUser = users.find(u => u.role === 'admin');
+      return authHeader(adminUser.id, 'admin');
+    }
+
+    test('Unauthenticated registration is rejected', async () => {
       const res = await request(app)
         .post('/api/auth/register')
+        .send({
+          email: 'test_anonreg@feosport.local',
+          password: 'password123',
+          role: 'judge'
+        });
+
+      expect(res.statusCode).toBe(401);
+    });
+
+    test('Non-admin cannot register users', async () => {
+      const users = await getAllUsers();
+      const judgeUser = users.find(u => u.role === 'judge');
+
+      const res = await request(app)
+        .post('/api/auth/register')
+        .set('Authorization', authHeader(judgeUser.id, 'judge'))
+        .send({
+          email: 'test_judgereg@feosport.local',
+          password: 'password123',
+          role: 'judge'
+        });
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    test('Admin-authorized registration creates new user', async () => {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .set('Authorization', await adminAuth())
         .send({
           email: 'test_newuser@feosport.local',
           password: 'password123',
@@ -97,6 +132,7 @@ describe('Authentication & Authorization', () => {
 
       const res = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', await adminAuth())
         .send({
           email: 'test_duplicate@feosport.local',
           password: 'password123',
@@ -109,6 +145,7 @@ describe('Authentication & Authorization', () => {
     test('Short password returns 400', async () => {
       const res = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', await adminAuth())
         .send({
           email: 'test_shortpwd@feosport.local',
           password: '123',
@@ -121,6 +158,7 @@ describe('Authentication & Authorization', () => {
     test('Invalid role returns 400', async () => {
       const res = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', await adminAuth())
         .send({
           email: 'test_badsole@feosport.local',
           password: 'password123',

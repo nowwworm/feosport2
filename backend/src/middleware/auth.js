@@ -1,6 +1,13 @@
 const jwt = require('jsonwebtoken');
 
-const DEFAULT_JWT_SECRET = process.env.NODE_ENV === 'test'
+const IS_PROD = process.env.NODE_ENV === 'production';
+const IS_TEST = process.env.NODE_ENV === 'test';
+
+if (IS_PROD && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET must be set in production');
+}
+
+const DEFAULT_JWT_SECRET = IS_TEST
   ? 'test_secret_key_do_not_use_in_production'
   : 'feosport2_dev_secret_change_in_prod';
 

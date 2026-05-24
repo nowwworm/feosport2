@@ -1,6 +1,12 @@
 const router = require('express').Router();
 const pool   = require('../config/db');
 
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+if (IS_PROD && !(process.env.WEBHOOK_SECRET || '').trim()) {
+  throw new Error('WEBHOOK_SECRET must be set in production');
+}
+
 // Секретный токен ОБЯЗАТЕЛЕН: FormDesigner передаёт его как ?secret=...
 // В dev/test без `WEBHOOK_SECRET` в env используем безопасный плейсхолдер,
 // чтобы тесты не вынуждали инфраструктуру.
@@ -44,9 +50,6 @@ function extractField(body, aliases) {
 // formdesigner шлёт POST с полями формы в теле запроса
 router.post('/pilot-registration', checkSecret, async (req, res) => {
   const body = req.body || {};
-
-  // Логируем входящие данные (убрать в проде если нет нужды)
-  console.log('[webhook] pilot-registration received:', JSON.stringify(body));
 
   const first_name = extractField(body, FIELD_MAP.first_name);
   const last_name  = extractField(body, FIELD_MAP.last_name);
