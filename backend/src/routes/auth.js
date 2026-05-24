@@ -2,7 +2,7 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
 const pool   = require('../config/db');
-const { JWT_SECRET } = require('../middleware/auth');
+const { JWT_SECRET, authenticate, authorize } = require('../middleware/auth');
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -41,11 +41,11 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/register  (admin-only in production)
+// POST /api/auth/register  (admin-only)
 // Body: { email, password, role | role_id }
 //   - role: string ('admin'|'chief_judge'|'judge'|'pilot') — preferred
 //   - role_id: integer — accepted for backwards compatibility
-router.post('/register', async (req, res) => {
+router.post('/register', authenticate, authorize('admin'), async (req, res) => {
   const { email, password, role, role_id } = req.body;
   if (!email || !password || (!role && !role_id)) {
     return res.status(400).json({ error: 'email, password, role required' });

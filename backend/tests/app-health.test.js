@@ -64,6 +64,10 @@ describe('app health and production CORS', () => {
   test('allows configured production origin', async () => {
     process.env.NODE_ENV = 'production';
     process.env.ALLOWED_ORIGINS = 'https://race.example.com';
+    // Hard-fail guards expect these to be set in production.
+    process.env.JWT_SECRET = 'test_prod_secret_for_app_health_test';
+    process.env.WEBHOOK_SECRET = 'test_prod_webhook_secret_for_app_health_test';
+    process.env.DB_PASSWORD = 'test_prod_db_password_for_app_health_test';
     jest.resetModules();
     const app = require('../src/app');
 
