@@ -291,7 +291,15 @@ jobs:
           Copy-Item "database\init.sql" "$dst\init.sql" -Force
           Copy-Item "database\seed-users.sql" "$dst\seed-users.sql" -Force
           Copy-Item "database\seed.sql" "$dst\seed.sql" -Force
-          Write-Host "init.sql + seed-users.sql + seed.sql copied"
+
+          # Incremental migrations — feosport2.iss requires staging\database\migrations\*
+          # and migrate.js runs them on app start. Missing this copy made ISCC abort
+          # at [Files] line 70 with "No files found matching ...\migrations\*".
+          $migDst = Join-Path $dst "migrations"
+          New-Item -ItemType Directory -Force -Path $migDst | Out-Null
+          Copy-Item "database\migrations\*" $migDst -Recurse -Force
+          $migCount = (Get-ChildItem $migDst -Filter *.sql).Count
+          Write-Host "init.sql + seed-users.sql + seed.sql + $migCount migrations copied"
 
       # ── Шаг 4: Собрать Inno Setup installer ──────────────────────────────────
       - name: Compile installer (ISCC)
