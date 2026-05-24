@@ -53,7 +53,7 @@ async function authenticate(req, res, next) {
 function authorize(...roles) {
   return (req, res, next) => {
     if (!roles.includes(req.user?.role)) {
-      return res.status(403).json({ error: 'Forbidden' });
+      console.log("403 ON", req.method, req.originalUrl); return res.status(403).json({ error: 'Forbidden' });
     }
     next();
   };

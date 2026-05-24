@@ -55,7 +55,7 @@ function initSocket(httpServer) {
 
     // Join a competition room so broadcasts are scoped
     socket.on('join_competition', ({ competition_id }) => {
-      socket.join(`competition:${competition_id}`);
+      socket.join(`competition_${competition_id}`);
     });
 
     // ── submit_score — Judge submits (or overwrites) a result ───────────────
@@ -91,7 +91,7 @@ function initSocket(httpServer) {
         );
 
         ack?.({ ok: true, result: rows[0] });
-        io.to(`competition:${competitionId}`).emit('score_update', { heat_id, pilot_id, result: rows[0] });
+        io.to(`competition_${competitionId}`).emit('score_update', { heat_id, pilot_id, result: rows[0] });
         recordAuditAsync({
           competitionId,
           action: 'score.submitted',
@@ -149,7 +149,7 @@ function initSocket(httpServer) {
         );
 
         ack?.({ ok: true, result: rows[0] });
-        io.to(`competition:${prev.competition_id}`).emit('score_update', {
+        io.to(`competition_${prev.competition_id}`).emit('score_update', {
           heat_id:  rows[0].heat_id,
           pilot_id: rows[0].pilot_id,
           result:   rows[0],
@@ -193,7 +193,7 @@ function initSocket(httpServer) {
         if (!rows.length) return ack?.({ error: 'Heat not found or already locked' });
 
         ack?.({ ok: true, heat: rows[0] });
-        io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
+        io.to(`competition_${rows[0].competition_id}`).emit('heat_status_change', {
           heat_id,
           status: HEAT_STATUS.LOCKED,
         });
@@ -231,11 +231,11 @@ function initSocket(httpServer) {
         if (!rows.length) return ack?.({ error: 'Heat not found or locked' });
 
         ack?.({ ok: true, heat: rows[0] });
-        io.to(`competition:${rows[0].competition_id}`).emit('flight_start', {
+        io.to(`competition_${rows[0].competition_id}`).emit('flight_start', {
           heat_id,
           heat: rows[0],
         });
-        io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
+        io.to(`competition_${rows[0].competition_id}`).emit('heat_status_change', {
           heat_id,
           status: HEAT_STATUS.ACTIVE,
         });
@@ -288,7 +288,7 @@ function initSocket(httpServer) {
 
         const summary = await getPilotLapSummary(heat_id, pilot_id);
         ack?.({ ok: true, lap: rows[0], summary });
-        io.to(`competition:${heatRows[0].competition_id}`).emit('lap_complete', {
+        io.to(`competition_${heatRows[0].competition_id}`).emit('lap_complete', {
           heat_id,
           pilot_id,
           lap: rows[0],
@@ -320,7 +320,7 @@ function initSocket(httpServer) {
         );
         const reflightRecommended = shouldRequestWholeGroupReflight('falsestart');
         ack?.({ ok: true, falsestart: rows[0], reflight_recommended: reflightRecommended });
-        io.to(`competition:${heat.competition_id}`).emit('falsestart', {
+        io.to(`competition_${heat.competition_id}`).emit('falsestart', {
           heat_id,
           pilot_id: pilot_id || null,
           falsestart: rows[0],
@@ -351,7 +351,7 @@ function initSocket(httpServer) {
           [heat_id, heat.group_id || null, reason, userId, status || 'requested', notes || null]
         );
         ack?.({ ok: true, reflight: rows[0] });
-        io.to(`competition:${heat.competition_id}`).emit('reflight_requested', {
+        io.to(`competition_${heat.competition_id}`).emit('reflight_requested', {
           heat_id,
           reflight: rows[0],
         });
@@ -413,11 +413,11 @@ function initSocket(httpServer) {
         if (!rows.length) return ack?.({ error: 'Heat not found or locked' });
 
         ack?.({ ok: true, heat: rows[0] });
-        io.to(`competition:${rows[0].competition_id}`).emit('flight_end', {
+        io.to(`competition_${rows[0].competition_id}`).emit('flight_end', {
           heat_id,
           heat: rows[0],
         });
-        io.to(`competition:${rows[0].competition_id}`).emit('heat_status_change', {
+        io.to(`competition_${rows[0].competition_id}`).emit('heat_status_change', {
           heat_id,
           status: HEAT_STATUS.COMPLETED,
         });
@@ -448,7 +448,7 @@ const _lbTrailing     = new Map();
 function _emitLeaderboard(io, competitionId) {
   return getQualificationLeaderboard(competitionId)
     .then((leaderboard) => {
-      io.to(`competition:${competitionId}`).emit('leaderboard_update', {
+      io.to(`competition_${competitionId}`).emit('leaderboard_update', {
         competition_id: competitionId,
         leaderboard,
         updated_at: new Date().toISOString(),
