@@ -247,7 +247,7 @@ router.post('/competitions/:id/stages/qualification',
     } catch (err) {
       await client.query('ROLLBACK');
       const status = isClientStageError(err) ? 400 : 500;
-      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     } finally {
       client.release();
     }
@@ -365,7 +365,7 @@ router.post('/competitions/:id/stages/advance',
         /^not enough qualifiers/.test(err.message)
         ? 400
         : 500;
-      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     } finally {
       client.release();
     }
@@ -579,7 +579,7 @@ router.post('/group-participants/:id/replace',
         err.message === 'qualification_stage_not_found'
         ? 400
         : 500;
-      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     } finally {
       client.release();
     }

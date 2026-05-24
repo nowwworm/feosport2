@@ -27,7 +27,7 @@ router.post('/competitions/:id/penalties',
       res.status(201).json(penalty);
     } catch (err) {
       const status = /required|invalid|must/.test(err.message) ? 400 : 500;
-      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     }
   }
 );
@@ -65,7 +65,7 @@ router.post('/competitions/:id/protests',
       res.status(201).json(protest);
     } catch (err) {
       const status = err.statusCode || (/required|invalid/.test(err.message) ? 400 : 500);
-      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     }
   }
 );
@@ -108,7 +108,7 @@ router.patch('/protests/:id',
       res.json(protest);
     } catch (err) {
       const status = err.statusCode || (/must|required/.test(err.message) ? 400 : 500);
-      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     }
   }
 );

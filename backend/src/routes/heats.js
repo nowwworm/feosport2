@@ -163,7 +163,7 @@ router.post('/:id/disconnects',
       res.status(201).json(result);
     } catch (err) {
       const status = /required|must be/.test(err.message) ? 400 : 500;
-      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     }
   }
 );
@@ -181,7 +181,7 @@ router.post('/:id/handoffs',
       res.status(201).json(result);
     } catch (err) {
       const status = /required/.test(err.message) ? 400 : 500;
-      (console.error(err), res.status(status).json({ error: 'Internal Server Error' }));
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     }
   }
 );
