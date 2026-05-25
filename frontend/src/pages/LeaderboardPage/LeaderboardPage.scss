@@ -24,8 +24,11 @@
     @include flex-col($gap: $space-xs);
 
     span {
-      font-size: $font-size-sm;
-      color:     $clr-text-muted;
+      font-size:      $font-size-sm;
+      font-weight:    600;
+      color:          $clr-text;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     select {
@@ -40,9 +43,16 @@
   }
 
   &__tabs {
-    display: flex;
-    gap: $space-xs;
-    flex-wrap: wrap;
+    // Grid keeps tab buttons equal-width on mobile regardless of label length.
+    display:               grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap:                   $space-xs;
+
+    @include respond(sm) {
+      display:               flex;
+      grid-template-columns: none;
+      flex-wrap:             wrap;
+    }
   }
 
   &__tab {
@@ -55,8 +65,7 @@
     font-weight: 600;
     font-size: $font-size-sm;
     cursor: pointer;
-    flex: 1 1 0;          // share row width evenly on narrow screens
-    min-width: 0;
+    min-width: 0;            // let grid track govern the width
 
     @include respond(sm) {
       padding: 0 $space-md;
