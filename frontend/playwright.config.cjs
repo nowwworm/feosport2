@@ -44,7 +44,20 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: /mobile\.spec\.cjs$/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'mobile',
+      testMatch: /mobile\.spec\.cjs$/,
+      // iPhone 13 device profile (390x844) but Chromium engine — no extra
+      // browser install needed and CSS layout is what we're verifying.
+      use: {
+        ...devices['Pixel 5'],
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 3,
+        userAgent: devices['iPhone 13'].userAgent,
+      },
     },
   ],
 });
