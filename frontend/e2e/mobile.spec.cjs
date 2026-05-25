@@ -37,7 +37,7 @@ test.describe('Mobile responsiveness (iPhone 13)', () => {
     await expectNoHorizontalScroll(page);
   });
 
-  test('bottom nav fits viewport and stays horizontally scrollable', async ({ page }) => {
+  test('bottom nav shows 5 slots: 4 primaries plus Ещё for admin', async ({ page }) => {
     await loginAndVisit(page, '/');
     const nav = page.locator('nav.nav-bar');
     await expect(nav).toBeVisible();
@@ -45,21 +45,43 @@ test.describe('Mobile responsiveness (iPhone 13)', () => {
     const navBox = await nav.boundingBox();
     expect(navBox?.width || 0, 'nav width never exceeds viewport').toBeLessThanOrEqual(VIEWPORT_WIDTH + 1);
 
-    // The admin user sees 10 items — total inner width must exceed viewport
-    // so the user has to swipe to reach the last items. If it doesn't, items
-    // were squashed below the 64px minimum.
+    // Admin has 10 visible items. With the new pattern the bar collapses to
+    // 4 primary + 1 "Ещё" button = 5 slots; the rest live in the drawer.
     const items = nav.locator('.nav-bar__item');
-    const itemCount = await items.count();
-    expect(itemCount, 'admin sees all 10 nav items').toBeGreaterThanOrEqual(10);
+    await expect(items, 'bar has 5 slots: 4 primaries + Ещё').toHaveCount(5);
 
-    const innerScrollWidth = await nav.evaluate((el) => el.scrollWidth);
-    expect(innerScrollWidth, 'nav content is wider than viewport — user can scroll').toBeGreaterThan(VIEWPORT_WIDTH);
+    const more = nav.locator('.nav-bar__item--more');
+    await expect(more, 'Ещё button is rendered when there are extras').toBeVisible();
 
-    // First item meets iOS tap target (44px). Picked the first because it's
-    // always rendered and not gated by role.
+    // Tap targets meet iOS minimum (44px). The bar must fit inside the
+    // viewport with no horizontal scroll — no scrollLeft headroom expected.
     const firstItemBox = await items.first().boundingBox();
     expect(firstItemBox?.height || 0).toBeGreaterThanOrEqual(44);
     expect(firstItemBox?.width  || 0).toBeGreaterThanOrEqual(44);
+
+    const innerScrollWidth = await nav.evaluate((el) => el.scrollWidth);
+    expect(innerScrollWidth, 'no horizontal overflow inside nav').toBeLessThanOrEqual(VIEWPORT_WIDTH + 2);
+  });
+
+  test('Ещё opens a drawer with the remaining items', async ({ page }) => {
+    await loginAndVisit(page, '/');
+    const more = page.locator('.nav-bar__item--more');
+    await more.click();
+
+    const drawer = page.locator('#nav-more-drawer');
+    await expect(drawer).toBeVisible();
+    // Admin has 10 items total → 4 in bar, 6 in drawer.
+    const drawerItems = drawer.locator('.nav-drawer__item');
+    expect(await drawerItems.count(), 'drawer contains 6 secondary items for admin').toBe(6);
+
+    // Backdrop tap dismisses the drawer. The drawer stays in the DOM and
+    // animates off-screen via transform; the open/closed state is reflected
+    // by the backdrop's data-open attribute, so assert on that.
+    await expect(page.locator('.nav-drawer-backdrop'))
+      .toHaveAttribute('data-open', 'true');
+    await page.locator('.nav-drawer-backdrop').click({ position: { x: 10, y: 10 } });
+    await expect(page.locator('.nav-drawer-backdrop'))
+      .toHaveAttribute('data-open', 'false');
   });
 
   test('leaderboard row stacks compactly so .best column is hidden on mobile', async ({ page }) => {
