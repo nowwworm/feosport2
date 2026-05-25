@@ -84,6 +84,48 @@ test.describe('Mobile responsiveness (iPhone 13)', () => {
       .toHaveAttribute('data-open', 'false');
   });
 
+  test('horizontal swipe on leaderboard cycles between Соревнование / Этап / Вылет / Команды', async ({ page }) => {
+    await loginAndVisit(page, '/');
+    const swipe = page.locator('.leaderboard-page__swipe');
+    await expect(swipe).toBeVisible();
+
+    const startTab = page.locator('.leaderboard-page__tab--active');
+    const startLabel = (await startTab.textContent())?.trim();
+    expect(startLabel, 'swipe test needs an active tab to start from').toBeTruthy();
+
+    // Simulate a leftward swipe on the table body. Playwright's CDP-based
+    // touch dispatch needs a chain of touchstart → touchmove → touchend.
+    const box = await swipe.boundingBox();
+    expect(box, 'swipe area has bounds').toBeTruthy();
+    const startX = box.x + box.width * 0.75;
+    const endX   = box.x + box.width * 0.15;
+    const y      = box.y + box.height * 0.5;
+
+    await page.touchscreen.tap(startX, y); // wake the gesture target
+    await page.evaluate(({ startX, endX, y }) => {
+      const target = document.querySelector('.leaderboard-page__swipe');
+      function touch(type, x) {
+        const t = new Touch({ identifier: 1, target, clientX: x, clientY: y, pageX: x, pageY: y });
+        const ev = new TouchEvent(type, {
+          touches:        type === 'touchend' ? [] : [t],
+          targetTouches:  type === 'touchend' ? [] : [t],
+          changedTouches: [t],
+          bubbles: true,
+          cancelable: true,
+        });
+        target.dispatchEvent(ev);
+      }
+      touch('touchstart', startX);
+      touch('touchmove',  (startX + endX) / 2);
+      touch('touchend',   endX);
+    }, { startX, endX, y });
+
+    // Active tab should have changed after the swipe.
+    const afterTab = page.locator('.leaderboard-page__tab--active');
+    await expect.poll(async () => (await afterTab.textContent())?.trim())
+      .not.toBe(startLabel);
+  });
+
   test('leaderboard row stacks compactly so .best column is hidden on mobile', async ({ page }) => {
     await loginAndVisit(page, '/');
     await expect(page.locator('.leaderboard-page')).toBeVisible();

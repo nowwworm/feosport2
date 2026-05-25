@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
@@ -16,6 +16,47 @@ const VIEWS = [
 function fmtMs(ms) {
   if (ms == null) return '—';
   return `${(Number(ms) / 1000).toFixed(3)} c`;
+}
+
+// Horizontal-swipe handlers that cycle through the leaderboard views.
+// Swipe-left → next enabled view, swipe-right → previous. Ignores gestures
+// that are mostly vertical (the user is scrolling the list).
+const SWIPE_MIN_DX = 50;       // px the finger must travel horizontally
+const SWIPE_MAX_VERT_RATIO = 0.6;
+function useTabSwipe({ views, currentKey, onChange, isDisabled }) {
+  const startRef = useRef(null);
+
+  function onTouchStart(e) {
+    const t = e.touches[0];
+    startRef.current = { x: t.clientX, y: t.clientY };
+  }
+
+  function onTouchEnd(e) {
+    if (!startRef.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startRef.current.x;
+    const dy = t.clientY - startRef.current.y;
+    startRef.current = null;
+
+    if (Math.abs(dx) < SWIPE_MIN_DX) return;
+    if (Math.abs(dy) > Math.abs(dx) * SWIPE_MAX_VERT_RATIO) return;
+
+    const idx = views.findIndex(v => v.key === currentKey);
+    if (idx < 0) return;
+    const direction = dx < 0 ? 1 : -1;
+
+    for (let step = 1; step <= views.length; step += 1) {
+      const nextIdx = (idx + direction * step + views.length) % views.length;
+      const next = views[nextIdx];
+      if (next.key === currentKey) continue;
+      if (!isDisabled(next.key)) {
+        onChange(next.key);
+        return;
+      }
+    }
+  }
+
+  return { onTouchStart, onTouchEnd };
 }
 
 function pilotName(row) {
@@ -162,6 +203,16 @@ export default function LeaderboardPage() {
 
   const hasBlockingError = Boolean(competitionsError || boardError);
 
+  const swipe = useTabSwipe({
+    views: VIEWS,
+    currentKey: view,
+    onChange: setView,
+    isDisabled: (key) => (
+      (key === 'stage' && stages.length === 0) ||
+      ((key === 'heat' || key === 'team') && heats.length === 0)
+    ),
+  });
+
   return (
     <div className={`leaderboard-page${kiosk ? ' leaderboard-page--kiosk' : ''}`}>
       {!kiosk && <Header title="Таблица" />}
@@ -231,19 +282,25 @@ export default function LeaderboardPage() {
           )}
         </div>
 
-        {(loading || competitionsLoading || hasBlockingError || !competitionId) && !rows.length ? (
-          <div className={`leaderboard-page__empty${hasBlockingError ? ' leaderboard-page__empty--error' : ''}`}>
-            <p>{emptyMessage}</p>
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="leaderboard-page__empty"><p>{emptyMessage}</p></div>
-        ) : view === 'team' ? (
-          <TeamList rows={rows} />
-        ) : view === 'heat' || view === 'stage' ? (
-          <PilotLapList rows={rows} />
-        ) : (
-          <PilotTimeList rows={rows} />
-        )}
+        <div
+          className="leaderboard-page__swipe"
+          onTouchStart={swipe.onTouchStart}
+          onTouchEnd={swipe.onTouchEnd}
+        >
+          {(loading || competitionsLoading || hasBlockingError || !competitionId) && !rows.length ? (
+            <div className={`leaderboard-page__empty${hasBlockingError ? ' leaderboard-page__empty--error' : ''}`}>
+              <p>{emptyMessage}</p>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="leaderboard-page__empty"><p>{emptyMessage}</p></div>
+          ) : view === 'team' ? (
+            <TeamList rows={rows} />
+          ) : view === 'heat' || view === 'stage' ? (
+            <PilotLapList rows={rows} />
+          ) : (
+            <PilotTimeList rows={rows} />
+          )}
+        </div>
       </div>
     </div>
   );

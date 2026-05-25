@@ -129,6 +129,12 @@
     }
   }
 
+  &__swipe {
+    // Allow native vertical scrolling; horizontal gestures fall through
+    // to the React touch handlers that flip between views.
+    touch-action: pan-y;
+  }
+
   &__list {
     list-style: none;
     @include flex-col($gap: $space-xs);
