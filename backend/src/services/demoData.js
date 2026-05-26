@@ -700,7 +700,122 @@ async function generateDemoData(actorUserId) {
       },
     });
 
+    // ── Live-demo extras: рабочие вылеты, незакрытые заявки и протест,
+    //    согласия — чтобы каждая страница админки имела что показать.
+    // Re-use the unused 'round_of_16' slot — stages_type_chk allows only the
+    // bracket-named tiers; the demo treats it as the live-demo stage.
+    const liveStageId = await insertStage(client, competitionId, 'round_of_16', 5, {
+      qualification_mode: 'laps_time',
+      target_laps: 3,
+    });
+    const liveGroupId = await insertGroup(client, liveStageId, 1);
+    const liveParticipants = pilotIds.slice(0, 4);
+
+    async function insertLiveHeat(status, heatNumber) {
+      const { rows } = await client.query(
+        `INSERT INTO heats
+           (competition_id, group_id, round_type, heat_number, status,
+            judge_id, scheduled_at, started_at, lap_limit, notes)
+         VALUES
+           ($1,$2,'qualification',$3,$4::varchar,$5,
+            NOW() + INTERVAL '10 minutes',
+            CASE WHEN $4::varchar = 'active' THEN NOW() - INTERVAL '90 seconds' ELSE NULL END,
+            3,
+            'Демо-вылет в реальном времени — для страниц Судья и Тайминг.')
+         RETURNING id`,
+        [competitionId, liveGroupId, heatNumber, status, users.chrono.id]
+      );
+      for (const [idx, pilotId] of liveParticipants.entries()) {
+        await client.query(
+          `INSERT INTO heat_participants (heat_id, pilot_id, lane) VALUES ($1,$2,$3)`,
+          [rows[0].id, pilotId, idx + 1]
+        );
+      }
+      return rows[0].id;
+    }
+
+    const scheduledHeatId = await insertLiveHeat('scheduled', 99);
+    const activeHeatId    = await insertLiveHeat('active',    100);
+
+    // Чтобы лидерборд активного вылета не пустовал — два круга для двух пилотов.
+    for (const [idx, pilotId] of liveParticipants.slice(0, 2).entries()) {
+      for (let lap = 1; lap <= 2; lap += 1) {
+        await client.query(
+          `INSERT INTO laps (heat_id, pilot_id, lap_number, duration_ms, valid, recorded_by, notes)
+           VALUES ($1,$2,$3,$4,true,$5,'демо: live-круг')`,
+          [activeHeatId, pilotId, lap, 14500 + idx * 380 + lap * 220, users.chrono.id]
+        );
+      }
+    }
+
+    // Индивидуальная (одиночная) заявка пилота на стадии «submitted» —
+    // ждёт решения секретариата. Используем preliminary, чтобы не пересечься
+    // с уникальностью по (competition, team, stage).
+    await client.query(
+      `INSERT INTO applications
+         (competition_id, pilot_id, stage, status,
+          signed_by_representative_at, contact_email, contact_phone, notes)
+       VALUES
+         ($1,$2,'preliminary','submitted',
+          NOW() - INTERVAL '2 days',
+          'late.pilot@demo.local', '+7 978 000-25-77',
+          'Демо: индивидуальная заявка ожидает решения главного судьи.')`,
+      [competitionId, pilotIds[14]]
+    );
+
+    // Открытый протест — для главного судьи.
+    await client.query(
+      `INSERT INTO protests
+         (competition_id, heat_id, filed_by, subject_team_id, rules_clause,
+          description, status)
+       VALUES ($1,$2,$3,$4,'§5.11',
+               'Команда оспаривает результат полуфинала: видео не подтверждает срез ворот.',
+               'pending')`,
+      [competitionId, finalHeatId, users.pilot.id, teamIds[1]]
+    );
+
+    // Consent events — по согласию на обработку ПД на каждую команду.
+    const consentHash = sha256('consent-version-2025-05-01');
+    for (let i = 0; i < teamIds.length; i += 1) {
+      await client.query(
+        `INSERT INTO consent_events
+           (competition_id, team_id, application_id, user_id,
+            consent_type, action, consent_version, consent_text_hash_sha256,
+            lawful_basis, source)
+         VALUES ($1,$2,$3,$4,'personal_data','accepted','v2025-05-01',$5,'consent','demo')`,
+        [competitionId, teamIds[i], applicationIds[i], users.pilot.id, consentHash]
+      );
+    }
+    // Один пилот отозвал согласие — для UI «revoked»-плашки.
+    await client.query(
+      `INSERT INTO consent_events
+         (competition_id, pilot_id, user_id,
+          consent_type, action, consent_version, consent_text_hash_sha256,
+          lawful_basis, source)
+       VALUES ($1,$2,$3,'media_release','revoked','v2025-04-01',$4,'consent','demo')`,
+      [competitionId, pilotIds[5], users.pilot.id, sha256('media-v2025-04-01')]
+    );
+
     await client.query('COMMIT');
+
+    // ── Audit trail: несколько дополнительных событий для страницы аудита.
+    //    Каждый recordAudit делает свой коммит, поэтому вызываем после основного.
+    for (const entry of [
+      { action: 'application.approved', targetKind: 'application', payload: { team: teamsInput[0].name } },
+      { action: 'pilot.admitted',       targetKind: 'pilot',       payload: { pilot_id: pilotIds[0] } },
+      { action: 'equipment.passed',     targetKind: 'drone',       payload: { drones_inspected: droneCount } },
+      { action: 'heat.locked',          targetKind: 'heat',        payload: { heat_id: finalHeatId } },
+      { action: 'penalty.issued',       targetKind: 'penalty',     payload: { rules_clause: '§5.10' } },
+      { action: 'protest.opened',       targetKind: 'protest',     payload: { rules_clause: '§5.11' } },
+    ]) {
+      await recordAudit({
+        competitionId,
+        action: entry.action,
+        actorUserId: users.chief.id,
+        targetKind: entry.targetKind,
+        payload: { demo: true, ...entry.payload },
+      });
+    }
 
     await recordAudit({
       competitionId,
@@ -727,14 +842,15 @@ async function generateDemoData(actorUserId) {
         users: Object.keys(users).length,
         teams: teamIds.length,
         pilots: pilotIds.length,
-        applications: applicationIds.length,
+        applications: applicationIds.length + 1, // +1 submitted (awaiting decision)
         documents: teamIds.length * 2,
         drones: droneCount,
-        stages: 4,
-        heats: 12,
+        stages: 5,                // qualification + QF + SF + final + live_demo
+        heats: 14,                // 12 historical + scheduled + active
         penalties: 2,
-        protests: 1,
+        protests: 2,              // 1 rejected + 1 open
         protocols: 4,
+        consent_events: teamIds.length + 1,
       },
     };
   } catch (err) {

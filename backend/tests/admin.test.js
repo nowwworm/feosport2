@@ -252,10 +252,11 @@ describe('Admin Functions', () => {
       expect(res.body.summary).toMatchObject({
         teams: 4,
         pilots: 16,
-        applications: 4,
+        applications: 5,           // 4 approved + 1 pending individual
         penalties: 2,
-        protests: 1,
+        protests: 2,               // 1 resolved + 1 open
         protocols: 4,
+        heats: 14,                 // 12 historical + scheduled + active
       });
 
       const competitions = await pool.query(
