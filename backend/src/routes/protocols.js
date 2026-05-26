@@ -40,7 +40,7 @@ router.get('/competitions/:id/protocols', authenticate, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -103,7 +103,7 @@ router.post('/competitions/:id/protocols/:type',
       res.status(201).json(protocol);
     } catch (err) {
       const status = /not_found|required/.test(err.message) ? 400 : 500;
-      res.status(status).json({ error: err.message });
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     }
   }
 );
@@ -120,7 +120,7 @@ router.get('/protocols/:id', authenticate, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'not_found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -137,7 +137,7 @@ router.get('/protocols/:id/html', authenticate, async (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(renderHtml(rows[0], { signedBy: rows[0].signed_by_email }));
   } catch (err) {
-    res.status(500).send(err.message);
+    (console.error(err), res.status(500).send('Internal Server Error'));
   }
 });
 

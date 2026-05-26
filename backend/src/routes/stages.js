@@ -197,7 +197,7 @@ router.get('/competitions/:id/stages', authenticate, async (req, res) => {
     );
     res.json(stages);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -247,7 +247,7 @@ router.post('/competitions/:id/stages/qualification',
     } catch (err) {
       await client.query('ROLLBACK');
       const status = isClientStageError(err) ? 400 : 500;
-      res.status(status).json({ error: err.message });
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     } finally {
       client.release();
     }
@@ -365,7 +365,7 @@ router.post('/competitions/:id/stages/advance',
         /^not enough qualifiers/.test(err.message)
         ? 400
         : 500;
-      res.status(status).json({ error: err.message });
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     } finally {
       client.release();
     }
@@ -379,7 +379,7 @@ router.get('/stages/:id/scores', authenticate, async (req, res) => {
     if (!scored) return res.status(404).json({ error: 'Stage not found' });
     res.json(scored);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -390,7 +390,7 @@ router.get('/stages/:id/leaderboard', authenticate, async (req, res) => {
     if (!board) return res.status(404).json({ error: 'Stage not found' });
     res.json(board);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -425,7 +425,7 @@ router.get('/stages/:id', authenticate, async (req, res) => {
     );
     res.json({ ...rows[0], groups });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -448,7 +448,7 @@ router.get('/groups/:id', authenticate, async (req, res) => {
     );
     res.json({ ...rows[0], participants });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -499,7 +499,7 @@ router.patch('/group-participants/:id',
       if (!rows.length) return res.status(404).json({ error: 'Not found' });
       res.json(rows[0]);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
     }
   }
 );
@@ -579,7 +579,7 @@ router.post('/group-participants/:id/replace',
         err.message === 'qualification_stage_not_found'
         ? 400
         : 500;
-      res.status(status).json({ error: err.message });
+      (console.error(err), res.status(status).json({ error: status === 400 || status === 404 || status === 409 ? err.message : 'Internal Server Error' }));
     } finally {
       client.release();
     }

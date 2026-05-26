@@ -589,7 +589,7 @@ describe('WebSocket Real-time Scoring', () => {
       let statusChangeReceived = false;
       let lockComplete = false;
 
-      judge.on('heat_status_change', (data) => {
+      judge.on('heat_status_change', console.log.bind(console, 'JUDGE heat_status_change')); judge.on('heat_status_change', (data) => {
         expect(data.heat_id).toBe(testHeat.id);
         expect(data.status).toBe('locked');
         statusChangeReceived = true;
