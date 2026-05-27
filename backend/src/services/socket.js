@@ -10,6 +10,24 @@ const { recordAuditAsync } = require('./audit');
 const { JWT_SECRET } = require('../middleware/auth');
 const { ROLES, HEAT_STATUS } = require('../config/constants');
 
+function buildSocketCors() {
+  const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  if (isDev) {
+    return { origin: '*', methods: ['GET', 'POST'] };
+  }
+  const allowList = (process.env.ALLOWED_ORIGINS || '')
+    .split(',').map(o => o.trim()).filter(Boolean);
+  return {
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowList.includes(origin)) return callback(null, true);
+      callback(new Error(`Socket.io CORS: origin ${origin} not allowed`));
+    },
+    methods: ['GET', 'POST'],
+    credentials: true,
+  };
+}
+
 /**
  * Attach Socket.io server to an existing HTTP server instance.
  * @param {import('http').Server} httpServer
@@ -17,7 +35,7 @@ const { ROLES, HEAT_STATUS } = require('../config/constants');
  */
 function initSocket(httpServer) {
   const io = new Server(httpServer, {
-    cors: { origin: '*', methods: ['GET', 'POST'] },
+    cors: buildSocketCors(),
   });
 
   // ── JWT authentication handshake ──────────────────────────────────────────

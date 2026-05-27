@@ -1,5 +1,7 @@
-const express = require('express');
-const cors    = require('cors');
+const express   = require('express');
+const cors      = require('cors');
+const helmet    = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const authRoutes        = require('./routes/auth');
 const competitionRoutes = require('./routes/competitions');
@@ -19,6 +21,8 @@ const protocolRoutes    = require('./routes/protocols');
 const auditRoutes       = require('./routes/audit');
 
 const app = express();
+
+app.use(helmet());
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // В production/qa задай ALLOWED_ORIGINS=https://your-domain.com,https://other.com
@@ -47,6 +51,18 @@ if (IS_DEV) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // formdesigner может слать urlencoded
 
+// Brute-force guard on credentials endpoint. Disabled under NODE_ENV=test so the
+// auth suite can hammer /login without hitting the cap.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 0 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+  message: { error: 'Too many login attempts, please try again later' },
+});
+
+app.use('/api/auth/login',   loginLimiter);
 app.use('/api/auth',         authRoutes);
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/heats',        heatRoutes);
