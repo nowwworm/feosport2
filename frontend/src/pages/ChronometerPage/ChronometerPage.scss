@@ -235,13 +235,21 @@
   }
 
   @media (max-width: $bp-sm) {
-    &__stats,
-    &__lap-form {
+    &__stats {
       grid-template-columns: 1fr;
+    }
+    
+    &__lap-form {
+      grid-template-columns: 1fr 1fr;
+      
+      button { grid-column: 1 / -1; }
     }
 
     &__check {
-      height: auto;
+      height: 44px;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
     }
   }
 }

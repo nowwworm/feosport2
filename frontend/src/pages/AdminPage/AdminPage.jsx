@@ -358,12 +358,12 @@ export default function AdminPage() {
                     key={u.id}
                     className={`admin-page__row${!u.is_active ? ' admin-page__row--inactive' : ''}`}
                   >
-                    <td className="admin-page__cell-id">{u.id}</td>
+                    <td className="admin-page__cell-id" data-label="#">{u.id}</td>
 
-                    <td>{u.email}</td>
+                    <td data-label="E-mail">{u.email}</td>
 
                     {/* Роль — выпадающий список */}
-                    <td>
+                    <td data-label="Роль">
                       <select
                         className="admin-page__select"
                         value={u.role}
@@ -377,7 +377,7 @@ export default function AdminPage() {
                     </td>
 
                     {/* Активность */}
-                    <td>
+                    <td data-label="Статус">
                       <button
                         className={`admin-page__badge${u.is_active ? ' admin-page__badge--active' : ' admin-page__badge--disabled'}`}
                         onClick={() => toggleActive(u)}
@@ -388,27 +388,29 @@ export default function AdminPage() {
                     </td>
 
                     {/* Смена пароля */}
-                    <td className="admin-page__cell-pwd">
-                      <input
-                        type="password"
-                        placeholder="новый пароль"
-                        value={editPwd[u.id] || ''}
-                        onChange={e => setEditPwd(p => ({ ...p, [u.id]: e.target.value }))}
-                        className="admin-page__pwd-input"
-                        autoComplete="new-password"
-                      />
-                      {editPwd[u.id] && (
-                        <button
-                          className="admin-page__btn admin-page__btn--sm"
-                          disabled={savingPwd === u.id}
-                          onClick={() => handleSavePwd(u)}
-                        >
-                          {savingPwd === u.id ? '…' : '✓'}
-                        </button>
-                      )}
+                    <td className="admin-page__cell-pwd" data-label="Пароль">
+                      <div>
+                        <input
+                          type="password"
+                          placeholder="новый пароль"
+                          value={editPwd[u.id] || ''}
+                          onChange={e => setEditPwd(p => ({ ...p, [u.id]: e.target.value }))}
+                          className="admin-page__pwd-input"
+                          autoComplete="new-password"
+                        />
+                        {editPwd[u.id] && (
+                          <button
+                            className="admin-page__btn admin-page__btn--sm"
+                            disabled={savingPwd === u.id}
+                            onClick={() => handleSavePwd(u)}
+                          >
+                            {savingPwd === u.id ? '…' : '✓'}
+                          </button>
+                        )}
+                      </div>
                     </td>
 
-                    <td className="admin-page__cell-date">
+                    <td className="admin-page__cell-date" data-label="Зарегистрирован">
                       {new Date(u.created_at).toLocaleDateString('ru-RU')}
                     </td>
                   </tr>

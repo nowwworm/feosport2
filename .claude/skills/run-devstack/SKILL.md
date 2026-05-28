@@ -61,6 +61,45 @@ Logs are streamed to terminal. `Ctrl-C` to stop all services.
 
 ---
 
+## Run — unified stack (nginx on :80, shared on WiFi)
+
+For multi-device access on the same WiFi (judges/pilots on phones, TMX on the main judge's laptop), use the unified compose file — nginx reverse-proxies everything on port 80.
+
+```bash
+docker-compose -f docker-compose.unified.yml up -d --build
+```
+
+Then print the URLs other devices on the same WiFi should open:
+
+```bash
+./scripts/lan-url.sh
+```
+
+Sample output (works on any router — 192.168.x, 10.x, 172.16-31.x; auto-skips VPN tunnels):
+
+```
+Interface : en0
+Network   : 192.168.1.0/24  (range 192.168.1.1 – 192.168.1.254)
+
+  Frontend : http://192.168.1.44/
+  TMX      : http://192.168.1.44/tmx/
+  API      : http://192.168.1.44/api/
+```
+
+Override port if nginx is bound to something other than 80:
+```bash
+PORT=4444 ./scripts/lan-url.sh
+```
+
+Gotcha: macOS firewall must permit incoming on the nginx port — check `/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate`.
+
+Stop unified stack:
+```bash
+docker-compose -f docker-compose.unified.yml down
+```
+
+---
+
 ## Run — minimal (native services only)
 
 Terminal 1 — PostgreSQL (must already be running):

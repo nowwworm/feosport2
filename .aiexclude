@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.npm-cache/
+.pnpm-store/
+.tools/
+
+# Build outputs and generated artifacts
+dist/
+frontend/dist/
+deploy/windows/build/staging/
+deploy/windows/build/deps/
+deploy/windows/output/
+feoTEST/**/dist/
+feoTEST/**/playwright-report/
+
+# Secrets and local environment
+.env
+.env.*
+deploy/.env
+**/.env
+**/.env.*
+
+# Local data and uploads
+data/
+backend/data/
+uploads/
+
+# Logs and runtime files
+*.log
+install.log
+.runtime-logs/
+.claude/skills/run-feosport2/.server.pid
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+**/.DS_Store
+
+# Large binary documents and archives
+*.zip
+*.exe
+*.pdf
+*.docx
+*.doc
+*.xlsx
+*.xls
+
+# Nested repositories / vendored source history
+feoTEST/**/.git/
