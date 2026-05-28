@@ -3,10 +3,8 @@ chcp 65001 > nul
 title FeoSport2
 
 :: ── Запустить службу PostgreSQL (если остановлена) ────────────────────────────
-powershell -NoProfile -NonInteractive -Command ^
-  "$svc = Get-Service -Name 'postgresql*' -ErrorAction SilentlyContinue | Select-Object -First 1; ^
-   if ($svc -and $svc.Status -ne 'Running') { Start-Service $svc.Name; Start-Sleep 4; Write-Host '[pg] PostgreSQL запущен.' } ^
-   elseif (-not $svc) { Write-Host '[pg] Служба PostgreSQL не найдена — проверь установку.' }" 2>nul
+:: ВАЖНО: одна строка. CMD line-continuation '^' после chcp 65001 ломает PowerShell.
+powershell -NoProfile -NonInteractive -Command "$svc = Get-Service -Name 'postgresql*' -ErrorAction SilentlyContinue | Select-Object -First 1; if ($svc -and $svc.Status -ne 'Running') { Start-Service $svc.Name; Start-Sleep 4; Write-Host '[pg] PostgreSQL запущен.' } elseif (-not $svc) { Write-Host '[pg] Служба PostgreSQL не найдена — проверь установку.' }" 2>nul
 
 :: ── Запустить сервер приложения ───────────────────────────────────────────────
 set SCRIPT_DIR=%~dp0

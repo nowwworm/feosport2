@@ -101,16 +101,19 @@ Name: "{autodesktop}\pgAdmin 4";                      Filename: "{app}\open-pgad
 Name: "{userstartup}\FeoSport2 — запуск";             Filename: "{app}\start-feosport.bat"; IconFilename: "{app}\{#AppExe}"; Tasks: autostart
 
 [Run]
-; 1. Установить PostgreSQL если выбран компонент
+; 1. Установить PostgreSQL если выбран компонент и PG ещё нет в системе
+;    Check: NOT IsPostgresInstalled — если PG (14/15/16/17) уже стоит,
+;    не пытаемся ставить второй экземпляр на тот же порт → нет конфликта 5432.
 Filename: "{tmp}\postgresql-16-win-x64.exe"; \
-    Parameters: "--unattendedmodeui minimal --mode unattended --superpassword ""{code:GetPgPassword}"" --serverport 5432 --enable_acledit 1"; \
+    Parameters: "--unattendedmodeui minimal --mode unattended --superpassword ""{code:GetPgPassword}"" --serverport {code:GetDbPort} --enable_acledit 1"; \
     StatusMsg: "Установка PostgreSQL 16..."; \
     Flags: waituntilterminated; \
-    Components: postgres
+    Components: postgres; \
+    Check: NOT IsPostgresInstalled
 
 ; 2. Настройка БД + автоматический seed (admin, пилоты, соревнования)
 Filename: "powershell.exe"; \
-    Parameters: "-ExecutionPolicy Bypass -NonInteractive -File ""{app}\setup-db.ps1"" -PgPassword ""{code:GetPgPassword}"" -DbPassword ""{code:GetDbPassword}"" -JwtSecret ""{code:GetJwtSecret}"" -InstallDir ""{app}"" -InitSql ""{app}\database\init.sql"" -SeedUsersSql ""{app}\database\seed-users.sql"" -SeedSql ""{app}\database\seed.sql"""; \
+    Parameters: "-ExecutionPolicy Bypass -NonInteractive -File ""{app}\setup-db.ps1"" -PgPassword ""{code:GetPgPassword}"" -DbPassword ""{code:GetDbPassword}"" -DbPort ""{code:GetDbPort}"" -JwtSecret ""{code:GetJwtSecret}"" -InstallDir ""{app}"" -InitSql ""{app}\database\init.sql"" -SeedUsersSql ""{app}\database\seed-users.sql"" -SeedSql ""{app}\database\seed.sql"""; \
     StatusMsg: "Настройка базы данных и загрузка тестовых данных..."; \
     Flags: waituntilterminated runhidden
 
@@ -130,14 +133,24 @@ Filename: "powershell.exe"; Parameters: "-Command ""taskkill /F /IM feosport2-se
 var
   PgPasswordPage:  TInputQueryWizardPage;
   DbPasswordPage:  TInputQueryWizardPage;
+  DbPortPage:      TInputQueryWizardPage;
   StandardPgPasswordCheck: TNewCheckBox;
   JwtSecret:       String;
 
-{ Проверка — установлен ли PostgreSQL }
+{ Проверка — установлен ли PostgreSQL (любая версия 14-17) }
 function IsPostgresInstalled: Boolean;
+var
+  PfPath: String;
 begin
-  Result := FileExists('C:\Program Files\PostgreSQL\16\bin\psql.exe') or
-            FileExists(ExpandConstant('{pf}') + '\PostgreSQL\16\bin\psql.exe');
+  PfPath := ExpandConstant('{pf}');
+  Result := FileExists('C:\Program Files\PostgreSQL\17\bin\psql.exe') or
+            FileExists('C:\Program Files\PostgreSQL\16\bin\psql.exe') or
+            FileExists('C:\Program Files\PostgreSQL\15\bin\psql.exe') or
+            FileExists('C:\Program Files\PostgreSQL\14\bin\psql.exe') or
+            FileExists(PfPath + '\PostgreSQL\17\bin\psql.exe') or
+            FileExists(PfPath + '\PostgreSQL\16\bin\psql.exe') or
+            FileExists(PfPath + '\PostgreSQL\15\bin\psql.exe') or
+            FileExists(PfPath + '\PostgreSQL\14\bin\psql.exe');
 end;
 
 function GetPgAdminPath(Param: String): String;
@@ -206,6 +219,15 @@ begin
     'Запомните его — он потребуется при переустановке.');
   DbPasswordPage.Add('Пароль пользователя feosport:', True);
   DbPasswordPage.Values[0] := 'feosport2024';
+
+  { Страница 3: порт PostgreSQL — если 5432 занят, можно указать другой }
+  DbPortPage := CreateInputQueryPage(DbPasswordPage.ID,
+    'Порт PostgreSQL',
+    'Укажите порт, на котором будет работать PostgreSQL',
+    'Стандартный порт — 5432. Если он уже занят (другим PostgreSQL, Docker и т.п.),' + #13#10 +
+    'укажите свободный порт, например 5433. Этот порт попадёт и в .env приложения.');
+  DbPortPage.Add('Порт PostgreSQL:', False);
+  DbPortPage.Values[0] := '5432';
 end;
 
 { Валидация заполнения полей }
@@ -228,6 +250,16 @@ begin
     if Length(Trim(DbPasswordPage.Values[0])) < 6 then
     begin
       MsgBox('Пароль должен быть не менее 6 символов.', mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+  if CurPageID = DbPortPage.ID then
+  begin
+    if (Trim(DbPortPage.Values[0]) = '') or
+       (StrToIntDef(DbPortPage.Values[0], 0) < 1024) or
+       (StrToIntDef(DbPortPage.Values[0], 0) > 65535) then
+    begin
+      MsgBox('Порт должен быть числом от 1024 до 65535.', mbError, MB_OK);
       Result := False;
     end;
   end;
@@ -256,6 +288,13 @@ end;
 function GetJwtSecret(Param: String): String;
 begin
   Result := JwtSecret;
+end;
+
+function GetDbPort(Param: String): String;
+begin
+  Result := Trim(DbPortPage.Values[0]);
+  if Result = '' then
+    Result := '5432';
 end;
 
 { Показать предупреждение если PostgreSQL не найден и компонент не выбран }
