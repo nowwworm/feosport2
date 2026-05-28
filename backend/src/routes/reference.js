@@ -16,7 +16,7 @@ router.get('/disciplines', authenticate, async (_req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -29,7 +29,7 @@ router.get('/race-systems', authenticate, async (_req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -40,7 +40,7 @@ router.get('/race-formats', authenticate, async (_req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -53,7 +53,7 @@ router.get('/age-groups', authenticate, async (_req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -66,7 +66,7 @@ router.get('/video-channels', authenticate, async (_req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -85,7 +85,7 @@ router.get('/drone-specs', authenticate, async (_req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -98,7 +98,7 @@ router.get('/drone-specs/:droneClass', authenticate, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 

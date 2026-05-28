@@ -10,7 +10,7 @@ router.get('/', authenticate, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -21,7 +21,7 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -39,7 +39,7 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
     res.status(201).json(rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: err.detail || 'Duplicate' });
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -64,7 +64,7 @@ router.patch('/:id', authenticate, authorize('admin'), async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -76,7 +76,7 @@ router.delete('/fd-all', authenticate, authorize('admin'), async (req, res) => {
     );
     res.json({ deleted: rowCount });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -89,7 +89,7 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ deleted: 1 });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 

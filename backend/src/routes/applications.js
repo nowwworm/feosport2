@@ -41,7 +41,7 @@ router.get('/', authenticate, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -71,7 +71,7 @@ router.get('/:id', authenticate, async (req, res) => {
     );
     res.json({ ...rows[0], documents });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -106,7 +106,7 @@ router.post('/', authenticate, async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Duplicate application for this competition/subject/stage' });
     }
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -176,7 +176,7 @@ router.post('/:id/submit', authenticate, async (req, res) => {
     );
     res.json(updated[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -203,7 +203,7 @@ router.post('/:id/decide', authenticate, authorize('admin', 'chief_judge'),
       if (!rows.length) return res.status(404).json({ error: 'Not found' });
       res.json(rows[0]);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
     }
   }
 );
@@ -277,7 +277,7 @@ router.get('/:id/admission-status', authenticate, async (req, res) => {
       blockers,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -308,7 +308,7 @@ router.patch('/:id', authenticate, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Not found or already decided' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -321,7 +321,7 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ deleted: 1 });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 

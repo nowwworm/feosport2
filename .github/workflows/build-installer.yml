@@ -31,7 +31,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: CourtHive/tods-competition-factory
-          ref: master
+          # Pinned: newer master removed TemporalEngine/temporal from runtime exports
+          # and breaks TMX vite build. This SHA still exports them.
+          ref: c6cff55d25192af439fa6859a6fd626ddfe74065
           path: feoTEST/factory
 
       - name: Checkout courthive-components

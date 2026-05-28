@@ -393,5 +393,70 @@
     &__db-grid {
       grid-template-columns: 1fr;
     }
+
+    // ── Table to Cards ───────────────────────────────────────────────────────
+    &__table,
+    &__table tbody,
+    &__table tr,
+    &__table td {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    &__table thead {
+      display: none;
+    }
+
+    &__row {
+      margin-bottom: 16px;
+      border: 1px solid var(--color-border, #2a2a4a);
+      border-radius: 10px;
+      background: var(--color-input-bg, #111128);
+      overflow: hidden;
+
+      &--inactive {
+        opacity: 0.7;
+      }
+    }
+
+    &__table td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &::before {
+        content: attr(data-label);
+        font-size: 11px;
+        color: var(--color-text-secondary, #8888aa);
+        text-transform: uppercase;
+        margin-right: 12px;
+      }
+    }
+
+    &__cell-pwd {
+      flex-direction: column;
+      align-items: stretch !important;
+      gap: 8px;
+
+      &::before {
+        margin-right: 0 !important;
+        margin-bottom: 4px;
+        align-self: flex-start;
+      }
+      
+      div {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        input { flex: 1; }
+      }
+    }
   }
 }

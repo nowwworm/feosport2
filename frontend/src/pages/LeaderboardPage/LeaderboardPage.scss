@@ -2,11 +2,18 @@
 @use '../../styles/mixins' as *;
 
 .leaderboard-page {
+  width:     100%;
+  max-width: 100%;
+
   &__content {
-    padding:     $space-md;
+    padding:     $space-sm $space-md;
     @include flex-col($gap: $space-md);
     max-width:   $max-content-width;
     margin:      0 auto;
+
+    @include respond(md) {
+      padding: $space-md;
+    }
   }
 
   &__controls {
@@ -17,8 +24,11 @@
     @include flex-col($gap: $space-xs);
 
     span {
-      font-size: $font-size-sm;
-      color:     $clr-text-muted;
+      font-size:      $font-size-sm;
+      font-weight:    600;
+      color:          $clr-text;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     select {
@@ -33,20 +43,35 @@
   }
 
   &__tabs {
-    display: flex;
-    gap: $space-xs;
-    flex-wrap: wrap;
+    // Grid keeps tab buttons equal-width on mobile regardless of label length.
+    display:               grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap:                   $space-xs;
+
+    @include respond(sm) {
+      display:               flex;
+      grid-template-columns: none;
+      flex-wrap:             wrap;
+    }
   }
 
   &__tab {
     @include touch-target(40px);
-    padding: 0 $space-md;
+    padding: 0 $space-sm;
     background: $clr-surface-2;
     border: 1px solid $clr-border;
     border-radius: 6px;
     color: $clr-text-muted;
     font-weight: 600;
+    font-size: $font-size-sm;
     cursor: pointer;
+    min-width: 0;            // let grid track govern the width
+
+    @include respond(sm) {
+      padding: 0 $space-md;
+      font-size: $font-size-base;
+      flex: 0 0 auto;
+    }
 
     &--active {
       background: $clr-accent;
@@ -104,6 +129,12 @@
     }
   }
 
+  &__swipe {
+    // Allow native vertical scrolling; horizontal gestures fall through
+    // to the React touch handlers that flip between views.
+    touch-action: pan-y;
+  }
+
   &__list {
     list-style: none;
     @include flex-col($gap: $space-xs);
@@ -115,17 +146,19 @@
     @include card;
     display:     flex;
     align-items: center;
-    gap:         $space-md;
+    gap:         $space-sm;
+    padding:     $space-sm $space-md;
 
     &--podium { border-color: $clr-accent-2; }
     &--out    { opacity: 0.55; }
 
     .rank {
-      font-size:   $font-size-xl;
+      font-size:   $font-size-lg;
       font-weight: 900;
-      min-width:   48px;
+      min-width:   32px;
       color:       $clr-text-muted;
       text-align:  center;
+      flex-shrink: 0;
     }
 
     .pilot-info {
@@ -136,7 +169,7 @@
       .name {
         font-weight: 600;
         @include truncate;
-        font-size: $font-size-lg;
+        font-size: $font-size-base;
       }
       .team {
         font-size: $font-size-sm;
@@ -148,9 +181,9 @@
     .laps {
       font-family: $font-mono;
       font-weight: 700;
-      font-size:   $font-size-base;
-      min-width:   70px;
+      font-size:   $font-size-sm;
       text-align:  right;
+      flex-shrink: 0;
     }
 
     .time {
@@ -158,17 +191,29 @@
       font-size:   $font-size-base;
       font-weight: 700;
       color:       $clr-accent-2;
-      flex-shrink: 0;
-      min-width:   100px;
       text-align:  right;
+      flex-shrink: 0;
     }
 
     .best {
       font-family: $font-mono;
       color: $clr-text-muted;
       font-size: $font-size-sm;
-      min-width: 100px;
       text-align: right;
+      flex-shrink: 0;
+      // Secondary metric — hidden on narrow viewports to keep the row in width.
+      display: none;
+    }
+
+    @include respond(sm) {
+      gap:     $space-md;
+      padding: $space-md;
+
+      .rank { font-size: $font-size-xl; min-width: 48px; }
+      .pilot-info .name { font-size: $font-size-lg; }
+      .laps { min-width: 70px; font-size: $font-size-base; }
+      .time { min-width: 100px; }
+      .best { display: block; min-width: 100px; }
     }
   }
 

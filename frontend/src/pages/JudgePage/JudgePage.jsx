@@ -334,15 +334,15 @@ function ParticipantRow({ pilot, lane, standing, disabled, onSubmit, onFalsestar
 
   return (
     <tr className={disabled ? 'judge-page__row--locked' : ''}>
-      <td className="judge-page__cell-pilot">
+      <td className="judge-page__cell-pilot" data-label="Пилот">
         <strong>{pilotName(pilot)}</strong>
         <span>l{lane}</span>
       </td>
-      <td>{standing?.total_laps ?? 0}</td>
-      <td>{fmtMs(standing?.total_time_ms)}</td>
-      <td>{fmtMs(standing?.best_lap_ms)}</td>
-      <td>{standing?.place ?? '—'}</td>
-      <td className="judge-page__cell-actions">
+      <td data-label="Кругов">{standing?.total_laps ?? 0}</td>
+      <td data-label="Время">{fmtMs(standing?.total_time_ms)}</td>
+      <td data-label="Лучший круг">{fmtMs(standing?.best_lap_ms)}</td>
+      <td data-label="Место">{standing?.place ?? '—'}</td>
+      <td className="judge-page__cell-actions" data-label="Действия">
         <div className="judge-page__inline-form">
           <input
             type="number" inputMode="decimal"

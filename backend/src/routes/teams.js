@@ -29,7 +29,7 @@ router.get('/', authenticate, async (_req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -49,7 +49,7 @@ router.get('/:id', authenticate, async (req, res) => {
     );
     res.json({ ...rows[0], members });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -72,7 +72,7 @@ router.post('/', authenticate, authorize('admin', 'chief_judge'), async (req, re
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Duplicate external_id' });
     }
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -97,7 +97,7 @@ router.patch('/:id', authenticate, authorize('admin', 'chief_judge'), async (req
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -108,7 +108,7 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ deleted: 1 });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 
@@ -164,7 +164,7 @@ router.post('/:id/members', authenticate, authorize('admin', 'chief_judge'), asy
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Pilot already in team' });
     }
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   } finally {
     client.release();
   }
@@ -214,7 +214,7 @@ router.patch('/:id/members/:memberId', authenticate, authorize('admin', 'chief_j
     res.json(rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   } finally {
     client.release();
   }
@@ -230,7 +230,7 @@ router.delete('/:id/members/:memberId', authenticate, authorize('admin', 'chief_
     if (!rowCount) return res.status(404).json({ error: 'Member not found' });
     res.json({ deleted: 1 });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
   }
 });
 

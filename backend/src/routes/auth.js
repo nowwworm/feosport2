@@ -1,15 +1,29 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
+const { z }  = require('zod');
 const pool   = require('../config/db');
 const { JWT_SECRET, authenticate, authorize } = require('../middleware/auth');
+const { validate } = require('../middleware/validate');
+
+const loginSchema = z.object({
+  email: z.string().email('Invalid email format').min(1),
+  password: z.string().min(1, 'Password is required')
+});
+
+const registerSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: z.string().optional(),
+  role_id: z.number().int().positive().optional()
+}).refine(data => data.role || data.role_id, {
+  message: 'role or role_id is required',
+  path: ['role']
+});
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'email and password required' });
-  }
   try {
     const { rows } = await pool.query(
       `SELECT u.*, r.name AS role
@@ -45,14 +59,8 @@ router.post('/login', async (req, res) => {
 // Body: { email, password, role | role_id }
 //   - role: string ('admin'|'chief_judge'|'judge'|'pilot') — preferred
 //   - role_id: integer — accepted for backwards compatibility
-router.post('/register', authenticate, authorize('admin'), async (req, res) => {
+router.post('/register', authenticate, authorize('admin'), validate(registerSchema), async (req, res) => {
   const { email, password, role, role_id } = req.body;
-  if (!email || !password || (!role && !role_id)) {
-    return res.status(400).json({ error: 'email, password, role required' });
-  }
-  if (typeof password !== 'string' || password.length < 8) {
-    return res.status(400).json({ error: 'password must be at least 8 characters' });
-  }
   try {
     let effectiveRoleId = role_id;
     if (!effectiveRoleId) {

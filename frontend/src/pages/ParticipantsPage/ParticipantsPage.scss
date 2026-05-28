@@ -111,6 +111,11 @@
     border:        1px solid $clr-border;
     border-radius: 10px;
     padding:       12px $space-md;
+    
+    @media (max-width: $bp-sm) {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 
   &__search-wrap {
@@ -193,29 +198,97 @@
     &:hover { border-color: $clr-accent; color: $clr-accent; }
   }
 
-  // ── DataGrid ─────────────────────────────────────────────────────────────
-  &__grid-wrap {
-    height: 600px;
-    width:  100%;
+  // ── Responsive Card List ─────────────────────────────────────────────────
+  &__list {
+    display: grid;
+    gap: $space-md;
+    grid-template-columns: 1fr;
+    
+    @include respond(md) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @include respond(lg) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+}
 
-    .MuiTablePagination-select,
-    .MuiTablePagination-displayedRows { color: #666; font-size: 12px; }
+.participant-card {
+  @include card;
+  @include flex-col($gap: $space-sm);
+  background: var(--color-surface-2, #111128);
+  border: 1px solid var(--color-border, #2a2a4a);
+  border-radius: 10px;
+  padding: $space-md;
+  transition: transform 0.2s, box-shadow 0.2s;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border-color: rgba($clr-accent, 0.4);
   }
 
-  &__del-btn {
-    background:    transparent;
-    border:        none;
-    color:         #444;
-    font-size:     14px;
-    cursor:        pointer;
-    padding:       4px 6px;
-    border-radius: 4px;
-    transition:    color 0.15s, background 0.15s;
-    line-height:   1;
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: $space-sm;
+    margin-bottom: $space-sm;
+  }
 
+  &__name {
+    font-size: $font-size-base;
+    font-weight: 700;
+    color: $clr-text;
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  &__delete {
+    background: transparent;
+    border: none;
+    color: #555;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    line-height: 1;
+    margin-top: -2px;
+    margin-right: -4px;
+    
     &:hover {
-      color:      $clr-error;
+      color: $clr-error;
       background: rgba($clr-error, 0.1);
+    }
+  }
+
+  &__info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px $space-sm;
+  }
+
+  &__field {
+    @include flex-col($gap: 2px);
+    
+    &--full {
+      grid-column: 1 / -1;
+    }
+
+    span {
+      font-size: 11px;
+      color: $clr-text-muted;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    strong {
+      font-size: 13px;
+      color: $clr-text;
+      font-weight: 500;
+      word-break: break-all;
     }
   }
 }
