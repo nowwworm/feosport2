@@ -141,42 +141,16 @@ try {
     Pop-Location
 }
 
-# ── Шаг 2b: TMX → vite build ─────────────────────────────────────────────────
-Write-Step "2b" "Сборка TMX (feoTEST/TMX, vite build)"
+# ── Шаг 2b: TMX отключён ─────────────────────────────────────────────────────
+# Соответствует CI workflow (.github/workflows/build-installer.yml).
+# Создаём пустой каталог с README-плейсхолдером, чтобы Inno Setup не падал.
+# Когда TMX будет возвращён — здесь снова появится vite build.
+Write-Step "2b" "TMX отключён — заглушка staging\tmx-dist"
 
-$tmxDir     = Join-Path $ProjectRoot "feoTEST\TMX"
-$tmxDist    = Join-Path $tmxDir "dist"
 $tmxStaging = Join-Path $StagingDir "tmx-dist"
-
 New-Item -ItemType Directory -Force -Path $tmxStaging | Out-Null
-
-if (-not (Test-Path $tmxDir)) {
-    Write-Warn "Папка feoTEST\TMX не найдена — пропускаем TMX"
-} else {
-    Push-Location $tmxDir
-    try {
-        if (-not (Test-Path (Join-Path $tmxDir "node_modules"))) {
-            Write-Host "│  pnpm install (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1)..." -ForegroundColor White
-            $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
-            $env:ELECTRON_SKIP_BINARY_DOWNLOAD    = "1"
-            $env:CI = "true"
-            pnpm install --config.confirmModulesPurge=false
-        }
-
-        Write-Host "│  vite build (BASE_URL=tmx)..." -ForegroundColor White
-        $env:BASE_URL = "tmx"
-        pnpm exec rimraf dist
-        pnpm exec vite build
-
-        if (-not (Test-Path $tmxDist)) { Write-Fail "TMX: vite build не создал dist/" }
-
-        Copy-Item "$tmxDist\*" "$tmxStaging\" -Recurse -Force
-        $fileCount = (Get-ChildItem $tmxStaging -Recurse -File).Count
-        Write-Ok "tmx-dist/ ($fileCount файлов)"
-    } finally {
-        Pop-Location
-    }
-}
+Set-Content -Path (Join-Path $tmxStaging "README.txt") -Value "TMX is disabled in this build."
+Write-Ok "tmx-dist/ (1 файл-плейсхолдер)"
 
 # ── Шаг 3: init.sql + миграции ───────────────────────────────────────────────
 Write-Step 3 "Копирование database/"
