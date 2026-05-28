@@ -6,12 +6,17 @@
 param(
     [string]$PgPassword,   # postgres superuser password
     [string]$DbPassword,   # feosport user password
+    [string]$DbPort = "5432",  # PostgreSQL port (default 5432, может быть переопределён инсталлятором)
     [AllowEmptyString()][string]$JwtSecret,    # JWT secret
     [string]$InstallDir,   # C:\FeoSport2
     [string]$InitSql,      # path to init.sql
     [string]$SeedUsersSql, # path to seed-users.sql
     [string]$SeedSql       # path to seed.sql
 )
+
+# Нормализация порта — пустая строка → 5432
+if ([string]::IsNullOrWhiteSpace($DbPort)) { $DbPort = "5432" }
+$env:PGPORT = $DbPort
 
 $ErrorActionPreference = "Stop"
 if ([string]::IsNullOrWhiteSpace($InstallDir)) { $InstallDir = $PSScriptRoot }
@@ -172,7 +177,7 @@ $envPath = Join-Path $InstallDir ".env"
 @"
 PORT=8090
 DB_HOST=localhost
-DB_PORT=5432
+DB_PORT=$DbPort
 DB_NAME=feosport2
 DB_USER=feosport
 DB_PASSWORD=$DbPassword
@@ -183,7 +188,7 @@ NODE_ENV=production
 DOCUMENTS_ROOT=$DocumentsRoot
 "@ | Set-Content -Encoding UTF8 $envPath
 Log ".env written to $envPath"
-Log ".env settings: PORT=8090 DB_HOST=localhost DB_PORT=5432 DB_NAME=feosport2 DB_USER=feosport NODE_ENV=production"
+Log ".env settings: PORT=8090 DB_HOST=localhost DB_PORT=$DbPort DB_NAME=feosport2 DB_USER=feosport NODE_ENV=production"
 Log "Documents root: $DocumentsRoot"
 
 # Открыть порт 8090 в firewall
