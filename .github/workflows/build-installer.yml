@@ -27,42 +27,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Checkout tods-competition-factory
-        uses: actions/checkout@v6
-        with:
-          repository: CourtHive/tods-competition-factory
-          # Pinned: newer master removed TemporalEngine/temporal from runtime exports
-          # and breaks TMX vite build. This SHA still exports them.
-          ref: c6cff55d25192af439fa6859a6fd626ddfe74065
-          path: feoTEST/factory
-
-      - name: Checkout courthive-components
-        uses: actions/checkout@v6
-        with:
-          repository: CourtHive/courthive-components
-          ref: main
-          path: feoTEST/courthive-components
-
-      - name: Checkout provider-config
-        uses: actions/checkout@v6
-        with:
-          repository: CourtHive/provider-config
-          ref: main
-          path: feoTEST/provider-config
-
-      - name: Checkout scoringVisualizations
-        uses: actions/checkout@v6
-        with:
-          repository: CourtHive/scoringVisualizations
-          ref: main
-          path: feoTEST/scoringVisualizations
-
-      - name: Checkout pdf-factory
-        uses: actions/checkout@v6
-        with:
-          repository: CourtHive/pdf-factory
-          ref: main
-          path: feoTEST/pdf-factory
+      # ── TMX отключён в этом билде ────────────────────────────────────────────
+      # Sibling-пакеты (tods-competition-factory, courthive-components,
+      # provider-config, scoringVisualizations, pdf-factory) больше не клонируются
+      # — TMX исключён из установщика до миграции на Railway / стабилизации API.
 
       # ── Node.js ───────────────────────────────────────────────────────────────
       - name: Setup Node.js 24
@@ -73,17 +41,6 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
-
-      # ── pnpm (для TMX и sibling packages) ─────────────────────────────────────
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: '11.1.2'
-          run_install: false
-
-      - name: Configure pnpm scripts for Windows Git Bash
-        shell: pwsh
-        run: pnpm config set script-shell "C:\Program Files\Git\bin\bash.exe"
 
       # ── pkg (Node → EXE) ──────────────────────────────────────────────────────
       - name: Install pkg globally
@@ -157,132 +114,17 @@ jobs:
           $n = (Get-ChildItem $dst -Recurse -File).Count
           Write-Host "frontend-dist: $n files"
 
-      # ── Шаг 2b: TMX → vite build ─────────────────────────────────────────────
-      - name: Build TMX local package dependencies
+      # ── Шаг 2b: TMX отключён ─────────────────────────────────────────────────
+      # Создаём пустую staging/tmx-dist с README-плейсхолдером, чтобы Inno
+      # Setup не падал на пустом source pattern. Когда TMX будет возвращён —
+      # сюда вернётся честный vite build (см. историю до v0.1.x).
+      - name: Stub tmx-dist (TMX disabled)
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
-          Write-Host "node: $(node --version)"
-          Write-Host "pnpm: $(pnpm --version)"
-
-          function Test-ExpectedFiles {
-            param(
-              [string]$Dir,
-              [string[]]$ExpectedFiles
-            )
-
-            $missing = @()
-            foreach ($file in $ExpectedFiles) {
-              $path = Join-Path $Dir $file
-              if (-not (Test-Path $path)) {
-                $missing += $file
-              }
-            }
-            return $missing
-          }
-
-          function Invoke-Pnpm {
-            param([string]$Dir, [string[]]$PnpmArgs)
-            & pnpm --dir $Dir @PnpmArgs
-            if ($LASTEXITCODE -ne 0) {
-              throw "pnpm --dir $Dir $($PnpmArgs -join ' ') failed with code $LASTEXITCODE"
-            }
-          }
-
-          function Invoke-InDir {
-            param([string]$Dir, [scriptblock]$Script)
-            Push-Location $Dir
-            try {
-              & $Script
-              if ($LASTEXITCODE -ne 0) {
-                throw "command in $Dir failed with code $LASTEXITCODE"
-              }
-            } finally {
-              Pop-Location
-            }
-          }
-
-          function Build-Package {
-            param(
-              [string]$Dir,
-              [string[]]$ExpectedFiles,
-              [scriptblock]$BuildScript
-            )
-
-            Write-Host "::group::Build $Dir"
-            $missing = Test-ExpectedFiles -Dir $Dir -ExpectedFiles $ExpectedFiles
-            if ($missing.Count -eq 0) {
-              Write-Host "All expected dist files already exist; skipping local rebuild."
-              Write-Host "::endgroup::"
-              return
-            }
-
-            Write-Host "Missing expected dist files:"
-            $missing | ForEach-Object { Write-Host "  - $_" }
-            Invoke-Pnpm -Dir $Dir -PnpmArgs @("install", "--ignore-scripts", "--frozen-lockfile")
-            & $BuildScript
-
-            $stillMissing = Test-ExpectedFiles -Dir $Dir -ExpectedFiles $ExpectedFiles
-            if ($stillMissing.Count -ne 0) {
-              $stillMissing | ForEach-Object { Write-Host "::error::$Dir did not create $_" }
-              throw "$Dir build did not produce expected dist files"
-            }
-            Write-Host "::endgroup::"
-          }
-
-          Build-Package -Dir "feoTEST/factory" -ExpectedFiles @("dist/index.mjs") -BuildScript {
-            Invoke-Pnpm -Dir "feoTEST/factory" -PnpmArgs @("exec", "node", "scripts/generateEngineMethods.mjs")
-            Invoke-Pnpm -Dir "feoTEST/factory" -PnpmArgs @("exec", "rimraf", "dist")
-            Invoke-Pnpm -Dir "feoTEST/factory" -PnpmArgs @("exec", "rollup", "--config")
-            Invoke-InDir -Dir "feoTEST/factory" -Script { node esbuild.mjs }
-          }
-
-          Build-Package -Dir "feoTEST/provider-config" -ExpectedFiles @("dist/index.js") -BuildScript {
-            Remove-Item -Recurse -Force "feoTEST/provider-config/dist" -ErrorAction SilentlyContinue
-            Invoke-Pnpm -Dir "feoTEST/provider-config" -PnpmArgs @("exec", "tsc")
-          }
-
-          Build-Package -Dir "feoTEST/scoringVisualizations" -ExpectedFiles @("dist/scoring-visualizations.es.js") -BuildScript {
-            Invoke-Pnpm -Dir "feoTEST/scoringVisualizations" -PnpmArgs @("exec", "vite", "build")
-          }
-
-          Build-Package -Dir "feoTEST/pdf-factory" -ExpectedFiles @("dist/pdf-factory.js") -BuildScript {
-            Invoke-Pnpm -Dir "feoTEST/pdf-factory" -PnpmArgs @("exec", "vite", "build")
-          }
-
-          Build-Package -Dir "feoTEST/courthive-components" -ExpectedFiles @("dist/courthive-components.es.js", "dist/courthive-components.css") -BuildScript {
-            Remove-Item -Recurse -Force "feoTEST/courthive-components/dist" -ErrorAction SilentlyContinue
-            Invoke-Pnpm -Dir "feoTEST/courthive-components" -PnpmArgs @("exec", "vite", "build")
-          }
-
-      - name: Build TMX (pnpm + vite)
-        shell: pwsh
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-          CI: 'true'
-          BASE_URL: 'tmx'
-        run: |
-          $tmxDir = "feoTEST\TMX"
-          if (-not (Test-Path $tmxDir)) {
-            Write-Host "feoTEST\TMX not found — skipping TMX build"
-            New-Item -ItemType Directory -Force -Path "deploy\windows\build\staging\tmx-dist" | Out-Null
-            exit 0
-          }
-          Set-Location $tmxDir
-          pnpm install --ignore-scripts --frozen-lockfile
-          if ($LASTEXITCODE -ne 0) { throw "TMX pnpm install failed with code $LASTEXITCODE" }
-          pnpm exec rimraf dist
-          if ($LASTEXITCODE -ne 0) { throw "TMX rimraf failed with code $LASTEXITCODE" }
-          pnpm exec vite build
-          if ($LASTEXITCODE -ne 0) { throw "TMX vite build failed with code $LASTEXITCODE" }
-          if (-not (Test-Path "dist")) { throw "TMX vite build did not produce dist/" }
-          Set-Location ..\..
           $dst = "deploy\windows\build\staging\tmx-dist"
           New-Item -ItemType Directory -Force -Path $dst | Out-Null
-          Copy-Item "feoTEST\TMX\dist\*" $dst -Recurse -Force
-          $n = (Get-ChildItem $dst -Recurse -File).Count
-          Write-Host "tmx-dist: $n files"
+          Set-Content -Path "$dst\README.txt" -Value "TMX is disabled in this build."
+          Write-Host "tmx-dist: stubbed (1 placeholder file)"
 
       # ── Шаг 3: Копировать SQL ─────────────────────────────────────────────────
       - name: Copy database SQL files

@@ -58,8 +58,9 @@ Source: "staging\app\scripts\seed.js";   DestDir: "{app}\scripts";           Fla
 ; Собранный фронтенд
 Source: "staging\frontend-dist\*";       DestDir: "{app}\frontend-dist";     Flags: ignoreversion recursesubdirs createallsubdirs
 
-; TMX (турнирная сетка) — статический SPA, раздаётся сервером по пути /tmx/
-Source: "staging\tmx-dist\*";            DestDir: "{app}\tmx-dist";          Flags: ignoreversion recursesubdirs createallsubdirs; Components: app
+; TMX отключён в v0.1.x — копируется только README-плейсхолдер из staging\tmx-dist
+; skipifsourcedoesntexist защищает от исчезновения каталога; recursesubdirs не нужен (один файл)
+Source: "staging\tmx-dist\*";            DestDir: "{app}\tmx-dist";          Flags: ignoreversion skipifsourcedoesntexist; Components: app
 
 ; База данных
 Source: "staging\database\init.sql";     DestDir: "{app}\database";          Flags: ignoreversion
