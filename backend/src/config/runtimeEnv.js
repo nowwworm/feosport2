@@ -34,16 +34,34 @@ function loadLocalEnv(projectRoot = path.resolve(__dirname, '../../..')) {
   };
 }
 
+// При наличии DATABASE_URL (Railway/Heroku/Render и т.п.) — берём подключение
+// оттуда, чтобы лог не врал про localhost:5432 когда коннект идёт куда-то ещё.
+function parseDatabaseUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    return {
+      dbHost: u.hostname || 'localhost',
+      dbPort: u.port || '5432',
+      dbUser: decodeURIComponent(u.username || '') || 'postgres',
+      dbName: u.pathname ? u.pathname.replace(/^\//, '') : 'feosport2',
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
 function getRuntimeSummary(appDir, envInfo = {}) {
+  const fromUrl = parseDatabaseUrl(process.env.DATABASE_URL);
   return {
     appDir,
     envPath: envInfo.envPath || path.join(appDir, '.env'),
     envExists: Boolean(envInfo.exists),
     port: process.env.PORT || '8090',
-    dbHost: process.env.DB_HOST || 'localhost',
-    dbPort: process.env.DB_PORT || '5432',
-    dbName: process.env.DB_NAME || 'feosport2',
-    dbUser: process.env.DB_USER || 'postgres',
+    dbHost: fromUrl?.dbHost || process.env.DB_HOST || 'localhost',
+    dbPort: fromUrl?.dbPort || process.env.DB_PORT || '5432',
+    dbName: fromUrl?.dbName || process.env.DB_NAME || 'feosport2',
+    dbUser: fromUrl?.dbUser || process.env.DB_USER || 'postgres',
   };
 }
 
