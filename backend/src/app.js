@@ -1,3 +1,5 @@
+const path      = require('path');
+const fs        = require('fs');
 const express   = require('express');
 const cors      = require('cors');
 const helmet    = require('helmet');
@@ -21,6 +23,9 @@ const protocolRoutes    = require('./routes/protocols');
 const auditRoutes       = require('./routes/audit');
 
 const app = express();
+
+// За Railway/Heroku/Render-прокси: реальный IP, secure cookies, rate-limit по X-Forwarded-For.
+app.set('trust proxy', 1);
 
 app.use(helmet());
 
@@ -81,5 +86,17 @@ app.use('/api',              protocolRoutes); // /competitions/:id/protocols, /p
 app.use('/api',              auditRoutes);    // /competitions/:id/audit, /pilots/:id/sanction-status, /pilots/:id/ban
 
 app.get(['/healthz', '/api/healthz'], (_req, res) => res.json({ status: 'ok' }));
+
+// ── Frontend SPA (одно-сервисный деплой: Railway / standalone Docker) ────────
+// Если рядом собранный фронт — отдаём статикой, для нематченых не-/api путей
+// возвращаем index.html (SPA history-mode). API и socket.io пропускаем дальше.
+const FRONTEND_DIST = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
+if (fs.existsSync(FRONTEND_DIST)) {
+  app.use(express.static(FRONTEND_DIST));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+  });
+}
 
 module.exports = app;

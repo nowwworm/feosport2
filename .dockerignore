@@ -1,0 +1,45 @@
+# Зависимости — пересобираются внутри образа
+**/node_modules
+**/.npm-cache
+**/.pnpm-store
+
+# Сборки и dist — фронт пересобирается в Stage 1
+**/dist
+**/build
+frontend/dist
+frontend/playwright-report
+frontend/test-results
+backend/coverage
+
+# VCS / IDE
+.git
+.gitignore
+.gitattributes
+.github
+.idea
+.vscode
+
+# Локальные / временные
+*.log
+*.md
+**/.DS_Store
+**/.env
+**/.env.*
+
+# TMX и сторонние пакеты CourtHive — не нужны в Railway-билде
+feoTEST
+
+# Windows installer и связанные ассеты — Railway про них ничего не знает
+deploy
+
+# Документация и скрипты дев-машины
+.aiexclude
+.gemini
+.claude
+/scripts
+CLAUDE.md
+
+# Docker meta
+Dockerfile
+docker-compose*.yml
+.dockerignore
