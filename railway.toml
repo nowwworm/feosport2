@@ -2,13 +2,15 @@
 # Документация: https://docs.railway.app/reference/config-as-code
 
 [build]
-# Railway автоматически обнаружит docker-compose.unified.yml
-# Если нужен отдельный сервис — закомментируй и используй dockerfile ниже
-dockerfilePath = "docker-compose.unified.yml"
+# Single-service deploy: backend (Node/Express) отдаёт и API, и собранный
+# frontend как статику. Multi-stage Dockerfile в корне собирает frontend
+# (vite build) и backend в один runtime-образ. См. /Dockerfile.
+builder        = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 # Healthcheck — Railway будет ждать 200 от этого URL перед роутингом трафика
-healthcheckPath    = "/api/healthz"
-healthcheckTimeout = 60
+healthcheckPath    = "/healthz"
+healthcheckTimeout = 300
 restartPolicyType  = "on_failure"
 restartPolicyMaxRetries = 3
