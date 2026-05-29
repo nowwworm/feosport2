@@ -42,6 +42,14 @@ if (IS_DEV) {
     ? rawOrigins.split(',').map(o => o.trim()).filter(Boolean)
     : [];
 
+  // Railway inject-ит RAILWAY_PUBLIC_DOMAIN с актуальным публичным доменом
+  // (включая custom domain). Vite добавляет crossorigin к тегам <script>/<link>,
+  // поэтому браузер шлёт Origin header даже на same-origin запрос ассетов —
+  // без авто-добавления домена в allowList CSS/JS отвергаются с 500.
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    allowList.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+  }
+
   app.use(cors({
     origin(origin, callback) {
       // Разрешаем запросы без origin (curl, мобильные, SSR, Postman)
