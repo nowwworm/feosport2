@@ -95,6 +95,18 @@ app.use('/api',              auditRoutes);    // /competitions/:id/audit, /pilot
 
 app.get(['/healthz', '/api/healthz'], (_req, res) => res.json({ status: 'ok' }));
 
+// ── TMX SPA (статика, собрана локально с BASE_URL=tmx) ───────────────────────
+// vendored pre-built dist в /app/tmx-dist (см. корневой Dockerfile + /tmx-dist).
+// Маунт ДО основной frontend SPA-fallback — чтобы /tmx/* не проваливался
+// в общий fallback и не возвращал index.html FeoSport2.
+const TMX_DIST = path.resolve(__dirname, '..', '..', 'tmx-dist');
+if (fs.existsSync(TMX_DIST)) {
+  app.use('/tmx', express.static(TMX_DIST));
+  app.get('/tmx/*', (req, res) => {
+    res.sendFile(path.join(TMX_DIST, 'index.html'));
+  });
+}
+
 // ── Frontend SPA (одно-сервисный деплой: Railway / standalone Docker) ────────
 // Если рядом собранный фронт — отдаём статикой, для нематченых не-/api путей
 // возвращаем index.html (SPA history-mode). API и socket.io пропускаем дальше.
@@ -103,6 +115,7 @@ if (fs.existsSync(FRONTEND_DIST)) {
   app.use(express.static(FRONTEND_DIST));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+    if (req.path.startsWith('/tmx')) return next();
     res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
   });
 }

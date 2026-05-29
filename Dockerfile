@@ -34,6 +34,12 @@ COPY database ./database
 # Frontend dist — статика отдаётся из app.js (см. FRONTEND_DIST)
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
+# TMX — vendored pre-built dist (см. /tmx-dist в корне репо).
+# Сам сборщик факторов (tods-competition-factory, courthive-components, etc.)
+# в CI больше не запускаем — upstream API хрупкий, локальная сборка стабильна.
+# При обновлении TMX: пересобрать локально, перекопировать tmx-dist, commit.
+COPY tmx-dist ./tmx-dist
+
 EXPOSE 8090
 WORKDIR /app/backend
 CMD ["node", "src/server.js"]
