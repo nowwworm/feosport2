@@ -1,0 +1,140 @@
+name: Postgres backup
+
+# Ежедневный pg_dump Railway Postgres в S3-совместимый Railway Bucket
+# (feosport2-backups). Хранит последние 14 ежедневных + последние 8 еженедельных
+# (=примерно 2 месяца retention при разумном размере).
+#
+# Триггеры:
+#   - cron: каждый день в 02:30 UTC (= 05:30 МСК)
+#   - workflow_dispatch: ручной запуск для проверки/восстановления
+#
+# Restore (вручную, из локального терминала):
+#   aws --endpoint-url=$AWS_ENDPOINT_URL s3 cp \
+#     s3://$BUCKET/postgres/daily/feosport2-2026-05-30.sql.gz .
+#   gunzip -c feosport2-2026-05-30.sql.gz | psql "$DATABASE_PUBLIC_URL"
+#
+# Все credentials лежат в GitHub Secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_PUBLIC_URL    — Railway → Postgres → Variables → DATABASE_PUBLIC_URL
+#   BUCKET_ENDPOINT_URL    — Railway → bucket credentials (AWS_ENDPOINT_URL)
+#   BUCKET_ACCESS_KEY_ID   — то же
+#   BUCKET_SECRET_KEY      — то же
+#   BUCKET_NAME            — то же
+
+on:
+  schedule:
+    - cron: '30 2 * * *'   # daily 02:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    name: pg_dump → S3 bucket
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    env:
+      AWS_ENDPOINT_URL:      ${{ secrets.BUCKET_ENDPOINT_URL }}
+      AWS_ACCESS_KEY_ID:     ${{ secrets.BUCKET_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BUCKET_SECRET_KEY }}
+      AWS_DEFAULT_REGION:    auto
+      AWS_S3_URL_STYLE:      virtual-host
+      BUCKET:                ${{ secrets.BUCKET_NAME }}
+
+    steps:
+      - name: Install postgresql-client-17
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gnupg lsb-release wget ca-certificates
+          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          pg_dump --version
+
+      - name: Validate secrets present
+        run: |
+          test -n "$AWS_ENDPOINT_URL"      || { echo "::error::BUCKET_ENDPOINT_URL secret missing"; exit 1; }
+          test -n "$AWS_ACCESS_KEY_ID"     || { echo "::error::BUCKET_ACCESS_KEY_ID secret missing"; exit 1; }
+          test -n "$AWS_SECRET_ACCESS_KEY" || { echo "::error::BUCKET_SECRET_KEY secret missing"; exit 1; }
+          test -n "$BUCKET"                || { echo "::error::BUCKET_NAME secret missing"; exit 1; }
+          test -n "${{ secrets.DATABASE_PUBLIC_URL }}" \
+            || { echo "::error::DATABASE_PUBLIC_URL secret missing"; exit 1; }
+
+      - name: pg_dump compressed
+        env:
+          DATABASE_PUBLIC_URL: ${{ secrets.DATABASE_PUBLIC_URL }}
+        run: |
+          set -e
+          STAMP=$(date -u +%Y-%m-%d)
+          FILE="feosport2-${STAMP}.sql.gz"
+          echo "FILE=$FILE" >> $GITHUB_ENV
+          echo "STAMP=$STAMP" >> $GITHUB_ENV
+
+          # --format=plain → текстовый SQL; --no-owner / --no-privileges →
+          # снимаем ACL-зависимости (чтобы restore работал в любой target БД).
+          pg_dump "$DATABASE_PUBLIC_URL" \
+            --format=plain \
+            --no-owner \
+            --no-privileges \
+            --verbose 2>pg_dump.stderr.log \
+            | gzip -9 > "$FILE"
+
+          # Базовая проверка содержимого: считаем строки COPY/INSERT.
+          ROWS=$(gunzip -c "$FILE" | grep -cE "^COPY |^INSERT INTO " || true)
+          SIZE=$(stat -c%s "$FILE")
+          echo "::notice::Backup $FILE — $(numfmt --to=iec $SIZE), $ROWS COPY/INSERT lines"
+
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "::error::Backup is suspiciously small (<1 KB). Aborting upload."
+            head -100 pg_dump.stderr.log
+            exit 1
+          fi
+
+      - name: Upload to bucket
+        run: |
+          set -e
+          KEY="postgres/daily/${FILE}"
+          aws s3 cp "$FILE" "s3://${BUCKET}/${KEY}" \
+            --endpoint-url "$AWS_ENDPOINT_URL"
+          echo "::notice::Uploaded s3://${BUCKET}/${KEY}"
+
+          # Сохранить дополнительную еженедельную копию по понедельникам
+          DOW=$(date -u +%u)   # 1 = Mon
+          if [ "$DOW" = "1" ]; then
+            WKEY="postgres/weekly/${FILE}"
+            aws s3 cp "$FILE" "s3://${BUCKET}/${WKEY}" \
+              --endpoint-url "$AWS_ENDPOINT_URL"
+            echo "::notice::Weekly snapshot s3://${BUCKET}/${WKEY}"
+          fi
+
+      - name: Prune older than 14 daily / 8 weekly
+        run: |
+          set -e
+          PRUNE_BEFORE_DAILY=$(date -u -d "14 days ago" +%Y-%m-%d)
+          PRUNE_BEFORE_WEEKLY=$(date -u -d "8 weeks ago" +%Y-%m-%d)
+
+          for PREFIX in postgres/daily postgres/weekly; do
+            CUTOFF=$([ "$PREFIX" = "postgres/daily" ] && echo "$PRUNE_BEFORE_DAILY" || echo "$PRUNE_BEFORE_WEEKLY")
+            aws s3 ls "s3://${BUCKET}/${PREFIX}/" \
+              --endpoint-url "$AWS_ENDPOINT_URL" \
+              | awk '{print $4}' \
+              | while read KEY; do
+                  STAMP=$(echo "$KEY" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+                  if [ -n "$STAMP" ] && [ "$STAMP" \< "$CUTOFF" ]; then
+                    echo "  prune ${PREFIX}/${KEY} (stamp ${STAMP} < ${CUTOFF})"
+                    aws s3 rm "s3://${BUCKET}/${PREFIX}/${KEY}" \
+                      --endpoint-url "$AWS_ENDPOINT_URL"
+                  fi
+                done
+          done
+
+      - name: Upload pg_dump log on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: pg-dump-log
+          path: pg_dump.stderr.log
+          retention-days: 14
+          if-no-files-found: ignore
