@@ -7,6 +7,13 @@ set LOG_DIR=%SCRIPT_DIR%logs
 set ENV_FILE=%SCRIPT_DIR%.env
 
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+
+:: ── Ротация старых логов (>30 дней) ──────────────────────────────────────────
+:: server-*.log создаётся при каждом запуске — за месяц активного использования
+:: может набраться 200+ файлов. setup-db*.log дозаписывается каждым setup-запуском.
+:: Чистим всё что старше 30 дней. Тихо если нечего чистить.
+powershell -NoProfile -Command "$cut = (Get-Date).AddDays(-30); $old = @(Get-ChildItem -Path '%LOG_DIR%\server-*.log','%LOG_DIR%\setup-db*.log' -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt $cut }); if ($old.Count -gt 0) { $old | Remove-Item -Force -ErrorAction SilentlyContinue; Write-Host ('[logs] подчищено ' + $old.Count + ' старых файлов (>30 дней)') }" 2>nul
+
 for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"') do set LOG_TS=%%I
 set LOG_FILE=%LOG_DIR%\server-%LOG_TS%.log
 
