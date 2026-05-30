@@ -14,7 +14,7 @@ const request = require('supertest');
 const app = require('../src/app');
 const {
   pool, cleanupDB, seedBaselineData, getAllUsers,
-  createTestPilot,
+  createTestPilot, createTestCompetition, createTestHeat, addHeatParticipant,
 } = require('./helpers/testDB');
 const { authHeader } = require('./helpers/jwt');
 
@@ -36,6 +36,9 @@ describe('Documents API', () => {
 
   afterEach(async () => {
     await pool.query(`DELETE FROM documents WHERE pilot_id IN (SELECT id FROM pilots WHERE first_name LIKE 'Test_Doc%')`);
+    await pool.query(`DELETE FROM heat_participants WHERE pilot_id IN (SELECT id FROM pilots WHERE first_name LIKE 'Test_Doc%')`);
+    await pool.query(`DELETE FROM heats WHERE competition_id IN (SELECT id FROM competitions WHERE name LIKE 'Test_Doc%')`);
+    await pool.query(`DELETE FROM competitions WHERE name LIKE 'Test_Doc%'`);
     await pool.query(`DELETE FROM pilots WHERE first_name LIKE 'Test_Doc%'`);
   });
 
@@ -146,7 +149,22 @@ describe('Documents API', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  test('GET /api/documents?pilot_id=… — filters', async () => {
+  test('GET /api/documents?pilot_id=… — admin filters', async () => {
+    const src = makeFakePdf();
+    await request(app).post('/api/documents')
+      .set('Authorization', authHeader(adminUser.id, 'admin'))
+      .field('doc_type', 'passport').field('pilot_id', String(pilot.id))
+      .attach('file', src);
+
+    const res = await request(app)
+      .get(`/api/documents?pilot_id=${pilot.id}`)
+      .set('Authorization', authHeader(adminUser.id, 'admin'));
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.length).toBe(1);
+  });
+
+  test('GET /api/documents?pilot_id=… — judge cannot list unrelated pilot documents', async () => {
     const src = makeFakePdf();
     await request(app).post('/api/documents')
       .set('Authorization', authHeader(adminUser.id, 'admin'))
@@ -158,12 +176,16 @@ describe('Documents API', () => {
       .set('Authorization', authHeader(judgeUser.id, 'judge'));
 
     expect(res.statusCode).toBe(200);
-    expect(res.body.length).toBe(1);
+    expect(res.body.length).toBe(0);
   });
 
-  test('GET /api/documents/:id/download — streams the same bytes', async () => {
+  test('GET /api/documents/:id/download — assigned judge streams the same bytes', async () => {
     const bytes = 'small content payload to verify integrity';
     const src = makeFakePdf(bytes);
+    const competition = await createTestCompetition('Test_Doc_Competition');
+    const heat = await createTestHeat(competition.id, judgeUser.id);
+    await addHeatParticipant(heat.id, pilot.id);
+
     const created = await request(app)
       .post('/api/documents')
       .set('Authorization', authHeader(adminUser.id, 'admin'))

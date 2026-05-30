@@ -2,6 +2,8 @@
 
 Дата аудита: 2026-05-21.
 
+Обновлено: 2026-05-31 — уточнены фактические миграции, healthcheck, требования к секретам и политика доступа к документам.
+
 Основание: фактическое состояние репозитория `main`, последние 30 коммитов, ТЗ из `FeoSport2_Plan_v2.docx` ("ПЛАН ИНТЕГРАЦИИ v2, FeoSport2 + TMX - Windows 11 + Railway QA").
 
 ## 1. Краткий вывод
@@ -13,7 +15,7 @@
 3. TMX: отдельное TypeScript/Vite-приложение Tournament Management eXtreme, подключенное как отдельный сервис в unified Docker и как статический `tmx-dist` в Windows EXE.
 4. Инфраструктура: PostgreSQL, nginx reverse proxy, Docker Compose, Railway-документация, GitHub Actions AQA и сборка Windows installer через Inno Setup.
 
-По ТЗ наиболее существенные пункты реализованы частично или полностью: unified Docker, `/tmx/`, роль/admin-панель, экспорт пилотов, CORS-настройка, AQA, сборка installer с TMX и pgAdmin. Остаются важные пробелы: нет `scripts/migrate.js`, нет `POST /api/admin/import/pilots`, нет `GET /api/admin/backup`, есть несовпадение healthcheck `/api/healthz` vs фактический `/healthz`, Railway все еще требует ручной настройки/проверки, а Socket.io в frontend при пустом `VITE_API_URL` по умолчанию смотрит на `http://localhost:8090`, что рискованно для production/телефонов.
+По ТЗ наиболее существенные пункты реализованы частично или полностью: unified Docker, `/tmx/`, роль/admin-панель, экспорт пилотов, CORS-настройка, AQA, миграции, сборка installer с TMX и pgAdmin. Остаются важные пробелы: нет `POST /api/admin/import/pilots`, нет `GET /api/admin/backup`, Railway все еще требует ручной настройки/проверки. Healthcheck фактически доступен и как `/healthz`, и как `/api/healthz`. Socket.io при пустом `VITE_API_URL` использует same-origin, что подходит для nginx/Railway/телефонов.
 
 ## 2. Архитектура верхнего уровня
 
@@ -112,7 +114,16 @@ REST API:
 | `/api/pilots` | `routes/pilots.js` | пилоты, CRUD, FormDesigner cleanup |
 | `/api/webhook` | `routes/webhook.js` | регистрация пилотов из FormDesigner |
 | `/api/admin` | `routes/admin.js` | пользователи, DB status, pgAdmin, экспорт CSV, ручной sync |
-| `/healthz` | `app.js` | healthcheck backend |
+| `/api/documents` | `routes/documents.js` | загрузка, метаданные и скачивание документов допуска |
+| `/healthz`, `/api/healthz` | `app.js` | healthcheck backend |
+
+Documents API:
+
+1. Загруженные файлы хранятся локально в `DOCUMENTS_ROOT` или `data/uploads`.
+2. Файлы шифруются at-rest через AES-256-GCM.
+3. Полный доступ к документам имеют `admin`, `chief_judge`, `deputy_chief_judge`, секретариат и врач соревнований.
+4. Остальные пользователи видят только документы, которые они загрузили, документы своего профиля пилота, документы своей команды или документы пилота из назначенного им заезда.
+5. Удаление документов остается только за `admin`.
 
 Admin API:
 
@@ -160,7 +171,7 @@ Socket.io требует JWT в `socket.handshake.auth.token`. События:
 
 Есть индексы на основные foreign keys и `pilots.external_id`.
 
-Пробел относительно ТЗ: таблица `db_migrations` и миграционный механизм `scripts/migrate.js` не найдены.
+Миграции реализованы через `backend/scripts/migrate.js` и таблицу `schema_migrations`. Runner применяет `database/init.sql` как baseline на пустой базе и затем SQL-файлы из `database/migrations/` в порядке имени.
 
 ### 3.4 TMX
 
@@ -187,7 +198,7 @@ Socket.io требует JWT в `socket.handshake.auth.token`. События:
 Docker:
 
 1. `docker-compose.yml` - базовый dev stack: `db`, `backend`, `frontend`.
-2. `docker-compose.unified.yml` - unified stack: `db`, `backend`, `frontend`, `tmx`, `nginx`.
+2. `docker-compose.unified.yml` - unified stack: `db`, `backend`, `frontend`, `tmx`, `nginx`; требует явно заданные `DB_PASSWORD` и `JWT_SECRET`.
 3. `deploy/docker-compose.prod.yml` - production compose.
 4. `deploy/nginx/nginx.unified.conf` - единая маршрутизация frontend/API/WebSocket/TMX.
 
@@ -198,7 +209,7 @@ Railway:
 
 Замечания:
 
-1. В коде backend healthcheck находится на `/healthz`, а nginx проксирует `/healthz`. В `railway.toml` и `DEPLOY_RAILWAY.md` указан `/api/healthz`; это нужно привести к одному пути.
+1. Backend поддерживает оба healthcheck-пути: `/healthz` и `/api/healthz`.
 2. `dockerfilePath = "docker-compose.unified.yml"` выглядит спорно для Railway config-as-code: compose-файл не является Dockerfile. Фактический Railway-деплой нужно проверять на стенде.
 
 Windows:
@@ -447,4 +458,3 @@ CI/CD:
 7. Запустить AQA workflow и build-installer workflow.
 8. Проверить Windows installer на Windows 11: install-over-old, сохранность PostgreSQL data, телефоны в WiFi, pgAdmin launcher.
 9. Проверить Railway QA на реальном домене и обновить `DEPLOY_RAILWAY.md` по фактическому сценарию.
-

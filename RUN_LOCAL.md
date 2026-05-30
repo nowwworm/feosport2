@@ -31,7 +31,7 @@ corepack pnpm --version
 ```env
 DB_NAME=feosport2
 DB_USER=postgres
-DB_PASSWORD=postgres
+DB_PASSWORD=CHANGE_ME_STRONG_LOCAL_PASSWORD
 DB_HOST=localhost
 DB_PORT=5432
 ```

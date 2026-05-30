@@ -9,8 +9,8 @@
 ```env
 DB_NAME=feosport2
 DB_USER=postgres
-DB_PASSWORD=postgres
-JWT_SECRET=любая_длинная_случайная_строка
+DB_PASSWORD=CHANGE_ME_STRONG_PASSWORD
+JWT_SECRET=сгенерируй_длинную_случайную_строку
 NODE_ENV=development
 ```
 
@@ -97,4 +97,3 @@ TMX требует Node.js `>=22`. В проекте обновлены зави
 cd C:\Users\danie\Desktop\nowwworm\feosport2\feoTEST\TMX
 pnpm run build
 ```
-
