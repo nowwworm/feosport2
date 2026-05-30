@@ -15,7 +15,7 @@ services:
     environment:
       POSTGRES_DB:       ${DB_NAME:-feosport2}
       POSTGRES_USER:     ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env before running the unified stack}
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
@@ -38,8 +38,8 @@ services:
       DB_HOST:     db
       DB_NAME:     ${DB_NAME:-feosport2}
       DB_USER:     ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      JWT_SECRET:  ${JWT_SECRET:-change_me_in_production}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env before running the unified stack}
+      JWT_SECRET:  ${JWT_SECRET:?Set JWT_SECRET in .env before running the unified stack}
       FD_EMAIL:    ${FD_EMAIL:-}
       FD_PASSWORD: ${FD_PASSWORD:-}
       FD_FORM_ID:  ${FD_FORM_ID:-245167}

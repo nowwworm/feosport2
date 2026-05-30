@@ -33,6 +33,121 @@ const VALID_DOC_TYPES = [
   'parental_consent', 'classification_book', 'other',
 ];
 
+const FULL_DOCUMENT_ACCESS_ROLES = new Set([
+  'admin',
+  'chief_judge',
+  'deputy_chief_judge',
+  'chief_secretary',
+  'deputy_secretary',
+  'competition_doctor',
+]);
+
+function hasFullDocumentAccess(user) {
+  return FULL_DOCUMENT_ACCESS_ROLES.has(user?.role);
+}
+
+function documentAccessPredicate(user, values, alias = 'd') {
+  if (hasFullDocumentAccess(user)) return 'TRUE';
+
+  values.push(user.id);
+  const userParam = `$${values.length}`;
+
+  return `(
+    ${alias}.uploaded_by = ${userParam}
+    OR EXISTS (
+      SELECT 1
+        FROM pilots p
+       WHERE p.id = ${alias}.pilot_id
+         AND p.user_id = ${userParam}
+    )
+    OR EXISTS (
+      SELECT 1
+        FROM applications a
+        JOIN pilots p ON p.id = a.pilot_id
+       WHERE a.id = ${alias}.application_id
+         AND p.user_id = ${userParam}
+    )
+    OR EXISTS (
+      SELECT 1
+        FROM teams t
+       WHERE t.id = ${alias}.team_id
+         AND (t.representative_user_id = ${userParam} OR t.coach_user_id = ${userParam})
+    )
+    OR EXISTS (
+      SELECT 1
+        FROM applications a
+        JOIN teams t ON t.id = a.team_id
+       WHERE a.id = ${alias}.application_id
+         AND (t.representative_user_id = ${userParam} OR t.coach_user_id = ${userParam})
+    )
+    OR EXISTS (
+      SELECT 1
+        FROM heat_participants hp
+        JOIN heats h ON h.id = hp.heat_id
+       WHERE hp.pilot_id = ${alias}.pilot_id
+         AND h.judge_id = ${userParam}
+    )
+    OR EXISTS (
+      SELECT 1
+        FROM applications a
+        JOIN heat_participants hp ON hp.pilot_id = a.pilot_id
+        JOIN heats h ON h.id = hp.heat_id
+       WHERE a.id = ${alias}.application_id
+         AND h.judge_id = ${userParam}
+    )
+  )`;
+}
+
+async function assertCanReferenceOwners(user, { pilot_id, team_id, application_id }) {
+  if (hasFullDocumentAccess(user)) return true;
+
+  const values = [];
+  const checks = [];
+
+  if (pilot_id) {
+    values.push(pilot_id);
+    checks.push(`EXISTS (
+      SELECT 1 FROM pilots p
+       WHERE p.id = $${values.length}
+         AND p.user_id = $USER_ID
+    )`);
+  }
+
+  if (team_id) {
+    values.push(team_id);
+    checks.push(`EXISTS (
+      SELECT 1 FROM teams t
+       WHERE t.id = $${values.length}
+         AND (t.representative_user_id = $USER_ID OR t.coach_user_id = $USER_ID)
+    )`);
+  }
+
+  if (application_id) {
+    values.push(application_id);
+    checks.push(`EXISTS (
+      SELECT 1
+        FROM applications a
+        LEFT JOIN pilots p ON p.id = a.pilot_id
+        LEFT JOIN teams t ON t.id = a.team_id
+       WHERE a.id = $${values.length}
+         AND (
+           p.user_id = $USER_ID
+           OR t.representative_user_id = $USER_ID
+           OR t.coach_user_id = $USER_ID
+         )
+    )`);
+  }
+
+  if (checks.length === 0) return false;
+
+  values.push(user.id);
+  const userParam = `$${values.length}`;
+  const sql = `SELECT (${checks.join(' OR ')} OR FALSE) AS allowed`
+    .replace(/\$USER_ID/g, userParam);
+  const { rows } = await pool.query(sql, values);
+  return Boolean(rows[0]?.allowed);
+}
+
 function makeStorage() {
   return multer.diskStorage({
     destination(_req, _file, cb) {
@@ -97,6 +212,17 @@ router.post('/', authenticate, (req, res) => {
       return res.status(400).json({ error: 'at least one of pilot_id / team_id / application_id is required' });
     }
 
+    try {
+      const allowed = await assertCanReferenceOwners(req.user, { pilot_id, team_id, application_id });
+      if (!allowed) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } catch (err) {
+      fs.unlink(req.file.path, () => {});
+      return (console.error(err), res.status(500).json({ error: 'Internal Server Error' }));
+    }
+
     let hash;
     let encryption;
     try {
@@ -152,13 +278,14 @@ router.get('/', authenticate, async (req, res) => {
   for (const f of ['pilot_id', 'team_id', 'application_id', 'doc_type']) {
     if (req.query[f]) { values.push(req.query[f]); where.push(`${f} = $${values.length}`); }
   }
+  where.push(documentAccessPredicate(req.user, values, 'd'));
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   try {
     const { rows } = await pool.query(
       `SELECT id, pilot_id, team_id, application_id, doc_type,
               file_name, file_size_bytes, mime_type, valid_until,
               uploaded_by, uploaded_at
-         FROM documents
+         FROM documents d
          ${whereSql}
         ORDER BY uploaded_at DESC`,
       values
@@ -171,7 +298,12 @@ router.get('/', authenticate, async (req, res) => {
 
 router.get('/:id', authenticate, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
+    const values = [req.params.id];
+    const accessSql = documentAccessPredicate(req.user, values, 'd');
+    const { rows } = await pool.query(
+      `SELECT * FROM documents d WHERE d.id = $1 AND ${accessSql}`,
+      values
+    );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
@@ -181,7 +313,12 @@ router.get('/:id', authenticate, async (req, res) => {
 
 router.get('/:id/download', authenticate, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
+    const values = [req.params.id];
+    const accessSql = documentAccessPredicate(req.user, values, 'd');
+    const { rows } = await pool.query(
+      `SELECT * FROM documents d WHERE d.id = $1 AND ${accessSql}`,
+      values
+    );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     const doc = rows[0];
 
