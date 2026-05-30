@@ -81,17 +81,66 @@ Log "psql: $psql"
 
 $env:PGPASSWORD = $PgPassword
 
-# Запустить службу PostgreSQL
+# ── Port 5432 pre-flight check ───────────────────────────────────────────────
+# Если что-то слушает на 5432 ДО того как наша PG service запустилась, это
+# либо чужой PostgreSQL (другая версия), либо посторонний процесс. В обоих
+# случаях наш Start-Service не освободит порт, а psql connect упадёт с
+# неинформативным "Check PostgreSQL password". Скажем сразу в чём дело.
+$listen = @(Get-NetTCPConnection -LocalPort 5432 -State Listen -ErrorAction SilentlyContinue)
+if ($listen.Count -gt 0) {
+    $listenPid  = $listen[0].OwningProcess
+    $listenProc = Get-Process -Id $listenPid -ErrorAction SilentlyContinue
+    $listenName = if ($listenProc) { $listenProc.ProcessName } else { 'unknown' }
+    Log "Port 5432 in use by PID $listenPid ($listenName)"
+
+    if ($listenName -notlike 'postgres*') {
+        Log "ERROR: Порт 5432 занят процессом, который НЕ PostgreSQL: $listenName (PID $listenPid)."
+        Log ""
+        Log "  FeoSport2 не может настроить базу, пока порт занят чужим процессом."
+        Log "  Варианты:"
+        Log "    1. Остановить процесс: Task Manager -> Details -> найти PID $listenPid -> End task"
+        Log "    2. Если это другой PostgreSQL — остановить службу:"
+        Log "         Get-Service postgresql* | Stop-Service -Force"
+        Log "    3. Перезапустить ярлык 'FeoSport2 -- настройка PostgreSQL'"
+        exit 1
+    }
+    # postgres* — может быть наш или сосуществующий инстанс; проверка пароля
+    # ниже даст понятный verdict.
+}
+
+# ── Запустить службу PostgreSQL ──────────────────────────────────────────────
 $svc = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($svc -and $svc.Status -ne "Running") {
-    Start-Service $svc.Name
-    Start-Sleep 4
-    Log "PostgreSQL service started: $($svc.Name)"
+    try {
+        Start-Service $svc.Name -ErrorAction Stop
+        Start-Sleep 4
+        Log "PostgreSQL service started: $($svc.Name)"
+    } catch {
+        Log "ERROR: Не удалось запустить службу $($svc.Name): $($_.Exception.Message)"
+        Log "  Возможно, не хватает прав — запустите 'FeoSport2 -- настройка PostgreSQL'"
+        Log "  правым кликом -> 'Запуск от имени администратора'."
+        exit 1
+    }
+}
+
+if (-not $svc -and $listen.Count -eq 0) {
+    Log "ERROR: Служба PostgreSQL не найдена И никто не слушает на 5432."
+    Log "  Вероятно, bundled-инсталлятор PostgreSQL 16 не завершился при установке FeoSport2."
+    Log "  Логи Inno Setup лежат в %TEMP%\Setup Log*.txt — посмотрите там."
+    Log "  Либо переустановите FeoSport2 с включённым компонентом 'PostgreSQL 16'."
+    exit 1
 }
 
 & $psql -U postgres -tAc "SELECT version();" 2>&1 | ForEach-Object { Log "postgres connection: $_" }
 if ($LASTEXITCODE -ne 0) {
-    Log "ERROR: could not connect as postgres. Check PostgreSQL password."
+    Log "ERROR: Не удалось подключиться как postgres."
+    if ($listen.Count -gt 0 -and $listenName -like 'postgres*') {
+        Log "  На 5432 слушает postgres ($listenName, PID $listenPid), но пароль не подошёл."
+        Log "  Возможно, это другой PostgreSQL с другим паролем. Введите правильный пароль"
+        Log "  суперпользователя того PostgreSQL, либо остановите его и переустановите FeoSport2."
+    } else {
+        Log "  Проверьте пароль postgres."
+    }
     exit 1
 }
 
