@@ -5,8 +5,30 @@
   &__content {
     padding:   $space-md;
     @include flex-col($gap: $space-sm);
-    max-width: $max-content-width;
+    max-width: 1400px;
     margin:    0 auto;
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $space-sm;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 700;
+    margin: 0;
+    color: $clr-text;
+  }
+
+  &__count {
+    color: $clr-text-muted;
+    font-weight: 400;
+    margin-left: $space-xs;
+    font-size: $font-size-sm;
   }
 
   &__state {
@@ -17,47 +39,145 @@
     &--error { color: $clr-error; }
   }
 
-  &__list {
-    list-style: none;
-    @include flex-col($gap: $space-xs);
-  }
-
-  &__item {
-    @include card;
-    display:     flex;
+  // ── Панель фильтров ──────────────────────────────────────────────────────
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-sm;
+    padding: $space-sm 0;
     align-items: center;
-    gap:         $space-md;
   }
 
-  &__num {
-    font-family: $font-mono;
-    font-size:   $font-size-sm;
-    color:       $clr-text-muted;
-    min-width:   40px;
-    flex-shrink: 0;
+  &__search-wrap {
+    position: relative;
+    flex: 1 1 240px;
+    min-width: 200px;
   }
 
-  &__info {
-    @include flex-col($gap: 2px);
-    min-width: 0;
+  &__search-icon {
+    position: absolute;
+    left: $space-sm;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $clr-text-muted;
+    pointer-events: none;
+    font-size: $font-size-base;
   }
 
-  &__name {
-    font-weight: 600;
-    @include truncate;
-  }
-
-  &__meta {
+  &__search {
+    width: 100%;
+    background: $clr-surface;
+    border: 1px solid $clr-border;
+    border-radius: 6px;
+    color: $clr-text;
+    padding: $space-sm $space-xl $space-sm calc(#{$space-md} + 12px);
     font-size: $font-size-sm;
-    color:     $clr-text-muted;
-    @include truncate;
+    outline: none;
+
+    &:focus { border-color: $clr-accent; }
+    &::placeholder { color: $clr-text-muted; }
   }
 
-  @include respond(md) {
-    &__list {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: $space-sm;
+  &__search-clear {
+    position: absolute;
+    right: $space-xs;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: $clr-text-muted;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: $font-size-base;
+
+    &:hover { color: $clr-text; }
+  }
+
+  &__select {
+    background: $clr-surface;
+    border: 1px solid $clr-border;
+    border-radius: 6px;
+    color: $clr-text;
+    padding: $space-sm $space-md;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    min-width: 140px;
+
+    &:focus { outline: none; border-color: $clr-accent; }
+  }
+
+  &__clear-btn {
+    background: transparent;
+    border: 1px solid $clr-border;
+    border-radius: 6px;
+    color: $clr-text-muted;
+    padding: $space-sm $space-md;
+    font-size: $font-size-sm;
+    cursor: pointer;
+
+    &:hover {
+      color: $clr-text;
+      border-color: $clr-accent;
     }
+  }
+
+  // ── Таблица ──────────────────────────────────────────────────────────────
+  &__table-wrap {
+    overflow-x: auto;
+    border: 1px solid $clr-border;
+    border-radius: 8px;
+    background: $clr-surface;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+
+    thead {
+      background: rgba(255, 255, 255, 0.03);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    th {
+      text-align: left;
+      padding: $space-sm $space-md;
+      font-weight: 600;
+      color: $clr-text-muted;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      border-bottom: 1px solid $clr-border;
+    }
+
+    td {
+      padding: $space-sm $space-md;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: $clr-text;
+      white-space: nowrap;
+
+      &:last-child { white-space: normal; }
+    }
+
+    tbody tr {
+      transition: background 0.1s ease;
+
+      &:hover { background: rgba(255, 255, 255, 0.02); }
+      &:last-child td { border-bottom: none; }
+    }
+  }
+
+  &__cell-id {
+    color: $clr-text-muted;
+    font-family: $font-mono;
+    font-size: 11px;
+  }
+
+  &__cell-name {
+    font-weight: 600;
+    color: $clr-text;
   }
 }
