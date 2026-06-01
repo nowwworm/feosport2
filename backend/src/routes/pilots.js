@@ -152,17 +152,20 @@ router.post('/import', authenticate, authorize('admin'), async (req, res) => {
     }
 
     try {
+      // sport_rank сюда не пишем: в БД на колонке стоит check-constraint
+      // (NULL | КМС | 1р | 2р | 3р | б/р), а FD-форма даёт лишь Yes/No.
+      // Сохраняем флаг has_rank, конкретное название разряда заполнит админ.
       const { rows } = await pool.query(
         `INSERT INTO pilots (
             first_name, last_name, middle_name, birth_date, team,
-            email, phone, has_rank, sport_rank,
+            email, phone, has_rank,
             radio_system, vtx_type, vtx_channel, drone_simulator,
             external_id
          ) VALUES (
             $1, $2, $3, $4, $5,
-            $6, $7, $8, $9,
-            $10, $11, $12, $13,
-            $14
+            $6, $7, $8,
+            $9, $10, $11, $12,
+            $13
          )
          ON CONFLICT (external_id) DO UPDATE SET
             first_name      = EXCLUDED.first_name,
@@ -173,7 +176,6 @@ router.post('/import', authenticate, authorize('admin'), async (req, res) => {
             email           = COALESCE(EXCLUDED.email, pilots.email),
             phone           = COALESCE(EXCLUDED.phone, pilots.phone),
             has_rank        = COALESCE(EXCLUDED.has_rank, pilots.has_rank),
-            sport_rank      = COALESCE(EXCLUDED.sport_rank, pilots.sport_rank),
             radio_system    = COALESCE(EXCLUDED.radio_system, pilots.radio_system),
             vtx_type        = COALESCE(EXCLUDED.vtx_type, pilots.vtx_type),
             vtx_channel     = COALESCE(EXCLUDED.vtx_channel, pilots.vtx_channel),
@@ -186,9 +188,6 @@ router.post('/import', authenticate, authorize('admin'), async (req, res) => {
           entry.email || null,
           entry.phone || null,
           entry.has_rank === undefined || entry.has_rank === null ? null : entry.has_rank,
-          // sport_rank — текстовое значение разряда; в FD-форме только Yes/No,
-          // поэтому проставляем 'Да' если has_rank=true, иначе NULL.
-          entry.has_rank === true ? 'Да' : null,
           entry.radio_system || null,
           entry.vtx_type || null,
           entry.vtx_channel || null,
