@@ -349,6 +349,11 @@ async function generateDemoData(actorUserId) {
   try {
     await client.query('BEGIN');
 
+    await client.query(
+      `DELETE FROM consent_events
+        WHERE competition_id IN (SELECT id FROM competitions WHERE name = $1)`,
+      [DEMO_NAME]
+    );
     await client.query('DELETE FROM competitions WHERE name = $1', [DEMO_NAME]);
     await client.query('DELETE FROM pilots WHERE external_id LIKE $1', [`${DEMO_PREFIX}-%`]);
     await client.query('DELETE FROM teams WHERE external_id LIKE $1', [`${DEMO_PREFIX}-%`]);
