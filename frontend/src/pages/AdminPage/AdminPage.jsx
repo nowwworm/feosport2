@@ -39,6 +39,13 @@ export default function AdminPage() {
   const [demoResult, setDemoResult] = useState(null);
   const [demoError, setDemoError] = useState('');
 
+  // Pilot bulk-import (FormDesigner-форма 245167 или ручной JSON)
+  const [importOpen,    setImportOpen]    = useState(false);
+  const [importJson,    setImportJson]    = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult,  setImportResult]  = useState(null);
+  const [importError,   setImportError]   = useState('');
+
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [formSaving,setFormSaving]= useState(false);
@@ -93,6 +100,38 @@ export default function AdminPage() {
       setDemoError(err.response?.data?.details || err.response?.data?.error || 'Не удалось сгенерировать тестовые данные');
     } finally {
       setDemoLoading(false);
+    }
+  }
+
+  // ── Импорт пилотов ─────────────────────────────────────────────────────────
+  async function handleImportPilots() {
+    setImportError('');
+    setImportResult(null);
+    let entries;
+    try {
+      const parsed = JSON.parse(importJson);
+      entries = Array.isArray(parsed) ? parsed : parsed.entries;
+      if (!Array.isArray(entries) || entries.length === 0) {
+        throw new Error('Ожидался массив [...] или объект { entries: [...] }');
+      }
+    } catch (e) {
+      setImportError(`Ошибка разбора JSON: ${e.message}`);
+      return;
+    }
+
+    setImportLoading(true);
+    try {
+      const { data } = await api.post('/pilots/import', { entries });
+      setImportResult(data);
+    } catch (err) {
+      const details = err.response?.data?.details;
+      if (Array.isArray(details)) {
+        setImportError(details.map(d => `${d.path}: ${d.message}`).join('; '));
+      } else {
+        setImportError(err.response?.data?.error || err.message);
+      }
+    } finally {
+      setImportLoading(false);
     }
   }
 
@@ -267,6 +306,102 @@ export default function AdminPage() {
               <span>Пилоты: {demoResult.summary?.pilots}</span>
               <span>Вылеты: {demoResult.summary?.heats}</span>
               <span>Протоколы: {demoResult.summary?.protocols}</span>
+            </div>
+          )}
+        </section>
+
+        <section className="admin-page__demo-panel">
+          <div className="admin-page__demo-head">
+            <div>
+              <h2>Импорт пилотов</h2>
+              <p>
+                Bulk-импорт участников по схеме FormDesigner-формы{' '}
+                <a href="https://formdesigner.ru/form/view/245167" target="_blank" rel="noopener noreferrer">245167</a>.
+                Валидация значений (TBS/ELRS/VTX) через Zod. Дедупликация по{' '}
+                <code>external_id</code>.
+              </p>
+            </div>
+            <button
+              className="admin-page__btn admin-page__btn--primary admin-page__demo-main"
+              type="button"
+              onClick={() => setImportOpen(v => !v)}
+            >
+              {importOpen ? '✕ Закрыть форму' : 'Открыть форму импорта'}
+            </button>
+          </div>
+
+          {importOpen && (
+            <div className="admin-page__import-body" style={{ marginTop: '1rem' }}>
+              <p style={{ margin: '0 0 .5rem' }}>
+                Вставь JSON-массив пилотов или объект <code>{'{ entries: [...] }'}</code>.
+                Допустимые dropdown-значения: radio_system, vtx_type, vtx_channel — см. форму 245167.
+              </p>
+              <details style={{ margin: '0 0 .75rem' }}>
+                <summary style={{ cursor: 'pointer' }}>Пример одной записи</summary>
+                <pre style={{ background: '#1a1a1a', padding: '.75rem', borderRadius: 4, fontSize: 12, overflow: 'auto' }}>
+{`[
+  {
+    "fio": "Иванов Петр Сергеевич",
+    "email": "petr@example.com",
+    "phone": "+7 (999) 123-45-67",
+    "birth_date": "1995-04-12",
+    "has_rank": true,
+    "team": "Феодосия FPV",
+    "radio_system": "ELRS 2,4GHz",
+    "vtx_type": "HD Zero",
+    "vtx_channel": "R3",
+    "drone_simulator": "Liftoff",
+    "external_id": "fd-245167-001"
+  }
+]`}
+                </pre>
+              </details>
+              <textarea
+                className="admin-page__import-textarea"
+                value={importJson}
+                onChange={e => setImportJson(e.target.value)}
+                rows={12}
+                placeholder='[{"fio": "Иванов И. И.", "external_id": "001"}]'
+                style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, padding: '.5rem', boxSizing: 'border-box' }}
+              />
+              <div style={{ marginTop: '.75rem' }}>
+                <button
+                  className="admin-page__btn admin-page__btn--primary"
+                  type="button"
+                  onClick={handleImportPilots}
+                  disabled={importLoading || !importJson.trim()}
+                >
+                  {importLoading ? 'Импорт…' : 'Импортировать'}
+                </button>
+              </div>
+
+              {importError && (
+                <p className="admin-page__demo-error" style={{ marginTop: '.75rem' }}>{importError}</p>
+              )}
+
+              {importResult && (
+                <div className="admin-page__demo-result" style={{ marginTop: '.75rem' }}>
+                  <strong>Результат импорта</strong>
+                  <span>✓ Создано: {importResult.created?.length || 0}</span>
+                  <span>↻ Обновлено: {importResult.updated?.length || 0}</span>
+                  <span>✗ Ошибок: {importResult.errors?.length || 0}</span>
+                  {importResult.errors?.length > 0 && (
+                    <details>
+                      <summary style={{ cursor: 'pointer' }}>Список ошибок</summary>
+                      <ul style={{ margin: '.5rem 0 0', paddingLeft: '1.25rem', fontSize: 13 }}>
+                        {importResult.errors.slice(0, 20).map((e, i) => (
+                          <li key={i}>
+                            <code>#{e.index}</code> {e.entry?.fio || '(no fio)'}: {e.reason}
+                          </li>
+                        ))}
+                        {importResult.errors.length > 20 && (
+                          <li>…ещё {importResult.errors.length - 20}</li>
+                        )}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </section>

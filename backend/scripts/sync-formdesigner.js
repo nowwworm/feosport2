@@ -31,6 +31,15 @@ const https  = require('https');
 const http   = require('http');
 const qs     = require('querystring');
 const pool   = require('../src/config/db');
+const {
+  pilotRegistrationEntrySchema,
+  parseFio: schemaParseFio,
+} = require('../src/schemas/pilotRegistration');
+const {
+  RADIO_SYSTEMS,
+  VTX_TYPES,
+  VTX_CHANNELS,
+} = require('../src/constants/pilotRegistration');
 
 // ── Настройки ──────────────────────────────────────────────────────────────
 const FD_EMAIL    = process.env.FD_EMAIL    || '';
@@ -168,13 +177,56 @@ function parseFio(fio) {
   };
 }
 
+// Нормализуем FD-ответ "Да"/"Yes" → true, иначе false; null если поле пустое.
+function normalizeYesNo(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const s = String(raw).trim().toLowerCase();
+  return s === 'да' || s === 'yes' || s === 'true' || s === '1';
+}
+
+// Допустимое значение для enum'а — либо точное совпадение, либо null. Это
+// сохраняет данные хотя бы частично, если FD-форма ушла вперёд по словарям.
+function matchOrNull(value, allowed) {
+  if (!value) return null;
+  return allowed.includes(value) ? value : null;
+}
+
 // ── Шаг 4: upsert в БД ──────────────────────────────────────────────────────
+// Использует pilotRegistrationEntrySchema (та же, что и POST /api/pilots/import),
+// поэтому FD-импорт и ручной импорт через UI попадают в БД одним и тем же путём.
 async function upsertPilots(entries) {
-  let created = 0, skipped = 0, errors = 0;
+  let created = 0, updated = 0, skipped = 0, errors = 0;
 
   for (const entry of entries) {
     const f = entry.items || {};
-    const fio = parseFio(f[FIELD.FIO]);
+
+    // Собираем кандидат в формате pilotRegistrationEntrySchema.
+    const candidate = {
+      fio: f[FIELD.FIO] || '',
+      email:      f[FIELD.EMAIL]  || null,
+      phone:      f[FIELD.PHONE]  || null,
+      birth_date: f[FIELD.BIRTH_DATE] || null,
+      has_rank:   normalizeYesNo(f[FIELD.RANK]),
+      team:       f[FIELD.TEAM]   || null,
+      // Enum-поля: если FD прислал значение вне нашего словаря — сохраним
+      // как null, остальные данные пилота не теряем.
+      radio_system:    matchOrNull(f[FIELD.RADIO],  RADIO_SYSTEMS),
+      vtx_type:        matchOrNull(f[FIELD.VTX],    VTX_TYPES),
+      vtx_channel:     matchOrNull(f[FIELD.VTX_CH], VTX_CHANNELS),
+      drone_simulator: f[FIELD.SIM] ? String(f[FIELD.SIM]).slice(0, 64) : null,
+      notes: f[FIELD.NOTES] || null,
+      external_id: String(entry.id),
+    };
+
+    const parsed = pilotRegistrationEntrySchema.safeParse(candidate);
+    if (!parsed.success) {
+      console.warn(`  ⚠ entry ${entry.id}: ${parsed.error.issues.map(i => i.path.join('.') + '=' + i.message).join('; ')}`);
+      skipped++;
+      continue;
+    }
+
+    const data = parsed.data;
+    const fio = schemaParseFio(data.fio);
 
     if (!fio.last_name || !fio.first_name) {
       console.warn(`  ⚠ entry ${entry.id}: пустое ФИО, пропуск`);
@@ -182,38 +234,56 @@ async function upsertPilots(entries) {
       continue;
     }
 
-    const extId = String(entry.id);
-    const birthDate = f[FIELD.BIRTH_DATE] || null;
-    const team      = f[FIELD.TEAM]       || null;
-
-    // Доп. поля сохраняем в video_channel (временно) как JSON строку
-    const extra = JSON.stringify({
-      email: f[FIELD.EMAIL]  || null,
-      phone: f[FIELD.PHONE]  || null,
-      rank:  f[FIELD.RANK]   || null,
-      radio: f[FIELD.RADIO]  || null,
-      vtx:   f[FIELD.VTX]    || null,
-      vtx_ch: f[FIELD.VTX_CH] || null,
-      sim:   f[FIELD.SIM]    || null,
-      notes: f[FIELD.NOTES]  || null,
-    });
-
     try {
-      const { rowCount } = await pool.query(
-        `INSERT INTO pilots
-           (first_name, last_name, middle_name, birth_date, team, video_channel, external_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)
-         ON CONFLICT (external_id) DO NOTHING`,
-        [fio.first_name, fio.last_name, fio.middle_name,
-         birthDate, team, extra, extId]
+      const { rows } = await pool.query(
+        `INSERT INTO pilots (
+            first_name, last_name, middle_name, birth_date, team,
+            email, phone, has_rank, sport_rank,
+            radio_system, vtx_type, vtx_channel, drone_simulator,
+            external_id
+         ) VALUES (
+            $1, $2, $3, $4, $5,
+            $6, $7, $8, $9,
+            $10, $11, $12, $13,
+            $14
+         )
+         ON CONFLICT (external_id) DO UPDATE SET
+            first_name      = EXCLUDED.first_name,
+            last_name       = EXCLUDED.last_name,
+            middle_name     = EXCLUDED.middle_name,
+            birth_date      = COALESCE(EXCLUDED.birth_date,      pilots.birth_date),
+            team            = COALESCE(EXCLUDED.team,            pilots.team),
+            email           = COALESCE(EXCLUDED.email,           pilots.email),
+            phone           = COALESCE(EXCLUDED.phone,           pilots.phone),
+            has_rank        = COALESCE(EXCLUDED.has_rank,        pilots.has_rank),
+            sport_rank      = COALESCE(EXCLUDED.sport_rank,      pilots.sport_rank),
+            radio_system    = COALESCE(EXCLUDED.radio_system,    pilots.radio_system),
+            vtx_type        = COALESCE(EXCLUDED.vtx_type,        pilots.vtx_type),
+            vtx_channel     = COALESCE(EXCLUDED.vtx_channel,     pilots.vtx_channel),
+            drone_simulator = COALESCE(EXCLUDED.drone_simulator, pilots.drone_simulator)
+         RETURNING id, (xmax = 0) AS inserted`,
+        [
+          fio.first_name, fio.last_name, fio.middle_name,
+          data.birth_date || null,
+          data.team || null,
+          data.email || null,
+          data.phone || null,
+          data.has_rank,
+          data.has_rank === true ? 'Да' : null,
+          data.radio_system || null,
+          data.vtx_type || null,
+          data.vtx_channel || null,
+          data.drone_simulator || null,
+          data.external_id,
+        ]
       );
 
-      if (rowCount > 0) {
-        console.log(`  + Добавлен: ${fio.last_name} ${fio.first_name} (${team || '—'})`);
+      if (rows[0].inserted) {
+        console.log(`  + Добавлен: ${fio.last_name} ${fio.first_name} (${data.team || '—'})`);
         created++;
       } else {
-        console.log(`  = Уже есть: ${fio.last_name} ${fio.first_name} [${extId}]`);
-        skipped++;
+        console.log(`  ↻ Обновлён: ${fio.last_name} ${fio.first_name} [${data.external_id}]`);
+        updated++;
       }
     } catch (err) {
       console.error(`  ✗ Ошибка entry ${entry.id}:`, err.message);
@@ -221,7 +291,7 @@ async function upsertPilots(entries) {
     }
   }
 
-  return { created, skipped, errors };
+  return { created, updated, skipped, errors };
 }
 
 // ── Пагинация ────────────────────────────────────────────────────────────────
@@ -267,6 +337,7 @@ async function main() {
 
     console.log('\n─────────────────────────────────');
     console.log(`✓ Добавлено:  ${result.created}`);
+    console.log(`↻ Обновлено:  ${result.updated}`);
     console.log(`= Пропущено:  ${result.skipped}`);
     if (result.errors) console.log(`✗ Ошибок:     ${result.errors}`);
     console.log('─────────────────────────────────\n');
