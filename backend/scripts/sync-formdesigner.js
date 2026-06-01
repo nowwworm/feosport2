@@ -235,17 +235,20 @@ async function upsertPilots(entries) {
     }
 
     try {
+      // sport_rank сюда не пишем — на колонке check-constraint (NULL | КМС |
+      // 1р | 2р | 3р | б/р), а FD-форма даёт только Yes/No. Конкретный
+      // разряд заполнит админ в карточке пилота; здесь только has_rank.
       const { rows } = await pool.query(
         `INSERT INTO pilots (
             first_name, last_name, middle_name, birth_date, team,
-            email, phone, has_rank, sport_rank,
+            email, phone, has_rank,
             radio_system, vtx_type, vtx_channel, drone_simulator,
             external_id
          ) VALUES (
             $1, $2, $3, $4, $5,
-            $6, $7, $8, $9,
-            $10, $11, $12, $13,
-            $14
+            $6, $7, $8,
+            $9, $10, $11, $12,
+            $13
          )
          ON CONFLICT (external_id) DO UPDATE SET
             first_name      = EXCLUDED.first_name,
@@ -256,7 +259,6 @@ async function upsertPilots(entries) {
             email           = COALESCE(EXCLUDED.email,           pilots.email),
             phone           = COALESCE(EXCLUDED.phone,           pilots.phone),
             has_rank        = COALESCE(EXCLUDED.has_rank,        pilots.has_rank),
-            sport_rank      = COALESCE(EXCLUDED.sport_rank,      pilots.sport_rank),
             radio_system    = COALESCE(EXCLUDED.radio_system,    pilots.radio_system),
             vtx_type        = COALESCE(EXCLUDED.vtx_type,        pilots.vtx_type),
             vtx_channel     = COALESCE(EXCLUDED.vtx_channel,     pilots.vtx_channel),
@@ -269,7 +271,6 @@ async function upsertPilots(entries) {
           data.email || null,
           data.phone || null,
           data.has_rank,
-          data.has_rank === true ? 'Да' : null,
           data.radio_system || null,
           data.vtx_type || null,
           data.vtx_channel || null,
