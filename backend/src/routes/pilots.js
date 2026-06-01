@@ -2,7 +2,7 @@ const router = require('express').Router();
 const pool   = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
 const {
-  pilotImportSchema,
+  pilotRegistrationEntrySchema,
   parseFio,
 } = require('../schemas/pilotRegistration');
 
@@ -110,21 +110,36 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
 // Дедупликация: ON CONFLICT (external_id). Если external_id не задан —
 // PostgreSQL допускает дубли (NULL ≠ NULL в unique индексе).
 router.post('/import', authenticate, authorize('admin'), async (req, res) => {
-  const parsed = pilotImportSchema.safeParse(req.body);
-  if (!parsed.success) {
+  const entries = req.body && req.body.entries;
+  if (!Array.isArray(entries) || entries.length === 0) {
     return res.status(400).json({
-      error: 'Validation failed',
-      details: parsed.error.issues.map((i) => ({
-        path: i.path.join('.'),
-        message: i.message,
-      })),
+      error: 'entries[] array required (1..500 records)',
+    });
+  }
+  if (entries.length > 500) {
+    return res.status(400).json({
+      error: 'Too many entries — split into batches of 500',
     });
   }
 
   const results = { created: [], updated: [], errors: [] };
 
-  for (let i = 0; i < parsed.data.entries.length; i++) {
-    const entry = parsed.data.entries[i];
+  for (let i = 0; i < entries.length; i++) {
+    // Per-entry Zod validation: invalid rows go into errors[], valid ones
+    // proceed to DB. This is gentler than rejecting the whole batch.
+    const parseResult = pilotRegistrationEntrySchema.safeParse(entries[i]);
+    if (!parseResult.success) {
+      results.errors.push({
+        index: i,
+        entry: entries[i],
+        reason: parseResult.error.issues
+          .map((iss) => `${iss.path.join('.')}: ${iss.message}`)
+          .join('; '),
+      });
+      continue;
+    }
+
+    const entry = parseResult.data;
     const fio   = parseFio(entry.fio);
 
     if (!fio.last_name || !fio.first_name) {
