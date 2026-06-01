@@ -45,6 +45,8 @@ export default function AdminPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult,  setImportResult]  = useState(null);
   const [importError,   setImportError]   = useState('');
+  const [importFile,    setImportFile]    = useState(null);
+  const [fileImportLoading, setFileImportLoading] = useState(false);
 
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
@@ -132,6 +134,26 @@ export default function AdminPage() {
       }
     } finally {
       setImportLoading(false);
+    }
+  }
+
+  async function handleImportPilotsXlsx() {
+    if (!importFile) {
+      setImportError('Выбери .xlsx файл');
+      return;
+    }
+    setImportError('');
+    setImportResult(null);
+    setFileImportLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', importFile);
+      const { data } = await api.post('/pilots/import/xlsx', formData);
+      setImportResult(data);
+    } catch (err) {
+      setImportError(err.response?.data?.error || err.message);
+    } finally {
+      setFileImportLoading(false);
     }
   }
 
@@ -332,9 +354,23 @@ export default function AdminPage() {
 
           {importOpen && (
             <div className="admin-page__import-body" style={{ marginTop: '1rem' }}>
+              <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 .75rem' }}>
+                <input
+                  type="file"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={e => setImportFile(e.target.files?.[0] || null)}
+                />
+                <button
+                  className="admin-page__btn admin-page__btn--primary"
+                  type="button"
+                  onClick={handleImportPilotsXlsx}
+                  disabled={fileImportLoading || !importFile}
+                >
+                  {fileImportLoading ? 'Загрузка…' : 'Загрузить XLSX'}
+                </button>
+              </div>
               <p style={{ margin: '0 0 .5rem' }}>
-                Вставь JSON-массив пилотов или объект <code>{'{ entries: [...] }'}</code>.
-                Допустимые dropdown-значения: radio_system, vtx_type, vtx_channel — см. форму 245167.
+                XLSX: первая строка — заголовки формы 245167. JSON: массив пилотов или объект <code>{'{ entries: [...] }'}</code>.
               </p>
               <details style={{ margin: '0 0 .75rem' }}>
                 <summary style={{ cursor: 'pointer' }}>Пример одной записи</summary>
@@ -382,6 +418,9 @@ export default function AdminPage() {
               {importResult && (
                 <div className="admin-page__demo-result" style={{ marginTop: '.75rem' }}>
                   <strong>Результат импорта</strong>
+                  {importResult.source && (
+                    <span>{importResult.source.filename}: строк {importResult.source.rows}</span>
+                  )}
                   <span>✓ Создано: {importResult.created?.length || 0}</span>
                   <span>↻ Обновлено: {importResult.updated?.length || 0}</span>
                   <span>✗ Ошибок: {importResult.errors?.length || 0}</span>
@@ -391,7 +430,7 @@ export default function AdminPage() {
                       <ul style={{ margin: '.5rem 0 0', paddingLeft: '1.25rem', fontSize: 13 }}>
                         {importResult.errors.slice(0, 20).map((e, i) => (
                           <li key={i}>
-                            <code>#{e.index}</code> {e.entry?.fio || '(no fio)'}: {e.reason}
+                            <code>{e.row ? `строка ${e.row}` : `#${e.index}`}</code> {e.entry?.fio || '(no fio)'}: {e.reason}
                           </li>
                         ))}
                         {importResult.errors.length > 20 && (

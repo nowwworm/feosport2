@@ -1,6 +1,7 @@
 'use strict';
 
 const request = require('supertest');
+const ExcelJS = require('exceljs');
 const app = require('../src/app');
 const { pool, cleanupDB, seedBaselineData, createTestUser, createTestCompetition, createTestPilot, createTestHeat, addHeatParticipant, getAllUsers } = require('./helpers/testDB');
 const { authHeader } = require('./helpers/jwt');
@@ -58,6 +59,69 @@ describe('API CRUD Operations', () => {
         });
 
       expect(res.statusCode).toBe(403);
+    });
+
+    test('POST /api/pilots/import/xlsx - imports pilots with FormDesigner validation', async () => {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('pilots');
+      sheet.addRow([
+        'ФИО',
+        'Электронная почта',
+        'Номер телефона',
+        'Дата рождения',
+        'Наличие разряда',
+        'Наименование команды',
+        'Система управления',
+        'VTX тип',
+        'VTX канал',
+        'Технический симулятор',
+        'external_id',
+      ]);
+      sheet.addRow([
+        'Иванов Test_Xlsx Петрович',
+        'test_xlsx@example.com',
+        '+7 (999) 111-22-33',
+        '1994-03-21',
+        'Да',
+        'Test XLSX Team',
+        'ELRS 2,4GHz',
+        'HD Zero',
+        'R3',
+        'Liftoff',
+        'test-xlsx-001',
+      ]);
+
+      const file = Buffer.from(await workbook.xlsx.writeBuffer());
+      const res = await request(app)
+        .post('/api/pilots/import/xlsx')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .attach('file', file, {
+          filename: 'pilots.xlsx',
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+
+      expect(res.statusCode).toBe(207);
+      expect(res.body.created).toHaveLength(1);
+      expect(res.body.errors).toHaveLength(0);
+      expect(res.body.created[0].row).toBe(2);
+
+      const { rows } = await pool.query(
+        `SELECT first_name, last_name, email, has_rank,
+                radio_system, vtx_type, vtx_channel, drone_simulator
+           FROM pilots
+          WHERE external_id = $1`,
+        ['test-xlsx-001']
+      );
+      expect(rows[0]).toMatchObject({
+        first_name: 'Test_Xlsx',
+        last_name: 'Иванов',
+        email: 'test_xlsx@example.com',
+        has_rank: true,
+        radio_system: 'ELRS 2,4GHz',
+        vtx_type: 'HD Zero',
+        vtx_channel: 'R3',
+        drone_simulator: 'Liftoff',
+      });
     });
 
     test('GET /api/pilots - List all pilots', async () => {
