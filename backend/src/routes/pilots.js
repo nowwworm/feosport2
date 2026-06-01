@@ -1,10 +1,29 @@
 const router = require('express').Router();
+const multer = require('multer');
 const pool   = require('../config/db');
 const { authenticate, authorize } = require('../middleware/auth');
 const {
-  pilotRegistrationEntrySchema,
-  parseFio,
-} = require('../schemas/pilotRegistration');
+  importPilotEntries,
+  parsePilotXlsx,
+} = require('../services/pilotImport');
+
+const XLSX_MIME = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/octet-stream',
+  'application/zip',
+]);
+
+const uploadXlsx = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter(_req, file, cb) {
+    const okExt = /\.xlsx$/i.test(file.originalname || '');
+    if (!okExt || !XLSX_MIME.has(file.mimetype)) {
+      return cb(Object.assign(new Error('xlsx_file_required'), { status: 415 }));
+    }
+    cb(null, true);
+  },
+});
 
 // GET /api/pilots
 router.get('/', authenticate, async (req, res) => {
@@ -110,109 +129,41 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
 // Дедупликация: ON CONFLICT (external_id). Если external_id не задан —
 // PostgreSQL допускает дубли (NULL ≠ NULL в unique индексе).
 router.post('/import', authenticate, authorize('admin'), async (req, res) => {
-  const entries = req.body && req.body.entries;
-  if (!Array.isArray(entries) || entries.length === 0) {
-    return res.status(400).json({
-      error: 'entries[] array required (1..500 records)',
-    });
+  try {
+    const results = await importPilotEntries(req.body && req.body.entries);
+    res.status(207).json(results);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
   }
-  if (entries.length > 500) {
-    return res.status(400).json({
-      error: 'Too many entries — split into batches of 500',
-    });
-  }
+});
 
-  const results = { created: [], updated: [], errors: [] };
-
-  for (let i = 0; i < entries.length; i++) {
-    // Per-entry Zod validation: invalid rows go into errors[], valid ones
-    // proceed to DB. This is gentler than rejecting the whole batch.
-    const parseResult = pilotRegistrationEntrySchema.safeParse(entries[i]);
-    if (!parseResult.success) {
-      results.errors.push({
-        index: i,
-        entry: entries[i],
-        reason: parseResult.error.issues
-          .map((iss) => `${iss.path.join('.')}: ${iss.message}`)
-          .join('; '),
+// POST /api/pilots/import/xlsx — XLSX import with the same validation as JSON.
+// Expects multipart/form-data field "file"; reads the first worksheet.
+router.post('/import/xlsx', authenticate, authorize('admin'), (req, res) => {
+  uploadXlsx.single('file')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return res.status(uploadErr.status || (uploadErr.code === 'LIMIT_FILE_SIZE' ? 413 : 400)).json({
+        error: uploadErr.message || 'xlsx_upload_failed',
       });
-      continue;
     }
-
-    const entry = parseResult.data;
-    const fio   = parseFio(entry.fio);
-
-    if (!fio.last_name || !fio.first_name) {
-      results.errors.push({
-        index: i,
-        entry,
-        reason: 'FIO must contain at least last name and first name',
-      });
-      continue;
-    }
+    if (!req.file) return res.status(400).json({ error: 'file is required' });
 
     try {
-      // sport_rank сюда не пишем: в БД на колонке стоит check-constraint
-      // (NULL | КМС | 1р | 2р | 3р | б/р), а FD-форма даёт лишь Yes/No.
-      // Сохраняем флаг has_rank, конкретное название разряда заполнит админ.
-      const { rows } = await pool.query(
-        `INSERT INTO pilots (
-            first_name, last_name, middle_name, birth_date, team,
-            email, phone, has_rank,
-            radio_system, vtx_type, vtx_channel, drone_simulator,
-            external_id
-         ) VALUES (
-            $1, $2, $3, $4, $5,
-            $6, $7, $8,
-            $9, $10, $11, $12,
-            $13
-         )
-         ON CONFLICT (external_id) DO UPDATE SET
-            first_name      = EXCLUDED.first_name,
-            last_name       = EXCLUDED.last_name,
-            middle_name     = EXCLUDED.middle_name,
-            birth_date      = COALESCE(EXCLUDED.birth_date, pilots.birth_date),
-            team            = COALESCE(EXCLUDED.team, pilots.team),
-            email           = COALESCE(EXCLUDED.email, pilots.email),
-            phone           = COALESCE(EXCLUDED.phone, pilots.phone),
-            has_rank        = COALESCE(EXCLUDED.has_rank, pilots.has_rank),
-            radio_system    = COALESCE(EXCLUDED.radio_system, pilots.radio_system),
-            vtx_type        = COALESCE(EXCLUDED.vtx_type, pilots.vtx_type),
-            vtx_channel     = COALESCE(EXCLUDED.vtx_channel, pilots.vtx_channel),
-            drone_simulator = COALESCE(EXCLUDED.drone_simulator, pilots.drone_simulator)
-         RETURNING id, (xmax = 0) AS inserted`,
-        [
-          fio.first_name, fio.last_name, fio.middle_name,
-          entry.birth_date || null,
-          entry.team || null,
-          entry.email || null,
-          entry.phone || null,
-          entry.has_rank === undefined || entry.has_rank === null ? null : entry.has_rank,
-          entry.radio_system || null,
-          entry.vtx_type || null,
-          entry.vtx_channel || null,
-          entry.drone_simulator || null,
-          entry.external_id || null,
-        ]
-      );
-
-      const row = rows[0];
-      if (row.inserted) {
-        results.created.push({ index: i, pilot_id: row.id });
-      } else {
-        results.updated.push({ index: i, pilot_id: row.id });
+      const { entries, rowNumbers } = await parsePilotXlsx(req.file.buffer);
+      const results = await importPilotEntries(entries);
+      results.source = {
+        filename: req.file.originalname,
+        rows: entries.length,
+      };
+      for (const collection of [results.created, results.updated, results.errors]) {
+        for (const item of collection) item.row = rowNumbers[item.index] || null;
       }
+      res.status(207).json(results);
     } catch (err) {
-      console.error(`[import] entry ${i} (${entry.fio}):`, err.message);
-      results.errors.push({
-        index: i,
-        entry,
-        reason: err.code === '23505' ? 'Duplicate (unique constraint)' : err.message,
-      });
+      console.error('[import/xlsx]', err.message);
+      res.status(err.status || 400).json({ error: err.message || 'xlsx_parse_failed' });
     }
-  }
-
-  res.status(207).json(results);
+  });
 });
 
 module.exports = router;
