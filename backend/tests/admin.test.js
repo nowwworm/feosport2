@@ -264,6 +264,19 @@ describe('Admin Functions', () => {
         ['Кубок Севастополя 2025']
       );
       expect(competitions.rowCount).toBe(1);
+
+      const second = await request(app)
+        .post('/api/admin/demo-data')
+        .set('Authorization', authHeader(adminUser.id, 'admin'));
+
+      expect(second.statusCode).toBe(201);
+      expect(second.body).toHaveProperty('ok', true);
+
+      const afterRegenerate = await pool.query(
+        'SELECT id FROM competitions WHERE name = $1',
+        ['Кубок Севастополя 2025']
+      );
+      expect(afterRegenerate.rowCount).toBe(1);
     });
 
     test('Non-admin cannot generate demo data', async () => {
