@@ -8,10 +8,19 @@ const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { resolveDocumentsRoot, ensureDir } = require('./uploadConfig');
 const { recordAudit } = require('./audit');
+const {
+  RADIO_SYSTEMS,
+  VTX_TYPES,
+  VTX_CHANNELS,
+} = require('../constants/pilotRegistration');
 
 const DEMO_NAME = 'Кубок Севастополя 2025';
 const DEMO_PREFIX = 'DEMO-SEV-2025';
 const DEMO_PASSWORD = 'demo12345';
+
+// Свободный текстовый список симуляторов — не enum, реальные тренировочные
+// программы. Используется в демо чтобы фильтр по симулятору в UI имел данные.
+const DEMO_SIMULATORS = ['Liftoff', 'Velocidrone', 'DRL Sim', 'FPV Freerider'];
 
 function canonicalize(value) {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -64,9 +73,11 @@ async function upsertPilot(client, pilot, idx) {
        (first_name, last_name, middle_name, birth_date, team, city,
         video_channel, external_id, gender, age_group_id, region,
         registration_number, sport_rank, gto_passed,
-        medical_clearance_until, insurance_until, email, phone)
+        medical_clearance_until, insurance_until, email, phone,
+        radio_system, vtx_type, vtx_channel, drone_simulator, has_rank)
      VALUES
-       ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+       ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+        $19,$20,$21,$22,$23)
      ON CONFLICT (external_id) DO UPDATE SET
         first_name = EXCLUDED.first_name,
         last_name = EXCLUDED.last_name,
@@ -84,7 +95,12 @@ async function upsertPilot(client, pilot, idx) {
         medical_clearance_until = EXCLUDED.medical_clearance_until,
         insurance_until = EXCLUDED.insurance_until,
         email = EXCLUDED.email,
-        phone = EXCLUDED.phone
+        phone = EXCLUDED.phone,
+        radio_system = EXCLUDED.radio_system,
+        vtx_type = EXCLUDED.vtx_type,
+        vtx_channel = EXCLUDED.vtx_channel,
+        drone_simulator = EXCLUDED.drone_simulator,
+        has_rank = EXCLUDED.has_rank
      RETURNING id`,
     [
       pilot.first_name,
@@ -105,6 +121,15 @@ async function upsertPilot(client, pilot, idx) {
       pilot.insurance_until,
       pilot.email,
       pilot.phone,
+      // Циклически распределяем значения dropdown'ов — все из whitelist
+      // словарей (constants/pilotRegistration.js), Zod-валидация на импорте
+      // не отвергнет их. has_rank=true потому что у каждого демо-пилота
+      // sport_rank задан (КМС/1р/2р/3р).
+      pilot.radio_system    || RADIO_SYSTEMS[idx % RADIO_SYSTEMS.length],
+      pilot.vtx_type        || VTX_TYPES[idx % VTX_TYPES.length],
+      pilot.vtx_channel     || VTX_CHANNELS[idx % VTX_CHANNELS.length],
+      pilot.drone_simulator || DEMO_SIMULATORS[idx % DEMO_SIMULATORS.length],
+      Boolean(pilot.sport_rank),
     ]
   );
   return rows[0].id;
