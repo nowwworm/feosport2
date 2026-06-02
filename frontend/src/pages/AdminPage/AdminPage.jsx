@@ -48,6 +48,13 @@ export default function AdminPage() {
   const [importFile,    setImportFile]    = useState(null);
   const [fileImportLoading, setFileImportLoading] = useState(false);
 
+  // Judge bulk-import (FormDesigner "Регистрация Судьи на Соревнования")
+  const [judgeImportOpen,    setJudgeImportOpen]    = useState(false);
+  const [judgeImportJson,    setJudgeImportJson]    = useState('');
+  const [judgeImportLoading, setJudgeImportLoading] = useState(false);
+  const [judgeImportResult,  setJudgeImportResult]  = useState(null);
+  const [judgeImportError,   setJudgeImportError]   = useState('');
+
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [formSaving,setFormSaving]= useState(false);
@@ -154,6 +161,34 @@ export default function AdminPage() {
       setImportError(err.response?.data?.error || err.message);
     } finally {
       setFileImportLoading(false);
+    }
+  }
+
+  // ── Импорт судей ──────────────────────────────────────────────────────────
+  async function handleImportJudges() {
+    setJudgeImportError('');
+    setJudgeImportResult(null);
+    let entries;
+    try {
+      const parsed = JSON.parse(judgeImportJson);
+      entries = Array.isArray(parsed) ? parsed : parsed.entries;
+      if (!Array.isArray(entries) || entries.length === 0) {
+        throw new Error('Ожидался массив [...] или объект { entries: [...] }');
+      }
+    } catch (e) {
+      setJudgeImportError(`Ошибка разбора JSON: ${e.message}`);
+      return;
+    }
+
+    setJudgeImportLoading(true);
+    try {
+      const { data } = await api.post('/admin/judges/import', { entries });
+      setJudgeImportResult(data);
+      loadUsers();  // refresh users list — судьи попадут в таблицу
+    } catch (err) {
+      setJudgeImportError(err.response?.data?.error || err.message);
+    } finally {
+      setJudgeImportLoading(false);
     }
   }
 
@@ -435,6 +470,110 @@ export default function AdminPage() {
                         ))}
                         {importResult.errors.length > 20 && (
                           <li>…ещё {importResult.errors.length - 20}</li>
+                        )}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ── Импорт судей ──────────────────────────────────────────────── */}
+        <section className="admin-page__demo-panel">
+          <div className="admin-page__demo-head">
+            <div>
+              <h2>Импорт судей</h2>
+              <p>
+                Bulk-импорт судей по схеме FormDesigner-формы "Регистрация Судьи на Соревнования".
+                Валидация регионов / категорий / дисциплин через Zod. Дедупликация по{' '}
+                <code>email</code> (с обновлением профиля при повторном импорте).
+              </p>
+            </div>
+            <button
+              className="admin-page__btn admin-page__btn--primary admin-page__demo-main"
+              type="button"
+              onClick={() => setJudgeImportOpen(v => !v)}
+            >
+              {judgeImportOpen ? '✕ Закрыть форму' : 'Открыть форму импорта'}
+            </button>
+          </div>
+
+          {judgeImportOpen && (
+            <div className="admin-page__import-body" style={{ marginTop: '1rem' }}>
+              <p style={{ margin: '0 0 .5rem' }}>
+                Допустимые значения: <code>region</code> ∈ {'{Москва, Санкт-Петербург, Другой регион}'},{' '}
+                <code>judge_category</code> ∈ {'{Всероссийская, 1, 2, 3}'},{' '}
+                <code>judge_disciplines</code> — массив из {'{Технический симулятор, Класс 75 ЛЗ/КЗ, Класс 200 ЛЗ/КЗ, Класс 330 ЛЗ/КЗ}'}.
+              </p>
+              <details style={{ margin: '0 0 .75rem' }}>
+                <summary style={{ cursor: 'pointer' }}>Пример одной записи</summary>
+                <pre style={{ background: '#1a1a1a', padding: '.75rem', borderRadius: 4, fontSize: 12, overflow: 'auto' }}>
+{`[
+  {
+    "fio": "Иванов Иван Иванович",
+    "email": "ivanov.judge@example.com",
+    "phone": "+7 (978) 984-23-13",
+    "birth_date": "1985-03-21",
+    "region": "Москва",
+    "judge_category": "Всероссийская",
+    "judge_disciplines": ["Класс 75 ЛЗ/КЗ", "Класс 200 ЛЗ/КЗ"],
+    "has_coaching_experience": true,
+    "additional_info": "Судья соревнований 2018-2024",
+    "external_id": "fd-judges-001"
+  },
+  {
+    "fio": "Петров Пётр",
+    "email": "petrov@example.com",
+    "region": "Другой регион",
+    "region_other": "Севастополь",
+    "judge_category": "1"
+  }
+]`}
+                </pre>
+              </details>
+              <textarea
+                className="admin-page__import-textarea"
+                value={judgeImportJson}
+                onChange={e => setJudgeImportJson(e.target.value)}
+                rows={12}
+                placeholder='[{"fio": "Иванов И. И.", "email": "j@example.com", "region": "Москва"}]'
+                style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, padding: '.5rem', boxSizing: 'border-box' }}
+              />
+              <div style={{ marginTop: '.75rem' }}>
+                <button
+                  className="admin-page__btn admin-page__btn--primary"
+                  type="button"
+                  onClick={handleImportJudges}
+                  disabled={judgeImportLoading || !judgeImportJson.trim()}
+                >
+                  {judgeImportLoading ? 'Импорт…' : 'Импортировать'}
+                </button>
+              </div>
+
+              {judgeImportError && (
+                <p className="admin-page__demo-error" style={{ marginTop: '.75rem' }}>{judgeImportError}</p>
+              )}
+
+              {judgeImportResult && (
+                <div className="admin-page__demo-result" style={{ marginTop: '.75rem' }}>
+                  <strong>Результат импорта</strong>
+                  <span>✓ Создано: {judgeImportResult.created?.length || 0}</span>
+                  <span>↻ Обновлено: {judgeImportResult.updated?.length || 0}</span>
+                  <span>✗ Ошибок: {judgeImportResult.errors?.length || 0}</span>
+                  {judgeImportResult.errors?.length > 0 && (
+                    <details>
+                      <summary style={{ cursor: 'pointer' }}>Список ошибок</summary>
+                      <ul style={{ margin: '.5rem 0 0', paddingLeft: '1.25rem', fontSize: 13 }}>
+                        {judgeImportResult.errors.slice(0, 20).map((e, i) => (
+                          <li key={i}>
+                            <code>#{e.index}</code> {e.email || '(no email)'}:{' '}
+                            {e.issues?.map(x => `${x.path} — ${x.message}`).join('; ')}
+                          </li>
+                        ))}
+                        {judgeImportResult.errors.length > 20 && (
+                          <li>…ещё {judgeImportResult.errors.length - 20}</li>
                         )}
                       </ul>
                     </details>
