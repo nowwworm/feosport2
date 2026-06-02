@@ -7,8 +7,8 @@
 
 .DESCRIPTION
     Этапы:
-      1. npm install + pkg → feosport2-server.exe (Node.js не нужен пользователю)
-      2. npm install + vite build → frontend-dist/
+      1. npm ci + @yao-pkg/pkg → feosport2-server.exe (Node.js не нужен пользователю)
+      2. npm ci + vite build → frontend-dist/
       3. Скачать PostgreSQL 16 installer (если нет)
       4. Установить Inno Setup 6 (если нет)
       5. ISCC → FeoSport2-Setup.exe
@@ -84,13 +84,20 @@ Write-Step 1 "Компиляция backend → feosport2-server.exe (pkg)"
 $backendDir = Join-Path $ProjectRoot "backend"
 Push-Location $backendDir
 try {
-    Write-Host "│  npm install..." -ForegroundColor White
-    npm install --silent
+    if (-not (Test-Path "package-lock.json")) { Write-Fail "backend\package-lock.json не найден" }
+    if (-not (Test-Path "src\services\judgeImport.js")) { Write-Fail "backend\src\services\judgeImport.js не найден" }
 
-    Write-Host "│  Установка pkg глобально..." -ForegroundColor White
-    npm install -g @vercel/pkg --silent 2>$null
+    Write-Host "│  npm ci..." -ForegroundColor White
+    npm ci --silent
+    if ($LASTEXITCODE -ne 0) { Write-Fail "backend npm ci завершился с кодом $LASTEXITCODE" }
 
-    $pkgTarget = "node20-win-x64"
+    Write-Host "│  Установка @yao-pkg/pkg глобально..." -ForegroundColor White
+    npm install -g @yao-pkg/pkg --silent
+    if ($LASTEXITCODE -ne 0) { Write-Fail "npm install -g @yao-pkg/pkg завершился с кодом $LASTEXITCODE" }
+
+    # node22-win-x64 has a stable @yao-pkg/pkg prebuilt cache; node20/node24
+    # can fall back to source builds and fail on GitHub windows-2025 runners.
+    $pkgTarget = "node22-win-x64"
     $pkgOutput = Join-Path $StagingDir "app\feosport2-server.exe"
 
     Write-Host "│  pkg compile (может занять 1-2 мин)..." -ForegroundColor White
@@ -164,6 +171,9 @@ New-Item -ItemType Directory -Force -Path $migrationsDst | Out-Null
 if (Test-Path $migrationsSrc) {
     Copy-Item "$migrationsSrc\*" $migrationsDst -Force
     $migCount = (Get-ChildItem $migrationsDst -Filter *.sql).Count
+    if (-not (Test-Path (Join-Path $migrationsDst "024_judge_application_fields.sql"))) {
+        Write-Fail "Миграция 024_judge_application_fields.sql не попала в staging"
+    }
     Write-Ok "init.sql + seed.sql + seed-users.sql + $migCount миграций скопировано"
 } else {
     Write-Warn "database\migrations\ не найден — миграции не будут включены"

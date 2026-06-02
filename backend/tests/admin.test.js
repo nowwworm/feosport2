@@ -1,6 +1,7 @@
 'use strict';
 
 const request = require('supertest');
+const ExcelJS = require('exceljs');
 const app = require('../src/app');
 const { pool, cleanupDB, seedBaselineData, getAllUsers } = require('./helpers/testDB');
 const { authHeader } = require('./helpers/jwt');
@@ -285,6 +286,258 @@ describe('Admin Functions', () => {
         .set('Authorization', authHeader(judgeUser.id, 'judge'));
 
       expect(res.statusCode).toBe(403);
+    });
+  });
+
+  describe('POST /api/admin/judges/import', () => {
+    test('Uses external_id as the stable deduplication key and allows email changes', async () => {
+      const first = await request(app)
+        .post('/api/admin/judges/import')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({
+          entries: [{
+            fio: 'Иванов Иван Иванович',
+            email: 'test_admin_judge_import_old@feosport.local',
+            region: 'Центральный',
+            judge_category: 'Национальная',
+            external_id: 'test-admin-judge-ext-001',
+          }],
+        });
+
+      expect(first.statusCode).toBe(207);
+      expect(first.body.created).toHaveLength(1);
+      expect(first.body.errors).toHaveLength(0);
+
+      const second = await request(app)
+        .post('/api/admin/judges/import')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({
+          entries: [{
+            fio: 'Иванов Иван Иванович',
+            email: 'test_admin_judge_import_new@feosport.local',
+            region: 'Северо-Западный',
+            judge_category: 'Региональная',
+            external_id: 'test-admin-judge-ext-001',
+          }],
+        });
+
+      expect(second.statusCode).toBe(207);
+      expect(second.body.created).toHaveLength(0);
+      expect(second.body.updated).toHaveLength(1);
+      expect(second.body.errors).toHaveLength(0);
+
+      const { rows } = await pool.query(
+        `SELECT u.email, u.region, u.judge_category, r.name AS role
+           FROM users u
+           JOIN roles r ON r.id = u.role_id
+          WHERE u.external_id = $1`,
+        ['test-admin-judge-ext-001']
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        email: 'test_admin_judge_import_new@feosport.local',
+        region: 'Северо-Западный',
+        judge_category: 'Региональная',
+        role: 'judge',
+      });
+    });
+
+    test('Falls back to email when external_id is absent', async () => {
+      const payload = {
+        entries: [{
+          fio: 'Петров Петр Петрович',
+          email: 'test_admin_judge_import_email_fallback@feosport.local',
+          region: 'Центральный',
+          judge_category: 'Национальная',
+        }],
+      };
+
+      const first = await request(app)
+        .post('/api/admin/judges/import')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send(payload);
+      expect(first.statusCode).toBe(207);
+      expect(first.body.created).toHaveLength(1);
+      expect(first.body.errors).toHaveLength(0);
+
+      const second = await request(app)
+        .post('/api/admin/judges/import')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({
+          entries: [{
+            ...payload.entries[0],
+            region: 'Северо-Западный',
+            judge_category: 'Местная',
+          }],
+        });
+      expect(second.statusCode).toBe(207);
+      expect(second.body.created).toHaveLength(0);
+      expect(second.body.updated).toHaveLength(1);
+      expect(second.body.errors).toHaveLength(0);
+
+      const { rows } = await pool.query(
+        `SELECT region, judge_category
+           FROM users
+          WHERE email = $1`,
+        ['test_admin_judge_import_email_fallback@feosport.local']
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        region: 'Северо-Западный',
+        judge_category: 'Местная',
+      });
+    });
+
+    test('Rejects an import row when email belongs to an existing non-judge user', async () => {
+      await request(app)
+        .post('/api/admin/users')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({
+          email: 'test_admin_judge_import_pilot_email@feosport.local',
+          password: 'password123',
+          role: 'pilot',
+        });
+
+      const res = await request(app)
+        .post('/api/admin/judges/import')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({
+          entries: [{
+            fio: 'Сидоров Сидор Сидорович',
+            email: 'test_admin_judge_import_pilot_email@feosport.local',
+            region: 'Центральный',
+            judge_category: 'Национальная',
+          }],
+        });
+
+      expect(res.statusCode).toBe(207);
+      expect(res.body.created).toHaveLength(0);
+      expect(res.body.updated).toHaveLength(0);
+      expect(res.body.errors).toHaveLength(1);
+      expect(res.body.errors[0].issues[0].message).toContain('non-judge user');
+
+      const { rows } = await pool.query(
+        `SELECT u.first_name, r.name AS role
+           FROM users u
+           JOIN roles r ON r.id = u.role_id
+          WHERE u.email = $1`,
+        ['test_admin_judge_import_pilot_email@feosport.local']
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ first_name: null, role: 'pilot' });
+    });
+
+    test('Rejects an import row when external_id belongs to an existing non-judge user', async () => {
+      const createRes = await request(app)
+        .post('/api/admin/users')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({
+          email: 'test_admin_judge_import_pilot_external@feosport.local',
+          password: 'password123',
+          role: 'pilot',
+        });
+      expect([200, 201]).toContain(createRes.statusCode);
+
+      await pool.query(
+        'UPDATE users SET external_id = $1 WHERE email = $2',
+        ['test-admin-non-judge-ext-001', 'test_admin_judge_import_pilot_external@feosport.local']
+      );
+
+      const res = await request(app)
+        .post('/api/admin/judges/import')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({
+          entries: [{
+            fio: 'Смирнов Сергей Сергеевич',
+            email: 'test_admin_judge_import_new_external@feosport.local',
+            region: 'Центральный',
+            judge_category: 'Национальная',
+            external_id: 'test-admin-non-judge-ext-001',
+          }],
+        });
+
+      expect(res.statusCode).toBe(207);
+      expect(res.body.created).toHaveLength(0);
+      expect(res.body.updated).toHaveLength(0);
+      expect(res.body.errors).toHaveLength(1);
+      expect(res.body.errors[0].issues[0].message).toContain('non-judge user');
+
+      const { rows } = await pool.query(
+        'SELECT id FROM users WHERE email = $1',
+        ['test_admin_judge_import_new_external@feosport.local']
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    test('Imports judge application rows from form 245210 XLSX', async () => {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('245210');
+      sheet.addRow([
+        'Email',
+        'Телефон',
+        'Дата рождения',
+        'Регион',
+        'Категория судьи',
+        'Опыт тренерской работы (лет)',
+        'Дисциплины для судейства',
+        'Дополнительная информация',
+        'external_id',
+      ]);
+      sheet.addRow([
+        'test_admin_judge_import_xlsx@feosport.local',
+        '(978) 984-23-13',
+        '1997-06-13',
+        'Северо-Западный',
+        'Региональная',
+        2,
+        'ЛЗ/КЗ (класс Б); Технический симулятор',
+        'xlsx row',
+        'test-admin-judge-xlsx-001',
+      ]);
+
+      const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+      const res = await request(app)
+        .post('/api/admin/judges/import/xlsx')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .attach('file', buffer, {
+          filename: 'judges-245210.xlsx',
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+
+      expect(res.statusCode).toBe(207);
+      expect(res.body.source).toMatchObject({
+        filename: 'judges-245210.xlsx',
+        rows: 1,
+        form: '245210',
+      });
+      expect(res.body.created).toHaveLength(1);
+      expect(res.body.created[0]).toHaveProperty('row', 2);
+      expect(res.body.updated).toHaveLength(0);
+      expect(res.body.errors).toHaveLength(0);
+
+      const { rows } = await pool.query(
+        `SELECT u.email, u.region, u.judge_category,
+                u.coaching_experience_years, u.has_coaching_experience,
+                u.judge_disciplines, u.additional_info, r.name AS role
+           FROM users u
+           JOIN roles r ON r.id = u.role_id
+          WHERE u.external_id = $1`,
+        ['test-admin-judge-xlsx-001']
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        email: 'test_admin_judge_import_xlsx@feosport.local',
+        region: 'Северо-Западный',
+        judge_category: 'Региональная',
+        coaching_experience_years: 2,
+        has_coaching_experience: true,
+        additional_info: 'xlsx row',
+        role: 'judge',
+      });
+      expect(rows[0].judge_disciplines).toEqual([
+        'ЛЗ/КЗ (класс Б)',
+        'Технический симулятор',
+      ]);
     });
   });
 });
