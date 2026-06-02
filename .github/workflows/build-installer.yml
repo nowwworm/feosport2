@@ -43,8 +43,13 @@ jobs:
             frontend/package-lock.json
 
       # ── pkg (Node → EXE) ──────────────────────────────────────────────────────
-      - name: Install pkg globally
-        run: npm install -g pkg
+      # @yao-pkg/pkg — maintained fork of the (abandoned) vercel/pkg.
+      # vercel/pkg's prebuilt Node binary CDN no longer hosts node18/20,
+      # so it falls back to compiling Node from source — which fails on
+      # current windows-2022 runners (Python 3.12 vs Node's gyp wanting
+      # python ≤ 3.10). yao-pkg keeps its own prebuilt cache.
+      - name: Install @yao-pkg/pkg globally
+        run: npm install -g @yao-pkg/pkg
 
       # ── Inno Setup 6 ──────────────────────────────────────────────────────────
       - name: Install Inno Setup 6
