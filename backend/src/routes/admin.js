@@ -240,4 +240,130 @@ router.post('/sync-formdesigner', adminOnly, (req, res) => {
   );
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/admin/judges/import — bulk-импорт судей
+//  по схеме FormDesigner "Регистрация Судьи на Соревнования".
+//  Каждая запись валидируется отдельно; одна битая не убивает batch.
+//  Ответ 207 multi-status: created / updated / errors per-entry.
+//
+//  Поведение:
+//   - email уникальный → ON CONFLICT (email) DO UPDATE
+//   - generate random temp password (admin сможет сменить через PATCH /users/:id)
+//   - role_id берётся из roles WHERE name='judge'
+//   - judge_disciplines кладётся как массив (TEXT[])
+//   - region "Другой регион" + region_other → нормализуется в одно значение
+// ─────────────────────────────────────────────────────────────────────────────
+const { randomBytes } = require('crypto');
+const {
+  judgeRegistrationEntrySchema,
+  normalizeRegion,
+  parseFio,
+} = require('../schemas/judgeRegistration');
+
+router.post('/judges/import', adminOnly, async (req, res) => {
+  const entries = Array.isArray(req.body?.entries) ? req.body.entries : null;
+  if (!entries || entries.length === 0) {
+    return res.status(400).json({ error: 'entries[] required' });
+  }
+  if (entries.length > 200) {
+    return res.status(400).json({ error: 'max 200 entries per request' });
+  }
+
+  // role_id для judge
+  const { rows: roleRows } = await pool.query(
+    `SELECT id FROM roles WHERE name = 'judge' LIMIT 1`
+  );
+  if (!roleRows.length) {
+    return res.status(500).json({ error: 'Role "judge" not found' });
+  }
+  const judgeRoleId = roleRows[0].id;
+
+  const created = [];
+  const updated = [];
+  const errors  = [];
+
+  for (let i = 0; i < entries.length; i++) {
+    const raw = entries[i];
+    const parsed = judgeRegistrationEntrySchema.safeParse(raw);
+    if (!parsed.success) {
+      errors.push({
+        index: i,
+        email: raw?.email || null,
+        issues: parsed.error.issues.map(it => ({
+          path: it.path.join('.'),
+          message: it.message,
+        })),
+      });
+      continue;
+    }
+
+    const data = parsed.data;
+    const fio  = parseFio(data.fio);
+    const region = normalizeRegion(data);
+
+    try {
+      // Случайный 16-символьный пароль; админ ротирует при необходимости.
+      const tempPwd  = randomBytes(8).toString('hex');
+      const pwdHash  = await bcrypt.hash(tempPwd, 10);
+
+      const { rows, command } = await pool.query(
+        `INSERT INTO users (
+            email, password_hash, role_id, is_active,
+            first_name, last_name, middle_name, birth_date, phone,
+            region, judge_category, judge_disciplines,
+            has_coaching_experience, additional_info, external_id
+         ) VALUES (
+            $1, $2, $3, true,
+            $4, $5, $6, $7, $8,
+            $9, $10, $11,
+            $12, $13, $14
+         )
+         ON CONFLICT (email) DO UPDATE SET
+            first_name              = EXCLUDED.first_name,
+            last_name               = EXCLUDED.last_name,
+            middle_name             = EXCLUDED.middle_name,
+            birth_date              = EXCLUDED.birth_date,
+            phone                   = EXCLUDED.phone,
+            region                  = EXCLUDED.region,
+            judge_category          = EXCLUDED.judge_category,
+            judge_disciplines       = EXCLUDED.judge_disciplines,
+            has_coaching_experience = EXCLUDED.has_coaching_experience,
+            additional_info         = EXCLUDED.additional_info,
+            external_id             = COALESCE(EXCLUDED.external_id, users.external_id),
+            updated_at              = NOW()
+         RETURNING id, email,
+            (xmax = 0) AS was_inserted`,
+        [
+          data.email.toLowerCase(),
+          pwdHash,
+          judgeRoleId,
+          fio.first_name,
+          fio.last_name,
+          fio.middle_name,
+          data.birth_date || null,
+          data.phone || null,
+          region,
+          data.judge_category || null,
+          data.judge_disciplines && data.judge_disciplines.length > 0 ? data.judge_disciplines : null,
+          data.has_coaching_experience ?? null,
+          data.additional_info || null,
+          data.external_id || null,
+        ]
+      );
+
+      const row = rows[0];
+      const target = row.was_inserted ? created : updated;
+      target.push({ id: row.id, email: row.email });
+    } catch (err) {
+      errors.push({
+        index: i,
+        email: data.email,
+        issues: [{ path: '', message: err.message }],
+      });
+    }
+  }
+
+  res.status(207).json({ created, updated, errors });
+});
+
 module.exports = router;
