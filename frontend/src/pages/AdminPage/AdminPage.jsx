@@ -48,12 +48,14 @@ export default function AdminPage() {
   const [importFile,    setImportFile]    = useState(null);
   const [fileImportLoading, setFileImportLoading] = useState(false);
 
-  // Judge bulk-import (FormDesigner "Регистрация Судьи на Соревнования")
+  // Judge bulk-import (FormDesigner-форма 245210 или ручной JSON)
   const [judgeImportOpen,    setJudgeImportOpen]    = useState(false);
   const [judgeImportJson,    setJudgeImportJson]    = useState('');
   const [judgeImportLoading, setJudgeImportLoading] = useState(false);
   const [judgeImportResult,  setJudgeImportResult]  = useState(null);
   const [judgeImportError,   setJudgeImportError]   = useState('');
+  const [judgeImportFile,    setJudgeImportFile]    = useState(null);
+  const [judgeFileImportLoading, setJudgeFileImportLoading] = useState(false);
 
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
@@ -189,6 +191,27 @@ export default function AdminPage() {
       setJudgeImportError(err.response?.data?.error || err.message);
     } finally {
       setJudgeImportLoading(false);
+    }
+  }
+
+  async function handleImportJudgesXlsx() {
+    if (!judgeImportFile) {
+      setJudgeImportError('Выбери .xlsx файл');
+      return;
+    }
+    setJudgeImportError('');
+    setJudgeImportResult(null);
+    setJudgeFileImportLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', judgeImportFile);
+      const { data } = await api.post('/admin/judges/import/xlsx', formData);
+      setJudgeImportResult(data);
+      loadUsers();
+    } catch (err) {
+      setJudgeImportError(err.response?.data?.error || err.message);
+    } finally {
+      setJudgeFileImportLoading(false);
     }
   }
 
@@ -486,9 +509,10 @@ export default function AdminPage() {
             <div>
               <h2>Импорт судей</h2>
               <p>
-                Bulk-импорт судей по схеме FormDesigner-формы "Регистрация Судьи на Соревнования".
+                Bulk-импорт судей по схеме FormDesigner-формы{' '}
+                <a href="https://formdesigner.ru/form/view/245210" target="_blank" rel="noopener noreferrer">245210</a>.
                 Валидация регионов / категорий / дисциплин через Zod. Дедупликация по{' '}
-                <code>email</code> (с обновлением профиля при повторном импорте).
+                <code>external_id</code>, при отсутствии — по <code>email</code>.
               </p>
             </div>
             <button
@@ -502,33 +526,41 @@ export default function AdminPage() {
 
           {judgeImportOpen && (
             <div className="admin-page__import-body" style={{ marginTop: '1rem' }}>
+              <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 .75rem' }}>
+                <input
+                  type="file"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={e => setJudgeImportFile(e.target.files?.[0] || null)}
+                />
+                <button
+                  className="admin-page__btn admin-page__btn--primary"
+                  type="button"
+                  onClick={handleImportJudgesXlsx}
+                  disabled={judgeFileImportLoading || !judgeImportFile}
+                >
+                  {judgeFileImportLoading ? 'Загрузка…' : 'Загрузить XLSX'}
+                </button>
+              </div>
               <p style={{ margin: '0 0 .5rem' }}>
-                Допустимые значения: <code>region</code> ∈ {'{Москва, Санкт-Петербург, Другой регион}'},{' '}
-                <code>judge_category</code> ∈ {'{Всероссийская, 1, 2, 3}'},{' '}
-                <code>judge_disciplines</code> — массив из {'{Технический симулятор, Класс 75 ЛЗ/КЗ, Класс 200 ЛЗ/КЗ, Класс 330 ЛЗ/КЗ}'}.
+                XLSX: первая строка — заголовки формы 245210. JSON: массив судей или объект <code>{'{ entries: [...] }'}</code>.
+                Допустимые значения: <code>region</code> ∈ {'{Центральный, Северо-Западный, Южный, Северо-Кавказский, Приволжский, Уральский, Сибирский, Дальневосточный}'},{' '}
+                <code>judge_category</code> ∈ {'{Национальная, Региональная, Местная, Без категории}'},{' '}
+                <code>judge_disciplines</code> — массив из {'{Технический симулятор, ЛЗ/КЗ (класс А), ЛЗ/КЗ (класс Б), ЛЗ/КЗ (класс В), Другая дисциплина (укажите)}'}.
               </p>
               <details style={{ margin: '0 0 .75rem' }}>
                 <summary style={{ cursor: 'pointer' }}>Пример одной записи</summary>
                 <pre style={{ background: '#1a1a1a', padding: '.75rem', borderRadius: 4, fontSize: 12, overflow: 'auto' }}>
 {`[
   {
-    "fio": "Иванов Иван Иванович",
-    "email": "ivanov.judge@example.com",
-    "phone": "+7 (978) 984-23-13",
-    "birth_date": "1985-03-21",
-    "region": "Москва",
-    "judge_category": "Всероссийская",
-    "judge_disciplines": ["Класс 75 ЛЗ/КЗ", "Класс 200 ЛЗ/КЗ"],
-    "has_coaching_experience": true,
-    "additional_info": "Судья соревнований 2018-2024",
-    "external_id": "fd-judges-001"
-  },
-  {
-    "fio": "Петров Пётр",
-    "email": "petrov@example.com",
-    "region": "Другой регион",
-    "region_other": "Севастополь",
-    "judge_category": "1"
+    "email": "alex.bakharev97@gmail.com",
+    "phone": "(978) 984-23-13",
+    "birth_date": "1997-06-13",
+    "region": "Северо-Западный",
+    "judge_category": "Национальная",
+    "coaching_experience_years": 0,
+    "judge_disciplines": ["ЛЗ/КЗ (класс Б)"],
+    "additional_info": "Готов судить класс Б",
+    "external_id": "fd-245210-001"
   }
 ]`}
                 </pre>
@@ -538,7 +570,7 @@ export default function AdminPage() {
                 value={judgeImportJson}
                 onChange={e => setJudgeImportJson(e.target.value)}
                 rows={12}
-                placeholder='[{"fio": "Иванов И. И.", "email": "j@example.com", "region": "Москва"}]'
+                placeholder='[{"email": "j@example.com", "region": "Северо-Западный", "judge_category": "Национальная"}]'
                 style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, padding: '.5rem', boxSizing: 'border-box' }}
               />
               <div style={{ marginTop: '.75rem' }}>
@@ -559,6 +591,9 @@ export default function AdminPage() {
               {judgeImportResult && (
                 <div className="admin-page__demo-result" style={{ marginTop: '.75rem' }}>
                   <strong>Результат импорта</strong>
+                  {judgeImportResult.source && (
+                    <span>{judgeImportResult.source.filename}: строк {judgeImportResult.source.rows}</span>
+                  )}
                   <span>✓ Создано: {judgeImportResult.created?.length || 0}</span>
                   <span>↻ Обновлено: {judgeImportResult.updated?.length || 0}</span>
                   <span>✗ Ошибок: {judgeImportResult.errors?.length || 0}</span>
@@ -568,8 +603,8 @@ export default function AdminPage() {
                       <ul style={{ margin: '.5rem 0 0', paddingLeft: '1.25rem', fontSize: 13 }}>
                         {judgeImportResult.errors.slice(0, 20).map((e, i) => (
                           <li key={i}>
-                            <code>#{e.index}</code> {e.email || '(no email)'}:{' '}
-                            {e.issues?.map(x => `${x.path} — ${x.message}`).join('; ')}
+                            <code>{e.row ? `строка ${e.row}` : `#${e.index}`}</code> {e.entry?.email || e.email || '(no email)'}:{' '}
+                            {e.reason || e.issues?.map(x => `${x.path} — ${x.message}`).join('; ')}
                           </li>
                         ))}
                         {judgeImportResult.errors.length > 20 && (

@@ -1,6 +1,7 @@
 'use strict';
 
 const request = require('supertest');
+const ExcelJS = require('exceljs');
 const app = require('../src/app');
 const { pool, cleanupDB, seedBaselineData, getAllUsers } = require('./helpers/testDB');
 const { authHeader } = require('./helpers/jwt');
@@ -297,8 +298,8 @@ describe('Admin Functions', () => {
           entries: [{
             fio: 'Иванов Иван Иванович',
             email: 'test_admin_judge_import_old@feosport.local',
-            region: 'Москва',
-            judge_category: '1',
+            region: 'Центральный',
+            judge_category: 'Национальная',
             external_id: 'test-admin-judge-ext-001',
           }],
         });
@@ -314,8 +315,8 @@ describe('Admin Functions', () => {
           entries: [{
             fio: 'Иванов Иван Иванович',
             email: 'test_admin_judge_import_new@feosport.local',
-            region: 'Санкт-Петербург',
-            judge_category: '2',
+            region: 'Северо-Западный',
+            judge_category: 'Региональная',
             external_id: 'test-admin-judge-ext-001',
           }],
         });
@@ -335,8 +336,8 @@ describe('Admin Functions', () => {
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
         email: 'test_admin_judge_import_new@feosport.local',
-        region: 'Санкт-Петербург',
-        judge_category: '2',
+        region: 'Северо-Западный',
+        judge_category: 'Региональная',
         role: 'judge',
       });
     });
@@ -346,8 +347,8 @@ describe('Admin Functions', () => {
         entries: [{
           fio: 'Петров Петр Петрович',
           email: 'test_admin_judge_import_email_fallback@feosport.local',
-          region: 'Москва',
-          judge_category: '1',
+          region: 'Центральный',
+          judge_category: 'Национальная',
         }],
       };
 
@@ -365,8 +366,8 @@ describe('Admin Functions', () => {
         .send({
           entries: [{
             ...payload.entries[0],
-            region: 'Санкт-Петербург',
-            judge_category: '3',
+            region: 'Северо-Западный',
+            judge_category: 'Местная',
           }],
         });
       expect(second.statusCode).toBe(207);
@@ -382,8 +383,8 @@ describe('Admin Functions', () => {
       );
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
-        region: 'Санкт-Петербург',
-        judge_category: '3',
+        region: 'Северо-Западный',
+        judge_category: 'Местная',
       });
     });
 
@@ -404,8 +405,8 @@ describe('Admin Functions', () => {
           entries: [{
             fio: 'Сидоров Сидор Сидорович',
             email: 'test_admin_judge_import_pilot_email@feosport.local',
-            region: 'Москва',
-            judge_category: '1',
+            region: 'Центральный',
+            judge_category: 'Национальная',
           }],
         });
 
@@ -449,8 +450,8 @@ describe('Admin Functions', () => {
           entries: [{
             fio: 'Смирнов Сергей Сергеевич',
             email: 'test_admin_judge_import_new_external@feosport.local',
-            region: 'Москва',
-            judge_category: '1',
+            region: 'Центральный',
+            judge_category: 'Национальная',
             external_id: 'test-admin-non-judge-ext-001',
           }],
         });
@@ -466,6 +467,77 @@ describe('Admin Functions', () => {
         ['test_admin_judge_import_new_external@feosport.local']
       );
       expect(rows).toHaveLength(0);
+    });
+
+    test('Imports judge application rows from form 245210 XLSX', async () => {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('245210');
+      sheet.addRow([
+        'Email',
+        'Телефон',
+        'Дата рождения',
+        'Регион',
+        'Категория судьи',
+        'Опыт тренерской работы (лет)',
+        'Дисциплины для судейства',
+        'Дополнительная информация',
+        'external_id',
+      ]);
+      sheet.addRow([
+        'test_admin_judge_import_xlsx@feosport.local',
+        '(978) 984-23-13',
+        '1997-06-13',
+        'Северо-Западный',
+        'Региональная',
+        2,
+        'ЛЗ/КЗ (класс Б); Технический симулятор',
+        'xlsx row',
+        'test-admin-judge-xlsx-001',
+      ]);
+
+      const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+      const res = await request(app)
+        .post('/api/admin/judges/import/xlsx')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .attach('file', buffer, {
+          filename: 'judges-245210.xlsx',
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+
+      expect(res.statusCode).toBe(207);
+      expect(res.body.source).toMatchObject({
+        filename: 'judges-245210.xlsx',
+        rows: 1,
+        form: '245210',
+      });
+      expect(res.body.created).toHaveLength(1);
+      expect(res.body.created[0]).toHaveProperty('row', 2);
+      expect(res.body.updated).toHaveLength(0);
+      expect(res.body.errors).toHaveLength(0);
+
+      const { rows } = await pool.query(
+        `SELECT u.email, u.region, u.judge_category,
+                u.coaching_experience_years, u.has_coaching_experience,
+                u.judge_disciplines, u.additional_info, r.name AS role
+           FROM users u
+           JOIN roles r ON r.id = u.role_id
+          WHERE u.external_id = $1`,
+        ['test-admin-judge-xlsx-001']
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        email: 'test_admin_judge_import_xlsx@feosport.local',
+        region: 'Северо-Западный',
+        judge_category: 'Региональная',
+        coaching_experience_years: 2,
+        has_coaching_experience: true,
+        additional_info: 'xlsx row',
+        role: 'judge',
+      });
+      expect(rows[0].judge_disciplines).toEqual([
+        'ЛЗ/КЗ (класс Б)',
+        'Технический симулятор',
+      ]);
     });
   });
 });
