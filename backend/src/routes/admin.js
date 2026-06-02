@@ -247,7 +247,8 @@ router.post('/sync-formdesigner', adminOnly, (req, res) => {
 //  Ответ 207 multi-status: created / updated / errors per-entry.
 //
 //  Поведение:
-//   - email уникальный → ON CONFLICT (email) DO UPDATE
+//   - external_id — главный ключ дедупликации; email — fallback без external_id
+//   - existing non-judge user by external_id/email → per-entry error, no update
 //   - generate random temp password (admin сможет сменить через PATCH /users/:id)
 //   - role_id берётся из roles WHERE name='judge'
 //   - judge_disciplines кладётся как массив (TEXT[])
@@ -302,58 +303,134 @@ router.post('/judges/import', adminOnly, async (req, res) => {
     const region = normalizeRegion(data);
 
     try {
-      // Случайный 16-символьный пароль; админ ротирует при необходимости.
-      const tempPwd  = randomBytes(8).toString('hex');
-      const pwdHash  = await bcrypt.hash(tempPwd, 10);
+      const email = data.email.toLowerCase().trim();
+      const externalId = data.external_id?.trim() || null;
+      const judgeDisciplines = data.judge_disciplines && data.judge_disciplines.length > 0
+        ? data.judge_disciplines
+        : null;
 
-      const { rows, command } = await pool.query(
-        `INSERT INTO users (
-            email, password_hash, role_id, is_active,
-            first_name, last_name, middle_name, birth_date, phone,
-            region, judge_category, judge_disciplines,
-            has_coaching_experience, additional_info, external_id
-         ) VALUES (
-            $1, $2, $3, true,
-            $4, $5, $6, $7, $8,
-            $9, $10, $11,
-            $12, $13, $14
-         )
-         ON CONFLICT (email) DO UPDATE SET
-            first_name              = EXCLUDED.first_name,
-            last_name               = EXCLUDED.last_name,
-            middle_name             = EXCLUDED.middle_name,
-            birth_date              = EXCLUDED.birth_date,
-            phone                   = EXCLUDED.phone,
-            region                  = EXCLUDED.region,
-            judge_category          = EXCLUDED.judge_category,
-            judge_disciplines       = EXCLUDED.judge_disciplines,
-            has_coaching_experience = EXCLUDED.has_coaching_experience,
-            additional_info         = EXCLUDED.additional_info,
-            external_id             = COALESCE(EXCLUDED.external_id, users.external_id),
-            updated_at              = NOW()
-         RETURNING id, email,
-            (xmax = 0) AS was_inserted`,
-        [
-          data.email.toLowerCase(),
-          pwdHash,
-          judgeRoleId,
-          fio.first_name,
-          fio.last_name,
-          fio.middle_name,
-          data.birth_date || null,
-          data.phone || null,
-          region,
-          data.judge_category || null,
-          data.judge_disciplines && data.judge_disciplines.length > 0 ? data.judge_disciplines : null,
-          data.has_coaching_experience ?? null,
-          data.additional_info || null,
-          data.external_id || null,
-        ]
-      );
+      const fetchUser = async (whereSql, params) => {
+        const result = await pool.query(
+          `SELECT u.id, u.email, u.external_id, r.name AS role
+             FROM users u
+             JOIN roles r ON r.id = u.role_id
+            WHERE ${whereSql}
+            LIMIT 1`,
+          params
+        );
+        return result.rows[0] || null;
+      };
 
-      const row = rows[0];
-      const target = row.was_inserted ? created : updated;
-      target.push({ id: row.id, email: row.email });
+      const existingByExternalId = externalId
+        ? await fetchUser('u.external_id = $1', [externalId])
+        : null;
+      const existingByEmail = await fetchUser('LOWER(u.email) = $1', [email]);
+
+      for (const [key, existing] of [
+        ['external_id', existingByExternalId],
+        ['email', existingByEmail],
+      ]) {
+        if (existing && existing.role !== 'judge') {
+          throw new Error(`${key} belongs to existing non-judge user (${existing.email}, role=${existing.role})`);
+        }
+      }
+
+      if (
+        existingByExternalId &&
+        existingByEmail &&
+        existingByExternalId.id !== existingByEmail.id
+      ) {
+        throw new Error(`email belongs to a different user (${existingByEmail.email}) than external_id (${externalId})`);
+      }
+
+      if (
+        externalId &&
+        !existingByExternalId &&
+        existingByEmail?.external_id &&
+        existingByEmail.external_id !== externalId
+      ) {
+        throw new Error(`email belongs to judge with different external_id (${existingByEmail.external_id})`);
+      }
+
+      const existingUser = existingByExternalId || existingByEmail;
+      let row;
+
+      if (existingUser) {
+        const result = await pool.query(
+          `UPDATE users SET
+              email                   = $1,
+              role_id                 = $2,
+              first_name              = $3,
+              last_name               = $4,
+              middle_name             = $5,
+              birth_date              = $6,
+              phone                   = $7,
+              region                  = $8,
+              judge_category          = $9,
+              judge_disciplines       = $10,
+              has_coaching_experience = $11,
+              additional_info         = $12,
+              external_id             = COALESCE($13, external_id),
+              updated_at              = NOW()
+            WHERE id = $14
+            RETURNING id, email`,
+          [
+            email,
+            judgeRoleId,
+            fio.first_name,
+            fio.last_name,
+            fio.middle_name,
+            data.birth_date || null,
+            data.phone || null,
+            region,
+            data.judge_category || null,
+            judgeDisciplines,
+            data.has_coaching_experience ?? null,
+            data.additional_info || null,
+            externalId,
+            existingUser.id,
+          ]
+        );
+        row = result.rows[0];
+        updated.push({ id: row.id, email: row.email });
+      } else {
+        // Случайный 16-символьный пароль; админ ротирует при необходимости.
+        const tempPwd = randomBytes(8).toString('hex');
+        const pwdHash = await bcrypt.hash(tempPwd, 10);
+
+        const result = await pool.query(
+          `INSERT INTO users (
+              email, password_hash, role_id, is_active,
+              first_name, last_name, middle_name, birth_date, phone,
+              region, judge_category, judge_disciplines,
+              has_coaching_experience, additional_info, external_id
+           ) VALUES (
+              $1, $2, $3, true,
+              $4, $5, $6, $7, $8,
+              $9, $10, $11,
+              $12, $13, $14
+           )
+           RETURNING id, email`,
+          [
+            email,
+            pwdHash,
+            judgeRoleId,
+            fio.first_name,
+            fio.last_name,
+            fio.middle_name,
+            data.birth_date || null,
+            data.phone || null,
+            region,
+            data.judge_category || null,
+            judgeDisciplines,
+            data.has_coaching_experience ?? null,
+            data.additional_info || null,
+            externalId,
+          ]
+        );
+        row = result.rows[0];
+        created.push({ id: row.id, email: row.email });
+      }
     } catch (err) {
       errors.push({
         index: i,
