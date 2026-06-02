@@ -82,7 +82,7 @@ jobs:
           $out = "..\deploy\windows\build\staging\app\feosport2-server.exe"
           New-Item -ItemType Directory -Force -Path "..\deploy\windows\build\staging\app\scripts" | Out-Null
           pkg src/server-bundled.js `
-            --target node18-win-x64 `
+            --target node20-win-x64 `
             --output $out `
             --compress GZip
           if ($LASTEXITCODE -ne 0) { throw "pkg failed with code $LASTEXITCODE" }
