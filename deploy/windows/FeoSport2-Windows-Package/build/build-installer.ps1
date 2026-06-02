@@ -95,7 +95,9 @@ try {
     npm install -g @yao-pkg/pkg --silent
     if ($LASTEXITCODE -ne 0) { Write-Fail "npm install -g @yao-pkg/pkg завершился с кодом $LASTEXITCODE" }
 
-    $pkgTarget = "node24-win-x64"
+    # node22-win-x64 has a stable @yao-pkg/pkg prebuilt cache; node20/node24
+    # can fall back to source builds and fail on GitHub windows-2025 runners.
+    $pkgTarget = "node22-win-x64"
     $pkgOutput = Join-Path $StagingDir "app\feosport2-server.exe"
 
     Write-Host "│  pkg compile (может занять 1-2 мин)..." -ForegroundColor White

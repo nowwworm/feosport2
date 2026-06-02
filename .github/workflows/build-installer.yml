@@ -86,8 +86,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "backend npm ci failed with code $LASTEXITCODE" }
           $out = "..\deploy\windows\build\staging\app\feosport2-server.exe"
           New-Item -ItemType Directory -Force -Path "..\deploy\windows\build\staging\app\scripts" | Out-Null
+          # node22-win-x64 is pinned because node20/node24 may miss yao-pkg's
+          # prebuilt cache and fall back to building Node from source on
+          # windows-2025, which fails with "Placeholder for not found".
           pkg src/server-bundled.js `
-            --target node24-win-x64 `
+            --target node22-win-x64 `
             --output $out `
             --compress GZip
           if ($LASTEXITCODE -ne 0) { throw "pkg failed with code $LASTEXITCODE" }
