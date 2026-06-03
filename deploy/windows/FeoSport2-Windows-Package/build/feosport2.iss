@@ -340,9 +340,6 @@ end;
 procedure DropDatabaseInteractive();
 var
   PsqlPath:    String;
-  PgPwd:       String;
-  TempSqlFile: String;
-  ResultCode:  Integer;
 begin
   PsqlPath := FindPsqlForUninstall();
   if PsqlPath = '' then
@@ -355,45 +352,12 @@ begin
     Exit;
   end;
 
-  PgPwd := '';
-  if not InputQuery('Пароль postgres',
-                    'Введите пароль суперпользователя postgres' + #13#10 +
-                    '(для удаления базы feosport2 и роли feosport):',
-                    PgPwd) then
-    Exit;
-
-  if Trim(PgPwd) = '' then
-  begin
-    MsgBox('Пустой пароль — БД не удалена.', mbInformation, MB_OK);
-    Exit;
-  end;
-
-  TempSqlFile := ExpandConstant('{tmp}\drop-feosport-db.sql');
-  SaveStringToFile(TempSqlFile,
-    'DROP DATABASE IF EXISTS feosport2;' + #13#10 +
-    'DROP ROLE IF EXISTS feosport;' + #13#10,
-    False);
-
-  SetEnvironmentVariable('PGPASSWORD', PgPwd);
-  try
-    Exec(PsqlPath,
-         '-U postgres -d postgres -f "' + TempSqlFile + '"',
-         '',
-         SW_HIDE,
-         ewWaitUntilTerminated,
-         ResultCode);
-  finally
-    SetEnvironmentVariable('PGPASSWORD', '');
-  end;
-  DeleteFile(TempSqlFile);
-
-  if ResultCode = 0 then
-    MsgBox('База feosport2 и роль feosport удалены.', mbInformation, MB_OK)
-  else
-    MsgBox('Не удалось подключиться или удалить БД (код ' + IntToStr(ResultCode) + ').' + #13#10 +
-           'Возможно, неверный пароль или PostgreSQL не запущен.' + #13#10 +
-           'База осталась нетронутой — удалите вручную через pgAdmin 4.',
-           mbError, MB_OK);
+  MsgBox('Файлы FeoSport2 удалены, но база PostgreSQL оставлена нетронутой.' + #13#10 + #13#10 +
+         'Для удаления базы выполните вручную через pgAdmin 4 или psql:' + #13#10 +
+         '  DROP DATABASE feosport2;' + #13#10 +
+         '  DROP ROLE feosport;' + #13#10 + #13#10 +
+         'psql найден здесь:' + #13#10 + PsqlPath,
+         mbInformation, MB_OK);
 end;
 
 { Шаг uninstall: спросить про данные, потом подчистить выбранное }
@@ -415,7 +379,7 @@ begin
     '  • Конфигурация: ' + InstallPath + '\.env' + #13#10 +
     '  • Загруженные документы: ' + UploadsPath + '\uploads' + #13#10 +
     '  • База данных PostgreSQL (БД feosport2 + роль feosport)' + #13#10 + #13#10 +
-    'Да — удалить ВСЁ (потребуется пароль postgres для БД).' + #13#10 +
+    'Да — удалить файлы и показать инструкцию по ручному удалению БД.' + #13#10 +
     'Нет — оставить данные нетронутыми (можно использовать после переустановки).',
     mbConfirmation, MB_YESNO);
 
@@ -427,6 +391,6 @@ begin
   DeleteFile(InstallPath + '\.env');
   DelTree(UploadsPath, True, True, True);
 
-  { БД — отдельный интерактивный диалог с паролем }
+  { БД — Inno Setup не имеет safe password prompt на uninstall; показываем инструкцию. }
   DropDatabaseInteractive();
 end;

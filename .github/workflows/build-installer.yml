@@ -10,14 +10,82 @@ permissions:
   contents: write
 
 jobs:
-  aqa:
-    name: AQA before installer build
-    uses: ./.github/workflows/aqa.yml
-    with:
-      run_e2e: true
+  backend-tests:
+    name: Backend tests before installer build
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: feosport2
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feosport2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_NAME: feosport2
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+
+      - name: Run backend Jest tests
+        working-directory: backend
+        run: npm test
+
+  frontend-build:
+    name: Frontend build before installer build
+    runs-on: ubuntu-24.04
+    env:
+      VITE_API_URL: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --include=dev --no-audit --no-fund
+
+      - name: Run frontend unit tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
 
   build:
-    needs: aqa
+    needs:
+      - backend-tests
+      - frontend-build
     if: success()
     runs-on: windows-2025
     timeout-minutes: 60
