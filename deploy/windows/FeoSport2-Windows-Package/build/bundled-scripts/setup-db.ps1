@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Создаёт БД feosport2 во время установки Inno Setup.
     Вызывается из [Run] секции installer.iss

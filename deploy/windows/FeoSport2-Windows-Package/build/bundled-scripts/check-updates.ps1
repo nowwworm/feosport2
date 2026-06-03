@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Repository = $env:FEOSPORT2_GITHUB_REPO,
     [string]$InstallDir = (Split-Path -Parent $MyInvocation.MyCommand.Path),
     [string]$AssetName = "FeoSport2-Setup.exe"

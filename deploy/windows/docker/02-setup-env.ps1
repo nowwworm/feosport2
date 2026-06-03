@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Создаёт deploy\.env с паролями и JWT_SECRET для Docker-запуска.

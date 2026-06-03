@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$InstallDir = (Split-Path -Parent $MyInvocation.MyCommand.Path),
     [string]$LogMirrorDir = $env:FEOSPORT2_LOG_SYNC_DIR
 )
