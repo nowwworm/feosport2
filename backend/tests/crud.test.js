@@ -1,10 +1,14 @@
 'use strict';
 
 const request = require('supertest');
+const fs = require('fs');
+const path = require('path');
 const ExcelJS = require('exceljs');
 const app = require('../src/app');
 const { pool, cleanupDB, seedBaselineData, createTestUser, createTestCompetition, createTestPilot, createTestHeat, addHeatParticipant, getAllUsers } = require('./helpers/testDB');
 const { authHeader } = require('./helpers/jwt');
+
+const PILOT_IMPORT_FIXTURE = path.join(__dirname, 'fixtures', 'pilots-import-245167-test.xlsx');
 
 describe('API CRUD Operations', () => {
   let adminUser, chiefJudgeUser, judgeUser;
@@ -22,6 +26,7 @@ describe('API CRUD Operations', () => {
     // освобождая FK на пилотов. Иначе DELETE pilots падает на ссылающихся
     // heat_participants (см. init.sql — FK без ON DELETE CASCADE).
     await pool.query('DELETE FROM competitions WHERE name LIKE $1', ['Test_%']);
+    await pool.query('DELETE FROM pilots WHERE external_id LIKE $1', ['fd-245167-demo-%']);
     await pool.query('DELETE FROM pilots WHERE first_name LIKE $1', ['Test_%']);
   });
 
@@ -62,57 +67,40 @@ describe('API CRUD Operations', () => {
     });
 
     test('POST /api/pilots/import/xlsx - imports pilots with FormDesigner validation', async () => {
-      const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet('pilots');
-      sheet.addRow([
-        'ФИО',
-        'Электронная почта',
-        'Номер телефона',
-        'Дата рождения',
-        'Наличие разряда',
-        'Наименование команды',
-        'Система управления',
-        'VTX тип',
-        'VTX канал',
-        'Технический симулятор',
-        '75й класс командный',
-        '75й класс личный',
-        'Дополнительная информация',
-        'external_id',
-      ]);
-      sheet.addRow([
-        'Иванов Test_Xlsx Петрович',
-        'test_xlsx@example.com',
-        '+7 (999) 111-22-33',
-        '1994-03-21',
-        'Да',
-        'Test XLSX Team',
-        'ELRS 2,4GHz',
-        'HD Zero',
-        'R3',
-        'Liftoff',
-        'Да',
-        'Нет',
-        'Test XLSX notes',
-        'test-xlsx-001',
+      const { rows: migrationColumns } = await pool.query(
+        `SELECT column_name
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'pilots'
+            AND column_name IN (
+              'class_75_team',
+              'class_75_individual',
+              'registration_notes'
+            )
+          ORDER BY column_name`
+      );
+      expect(migrationColumns.map(row => row.column_name)).toEqual([
+        'class_75_individual',
+        'class_75_team',
+        'registration_notes',
       ]);
 
-      const file = Buffer.from(await workbook.xlsx.writeBuffer());
+      const file = fs.readFileSync(PILOT_IMPORT_FIXTURE);
       const res = await request(app)
         .post('/api/pilots/import/xlsx')
         .set('Authorization', authHeader(adminUser.id, 'admin'))
         .attach('file', file, {
-          filename: 'pilots.xlsx',
+          filename: 'pilots-import-245167-test.xlsx',
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         });
 
       expect(res.statusCode).toBe(207);
       expect(res.body.source).toMatchObject({
-        filename: 'pilots.xlsx',
-        rows: 1,
+        filename: 'pilots-import-245167-test.xlsx',
+        rows: 5,
         form: '245167',
       });
-      expect(res.body.created).toHaveLength(1);
+      expect(res.body.created).toHaveLength(5);
       expect(res.body.errors).toHaveLength(0);
       expect(res.body.created[0].row).toBe(2);
 
@@ -122,12 +110,12 @@ describe('API CRUD Operations', () => {
                 class_75_team, class_75_individual, registration_notes
            FROM pilots
           WHERE external_id = $1`,
-        ['test-xlsx-001']
+        ['fd-245167-demo-001']
       );
       expect(rows[0]).toMatchObject({
-        first_name: 'Test_Xlsx',
+        first_name: 'Петр',
         last_name: 'Иванов',
-        email: 'test_xlsx@example.com',
+        email: 'petr.ivanov245167@example.com',
         has_rank: true,
         radio_system: 'ELRS 2,4GHz',
         vtx_type: 'HD Zero',
@@ -135,7 +123,7 @@ describe('API CRUD Operations', () => {
         drone_simulator: 'Liftoff',
         class_75_team: true,
         class_75_individual: false,
-        registration_notes: 'Test XLSX notes',
+        registration_notes: 'Тестовая строка: командный класс, HD Zero.',
       });
     });
 

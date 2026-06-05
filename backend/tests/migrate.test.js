@@ -123,4 +123,32 @@ describe('migrate runner', () => {
       '004_seed_equipment_data.sql',
     ]);
   });
+
+  test('applies participant FormDesigner 245167 XLSX storage migration', async () => {
+    await runMigrations(pool);
+
+    const { rows: applied } = await pool.query(
+      `SELECT filename FROM schema_migrations
+        WHERE filename = '025_pilot_form_245167_full_fields.sql'`
+    );
+    expect(applied).toHaveLength(1);
+
+    const { rows: columns } = await pool.query(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'pilots'
+          AND column_name IN (
+            'class_75_team',
+            'class_75_individual',
+            'registration_notes'
+          )
+        ORDER BY column_name`
+    );
+    expect(columns.map(row => row.column_name)).toEqual([
+      'class_75_individual',
+      'class_75_team',
+      'registration_notes',
+    ]);
+  });
 });

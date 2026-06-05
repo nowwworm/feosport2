@@ -37,6 +37,8 @@ install.log
 *.doc
 *.xlsx
 *.xls
+!backend/tests/fixtures/
+!backend/tests/fixtures/*.xlsx
 
 # ── Word / Office lock-файлы (создаются при открытом документе) ──────────────
 ~$*
