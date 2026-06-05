@@ -28,7 +28,9 @@ const pilotRegistrationEntrySchema = z.object({
   vtx_type:        z.enum(VTX_TYPES).nullish(),
   vtx_channel:     z.enum(VTX_CHANNELS).nullish(),
   drone_simulator: z.string().max(64).nullish(),
-  notes: z.string().nullish(),
+  class_75_team: z.boolean().nullish(),
+  class_75_individual: z.boolean().nullish(),
+  notes: z.string().max(2000).nullish(),
   // Optional FD entry id (used as upsert key for dedup).
   external_id: z.string().max(100).nullish(),
 });

@@ -494,7 +494,7 @@ export default function AdminPage() {
               <p>
                 Bulk-импорт участников по схеме FormDesigner-формы{' '}
                 <a href="https://formdesigner.ru/form/view/245167" target="_blank" rel="noopener noreferrer">245167</a>.
-                Валидация значений (TBS/ELRS/VTX) через Zod. Дедупликация по{' '}
+                Валидация ФИО, даты рождения, телефона, email, классов, TBS/ELRS/VTX и канала через Zod. Дедупликация по{' '}
                 <code>external_id</code>.
               </p>
             </div>
@@ -526,6 +526,9 @@ export default function AdminPage() {
               </div>
               <p style={{ margin: '0 0 .5rem' }}>
                 XLSX: первая строка — заголовки формы 245167. JSON: массив пилотов или объект <code>{'{ entries: [...] }'}</code>.
+                Поддерживаются поля: ФИО, Email, Телефон, Дата рождения, Наличие разряда, Наименование команды,
+                Технический симулятор, 75й класс командный, 75й класс личный, Дополнительная информация,
+                Система управления, VTX тип, VTX канал, external_id.
               </p>
               <details style={{ margin: '0 0 .75rem' }}>
                 <summary style={{ cursor: 'pointer' }}>Пример одной записи</summary>
@@ -542,6 +545,9 @@ export default function AdminPage() {
     "vtx_type": "HD Zero",
     "vtx_channel": "R3",
     "drone_simulator": "Liftoff",
+    "class_75_team": true,
+    "class_75_individual": false,
+    "notes": "Готов участвовать в командном классе",
     "external_id": "fd-245167-001"
   }
 ]`}

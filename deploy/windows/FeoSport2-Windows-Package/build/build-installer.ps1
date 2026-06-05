@@ -171,8 +171,8 @@ New-Item -ItemType Directory -Force -Path $migrationsDst | Out-Null
 if (Test-Path $migrationsSrc) {
     Copy-Item "$migrationsSrc\*" $migrationsDst -Force
     $migCount = (Get-ChildItem $migrationsDst -Filter *.sql).Count
-    if (-not (Test-Path (Join-Path $migrationsDst "024_judge_application_fields.sql"))) {
-        Write-Fail "Миграция 024_judge_application_fields.sql не попала в staging"
+    if (-not (Test-Path (Join-Path $migrationsDst "025_pilot_form_245167_full_fields.sql"))) {
+        Write-Fail "Миграция 025_pilot_form_245167_full_fields.sql не попала в staging"
     }
     Write-Ok "init.sql + seed.sql + seed-users.sql + $migCount миграций скопировано"
 } else {

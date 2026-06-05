@@ -154,6 +154,7 @@ router.post('/import/xlsx', authenticate, authorize('admin'), (req, res) => {
       results.source = {
         filename: req.file.originalname,
         rows: entries.length,
+        form: '245167',
       };
       for (const collection of [results.created, results.updated, results.errors]) {
         for (const item of collection) item.row = rowNumbers[item.index] || null;

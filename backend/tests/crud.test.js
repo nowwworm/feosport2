@@ -75,6 +75,9 @@ describe('API CRUD Operations', () => {
         'VTX тип',
         'VTX канал',
         'Технический симулятор',
+        '75й класс командный',
+        '75й класс личный',
+        'Дополнительная информация',
         'external_id',
       ]);
       sheet.addRow([
@@ -88,6 +91,9 @@ describe('API CRUD Operations', () => {
         'HD Zero',
         'R3',
         'Liftoff',
+        'Да',
+        'Нет',
+        'Test XLSX notes',
         'test-xlsx-001',
       ]);
 
@@ -101,13 +107,19 @@ describe('API CRUD Operations', () => {
         });
 
       expect(res.statusCode).toBe(207);
+      expect(res.body.source).toMatchObject({
+        filename: 'pilots.xlsx',
+        rows: 1,
+        form: '245167',
+      });
       expect(res.body.created).toHaveLength(1);
       expect(res.body.errors).toHaveLength(0);
       expect(res.body.created[0].row).toBe(2);
 
       const { rows } = await pool.query(
         `SELECT first_name, last_name, email, has_rank,
-                radio_system, vtx_type, vtx_channel, drone_simulator
+                radio_system, vtx_type, vtx_channel, drone_simulator,
+                class_75_team, class_75_individual, registration_notes
            FROM pilots
           WHERE external_id = $1`,
         ['test-xlsx-001']
@@ -121,7 +133,69 @@ describe('API CRUD Operations', () => {
         vtx_type: 'HD Zero',
         vtx_channel: 'R3',
         drone_simulator: 'Liftoff',
+        class_75_team: true,
+        class_75_individual: false,
+        registration_notes: 'Test XLSX notes',
       });
+    });
+
+    test('POST /api/pilots/import/xlsx - rejects invalid FormDesigner field values per row', async () => {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('pilots');
+      sheet.addRow([
+        'ФИО',
+        'Электронная почта',
+        'Номер телефона',
+        'Дата рождения',
+        'Наличие разряда',
+        'Наименование команды',
+        'Система управления',
+        'VTX тип',
+        'VTX канал',
+        'Технический симулятор',
+        '75й класс командный',
+        '75й класс личный',
+        'Дополнительная информация',
+        'external_id',
+      ]);
+      sheet.addRow([
+        'Петров Test_Invalid Иванович',
+        'test_invalid@example.com',
+        '+7 (999) 111-22-33',
+        '1994-03-21',
+        'Да',
+        'Test Bad Team',
+        'Unknown Radio',
+        'HD Zero',
+        'R3',
+        'Liftoff',
+        'Да',
+        'Нет',
+        'Bad radio must fail validation',
+        'test-xlsx-invalid-001',
+      ]);
+
+      const file = Buffer.from(await workbook.xlsx.writeBuffer());
+      const res = await request(app)
+        .post('/api/pilots/import/xlsx')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .attach('file', file, {
+          filename: 'pilots-invalid.xlsx',
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+
+      expect(res.statusCode).toBe(207);
+      expect(res.body.created).toHaveLength(0);
+      expect(res.body.updated).toHaveLength(0);
+      expect(res.body.errors).toHaveLength(1);
+      expect(res.body.errors[0]).toMatchObject({ row: 2 });
+      expect(res.body.errors[0].reason).toContain('radio_system');
+
+      const { rows } = await pool.query(
+        'SELECT id FROM pilots WHERE external_id = $1',
+        ['test-xlsx-invalid-001']
+      );
+      expect(rows).toHaveLength(0);
     });
 
     test('GET /api/pilots - List all pilots', async () => {

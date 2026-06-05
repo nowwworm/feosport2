@@ -33,6 +33,9 @@ CREATE TABLE pilots (
     team          VARCHAR(200),
     city          VARCHAR(100),
     video_channel VARCHAR(500),   -- YouTube/Rutube ссылка
+    class_75_team BOOLEAN,
+    class_75_individual BOOLEAN,
+    registration_notes TEXT,
     external_id   VARCHAR(100),   -- ID из CRM / Form Designer
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );

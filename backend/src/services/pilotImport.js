@@ -61,6 +61,25 @@ const HEADER_ALIASES = new Map([
   ['симулятор', 'drone_simulator'],
   ['техническийсимулятор', 'drone_simulator'],
 
+  ['class75team', 'class_75_team'],
+  ['class_75_team', 'class_75_team'],
+  ['75класскомандный', 'class_75_team'],
+  ['75йкласскомандный', 'class_75_team'],
+  ['75-йкласскомандный', 'class_75_team'],
+  ['75ыйкласскомандный', 'class_75_team'],
+  ['командный75класс', 'class_75_team'],
+
+  ['class75individual', 'class_75_individual'],
+  ['class_75_individual', 'class_75_individual'],
+  ['75классичный', 'class_75_individual'],
+  ['75классиндивидуальный', 'class_75_individual'],
+  ['75классиндивидуально', 'class_75_individual'],
+  ['75классличный', 'class_75_individual'],
+  ['75йклассличный', 'class_75_individual'],
+  ['75-йклассличный', 'class_75_individual'],
+  ['75ыйклассличный', 'class_75_individual'],
+  ['личный75класс', 'class_75_individual'],
+
   ['notes', 'notes'],
   ['примечание', 'notes'],
   ['примечания', 'notes'],
@@ -113,7 +132,9 @@ function cellToValue(value) {
 function normalizeCell(field, value) {
   const raw = cellToValue(value);
   if (raw === '') return null;
-  if (field === 'has_rank') return normalizeBoolean(raw);
+  if (field === 'has_rank' || field === 'class_75_team' || field === 'class_75_individual') {
+    return normalizeBoolean(raw);
+  }
   if (field === 'birth_date') {
     if (raw instanceof Date) return raw.toISOString().slice(0, 10);
     const serial = excelSerialToDate(raw);
@@ -204,12 +225,14 @@ async function importPilotEntries(entries) {
             first_name, last_name, middle_name, birth_date, team,
             email, phone, has_rank,
             radio_system, vtx_type, vtx_channel, drone_simulator,
+            class_75_team, class_75_individual, registration_notes,
             external_id
          ) VALUES (
             $1, $2, $3, $4, $5,
             $6, $7, $8,
             $9, $10, $11, $12,
-            $13
+            $13, $14, $15,
+            $16
          )
          ON CONFLICT (external_id) DO UPDATE SET
             first_name      = EXCLUDED.first_name,
@@ -223,7 +246,10 @@ async function importPilotEntries(entries) {
             radio_system    = COALESCE(EXCLUDED.radio_system, pilots.radio_system),
             vtx_type        = COALESCE(EXCLUDED.vtx_type, pilots.vtx_type),
             vtx_channel     = COALESCE(EXCLUDED.vtx_channel, pilots.vtx_channel),
-            drone_simulator = COALESCE(EXCLUDED.drone_simulator, pilots.drone_simulator)
+            drone_simulator = COALESCE(EXCLUDED.drone_simulator, pilots.drone_simulator),
+            class_75_team = COALESCE(EXCLUDED.class_75_team, pilots.class_75_team),
+            class_75_individual = COALESCE(EXCLUDED.class_75_individual, pilots.class_75_individual),
+            registration_notes = COALESCE(EXCLUDED.registration_notes, pilots.registration_notes)
          RETURNING id, (xmax = 0) AS inserted`,
         [
           fio.first_name, fio.last_name, fio.middle_name,
@@ -236,6 +262,9 @@ async function importPilotEntries(entries) {
           entry.vtx_type || null,
           entry.vtx_channel || null,
           entry.drone_simulator || null,
+          entry.class_75_team === undefined || entry.class_75_team === null ? null : entry.class_75_team,
+          entry.class_75_individual === undefined || entry.class_75_individual === null ? null : entry.class_75_individual,
+          entry.notes || null,
           entry.external_id || null,
         ]
       );

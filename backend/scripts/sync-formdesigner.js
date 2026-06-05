@@ -214,6 +214,8 @@ async function upsertPilots(entries) {
       vtx_type:        matchOrNull(f[FIELD.VTX],    VTX_TYPES),
       vtx_channel:     matchOrNull(f[FIELD.VTX_CH], VTX_CHANNELS),
       drone_simulator: f[FIELD.SIM] ? String(f[FIELD.SIM]).slice(0, 64) : null,
+      class_75_team: normalizeYesNo(f[FIELD.CLASS_TEAM]),
+      class_75_individual: normalizeYesNo(f[FIELD.CLASS_IND]),
       notes: f[FIELD.NOTES] || null,
       external_id: String(entry.id),
     };
@@ -243,12 +245,14 @@ async function upsertPilots(entries) {
             first_name, last_name, middle_name, birth_date, team,
             email, phone, has_rank,
             radio_system, vtx_type, vtx_channel, drone_simulator,
+            class_75_team, class_75_individual, registration_notes,
             external_id
          ) VALUES (
             $1, $2, $3, $4, $5,
             $6, $7, $8,
             $9, $10, $11, $12,
-            $13
+            $13, $14, $15,
+            $16
          )
          ON CONFLICT (external_id) DO UPDATE SET
             first_name      = EXCLUDED.first_name,
@@ -262,7 +266,10 @@ async function upsertPilots(entries) {
             radio_system    = COALESCE(EXCLUDED.radio_system,    pilots.radio_system),
             vtx_type        = COALESCE(EXCLUDED.vtx_type,        pilots.vtx_type),
             vtx_channel     = COALESCE(EXCLUDED.vtx_channel,     pilots.vtx_channel),
-            drone_simulator = COALESCE(EXCLUDED.drone_simulator, pilots.drone_simulator)
+            drone_simulator = COALESCE(EXCLUDED.drone_simulator, pilots.drone_simulator),
+            class_75_team = COALESCE(EXCLUDED.class_75_team, pilots.class_75_team),
+            class_75_individual = COALESCE(EXCLUDED.class_75_individual, pilots.class_75_individual),
+            registration_notes = COALESCE(EXCLUDED.registration_notes, pilots.registration_notes)
          RETURNING id, (xmax = 0) AS inserted`,
         [
           fio.first_name, fio.last_name, fio.middle_name,
@@ -275,6 +282,9 @@ async function upsertPilots(entries) {
           data.vtx_type || null,
           data.vtx_channel || null,
           data.drone_simulator || null,
+          data.class_75_team,
+          data.class_75_individual,
+          data.notes || null,
           data.external_id,
         ]
       );
