@@ -128,6 +128,13 @@
     justify-content: flex-end;
   }
 
+  &__panel-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
   &__db-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(120px, 1fr));
@@ -192,7 +199,7 @@
       letter-spacing: 0.04em;
     }
 
-    input, select {
+    input, select, textarea {
       background: var(--color-input-bg, #111128);
       border: 1px solid var(--color-border, #2a2a4a);
       border-radius: 6px;
@@ -207,12 +214,79 @@
         border-color: var(--color-accent, #6c63ff);
       }
     }
+
+    textarea {
+      resize: vertical;
+      min-height: 74px;
+    }
   }
 
   &__form-error {
     color: var(--color-error, #ff5555);
     font-size: 13px;
     margin: 0 0 10px;
+  }
+
+  &__form-success {
+    color: #50c878;
+    font-size: 13px;
+    margin: 0 0 10px;
+  }
+
+  &__judge-form {
+    background: var(--color-input-bg, #111128);
+    border: 1px solid var(--color-border, #2a2a4a);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 14px;
+  }
+
+  &__judge-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 0 12px;
+  }
+
+  &__judge-disciplines {
+    border: 1px solid var(--color-border, #2a2a4a);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 4px 0 12px;
+
+    legend {
+      padding: 0 6px;
+      color: var(--color-text-secondary, #8888aa);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+  }
+
+  &__checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    gap: 8px 12px;
+  }
+
+  &__checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-primary, #e0e0ff);
+    font-size: 13px;
+    line-height: 1.35;
+
+    input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--color-accent, #6c63ff);
+      flex: 0 0 auto;
+    }
+
+    span {
+      min-width: 0;
+    }
   }
 
   // ── Кнопки ────────────────────────────────────────────────────────────────
@@ -379,8 +453,10 @@
       flex-direction: column;
     }
 
-    &__db-actions {
+    &__db-actions,
+    &__panel-actions {
       justify-content: flex-start;
+      width: 100%;
     }
 
     &__tmx-main,
@@ -391,6 +467,11 @@
     }
 
     &__db-grid {
+      grid-template-columns: 1fr;
+    }
+
+    &__judge-grid,
+    &__checkbox-grid {
       grid-template-columns: 1fr;
     }
 

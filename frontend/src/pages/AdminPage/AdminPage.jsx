@@ -12,6 +12,40 @@ const ROLE_LABEL = {
 };
 
 const EMPTY_FORM = { email: '', password: '', role: 'judge' };
+const JUDGE_FORM_ID = '245211';
+const JUDGE_REGIONS = [
+  'Центральный',
+  'Северо-Западный',
+  'Южный',
+  'Северо-Кавказский',
+  'Приволжский',
+  'Уральский',
+  'Сибирский',
+  'Дальневосточный',
+];
+const JUDGE_CATEGORIES = [
+  'Национальная',
+  'Региональная',
+  'Местная',
+  'Без категории',
+];
+const JUDGE_DISCIPLINES = [
+  'Технический симулятор',
+  'ЛЗ/КЗ (класс А)',
+  'ЛЗ/КЗ (класс Б)',
+  'ЛЗ/КЗ (класс В)',
+  'Другая дисциплина (укажите)',
+];
+const EMPTY_JUDGE_FORM = {
+  birth_date: '',
+  phone: '',
+  email: '',
+  region: 'Центральный',
+  judge_category: 'Национальная',
+  coaching_experience_years: '0',
+  judge_disciplines: [],
+  additional_info: '',
+};
 const TMX_URL = import.meta.env.VITE_TMX_URL || '/tmx/';
 const TMX_LINKS = [
   { label: 'Турниры', href: '#/tournaments' },
@@ -48,7 +82,7 @@ export default function AdminPage() {
   const [importFile,    setImportFile]    = useState(null);
   const [fileImportLoading, setFileImportLoading] = useState(false);
 
-  // Judge bulk-import (FormDesigner-форма 245210 или ручной JSON)
+  // Judge bulk-import (FormDesigner-форма 245211 или ручной JSON)
   const [judgeImportOpen,    setJudgeImportOpen]    = useState(false);
   const [judgeImportJson,    setJudgeImportJson]    = useState('');
   const [judgeImportLoading, setJudgeImportLoading] = useState(false);
@@ -56,6 +90,11 @@ export default function AdminPage() {
   const [judgeImportError,   setJudgeImportError]   = useState('');
   const [judgeImportFile,    setJudgeImportFile]    = useState(null);
   const [judgeFileImportLoading, setJudgeFileImportLoading] = useState(false);
+  const [judgeFormOpen, setJudgeFormOpen] = useState(false);
+  const [judgeForm, setJudgeForm] = useState(EMPTY_JUDGE_FORM);
+  const [judgeFormSaving, setJudgeFormSaving] = useState(false);
+  const [judgeFormError, setJudgeFormError] = useState('');
+  const [judgeFormResult, setJudgeFormResult] = useState(null);
 
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
@@ -212,6 +251,64 @@ export default function AdminPage() {
       setJudgeImportError(err.response?.data?.error || err.message);
     } finally {
       setJudgeFileImportLoading(false);
+    }
+  }
+
+  function toggleJudgeDiscipline(discipline) {
+    setJudgeForm(current => {
+      const selected = new Set(current.judge_disciplines);
+      if (selected.has(discipline)) selected.delete(discipline);
+      else selected.add(discipline);
+      return { ...current, judge_disciplines: Array.from(selected) };
+    });
+  }
+
+  async function handleCreateJudge(e) {
+    e.preventDefault();
+    setJudgeFormError('');
+    setJudgeFormResult(null);
+
+    const coachingYears = Number(judgeForm.coaching_experience_years);
+    if (!judgeForm.birth_date) return setJudgeFormError('Укажите дату рождения');
+    if (!judgeForm.phone.trim()) return setJudgeFormError('Введите телефон');
+    if (!judgeForm.email.trim()) return setJudgeFormError('Введите email');
+    if (!Number.isInteger(coachingYears) || coachingYears < 0 || coachingYears > 80) {
+      return setJudgeFormError('Опыт тренерской работы должен быть целым числом от 0 до 80');
+    }
+    if (judgeForm.judge_disciplines.length === 0) {
+      return setJudgeFormError('Выберите хотя бы одну дисциплину для судейства');
+    }
+
+    setJudgeFormSaving(true);
+    try {
+      const { data } = await api.post('/admin/judges/import', {
+        entries: [{
+          birth_date: judgeForm.birth_date,
+          phone: judgeForm.phone.trim(),
+          email: judgeForm.email.trim(),
+          region: judgeForm.region,
+          judge_category: judgeForm.judge_category,
+          coaching_experience_years: coachingYears,
+          has_coaching_experience: coachingYears > 0,
+          judge_disciplines: judgeForm.judge_disciplines,
+          additional_info: judgeForm.additional_info.trim() || null,
+        }],
+      });
+
+      if (data.errors?.length) {
+        const firstError = data.errors[0];
+        const message = firstError.reason || firstError.issues?.map(issue => `${issue.path}: ${issue.message}`).join('; ');
+        setJudgeFormError(message || 'Не удалось добавить судью');
+        return;
+      }
+
+      setJudgeFormResult(data);
+      setJudgeForm(EMPTY_JUDGE_FORM);
+      loadUsers();
+    } catch (err) {
+      setJudgeFormError(err.response?.data?.error || err.message);
+    } finally {
+      setJudgeFormSaving(false);
     }
   }
 
@@ -503,26 +600,156 @@ export default function AdminPage() {
           )}
         </section>
 
-        {/* ── Импорт судей ──────────────────────────────────────────────── */}
+        {/* ── Добавление и импорт судей ─────────────────────────────────── */}
         <section className="admin-page__demo-panel">
           <div className="admin-page__demo-head">
             <div>
-              <h2>Импорт судей</h2>
+              <h2>Судейский корпус</h2>
               <p>
-                Bulk-импорт судей по схеме FormDesigner-формы{' '}
-                <a href="https://formdesigner.ru/form/view/245210" target="_blank" rel="noopener noreferrer">245210</a>.
+                Добавление и bulk-импорт судей по схеме FormDesigner-формы{' '}
+                <a href={`https://formdesigner.ru/form/view/${JUDGE_FORM_ID}`} target="_blank" rel="noopener noreferrer">{JUDGE_FORM_ID}</a>.
                 Валидация регионов / категорий / дисциплин через Zod. Дедупликация по{' '}
                 <code>external_id</code>, при отсутствии — по <code>email</code>.
               </p>
             </div>
-            <button
-              className="admin-page__btn admin-page__btn--primary admin-page__demo-main"
-              type="button"
-              onClick={() => setJudgeImportOpen(v => !v)}
-            >
-              {judgeImportOpen ? '✕ Закрыть форму' : 'Открыть форму импорта'}
-            </button>
+            <div className="admin-page__panel-actions">
+              <button
+                className="admin-page__btn admin-page__btn--primary admin-page__demo-main"
+                type="button"
+                onClick={() => setJudgeFormOpen(v => !v)}
+              >
+                {judgeFormOpen ? 'Закрыть добавление' : 'Добавить судью'}
+              </button>
+              <button
+                className="admin-page__btn admin-page__btn--secondary admin-page__demo-main"
+                type="button"
+                onClick={() => setJudgeImportOpen(v => !v)}
+              >
+                {judgeImportOpen ? 'Закрыть импорт' : 'Импорт XLSX/JSON'}
+              </button>
+            </div>
           </div>
+
+          {judgeFormOpen && (
+            <form className="admin-page__judge-form" onSubmit={handleCreateJudge}>
+              <div className="admin-page__judge-grid">
+                <label className="admin-page__field">
+                  <span>Дата рождения</span>
+                  <input
+                    type="date"
+                    value={judgeForm.birth_date}
+                    onChange={e => setJudgeForm(f => ({ ...f, birth_date: e.target.value }))}
+                    required
+                  />
+                </label>
+
+                <label className="admin-page__field">
+                  <span>Телефон</span>
+                  <input
+                    type="tel"
+                    value={judgeForm.phone}
+                    onChange={e => setJudgeForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="+7 (___) ___-__-__"
+                    autoComplete="tel"
+                    required
+                  />
+                </label>
+
+                <label className="admin-page__field">
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    value={judgeForm.email}
+                    onChange={e => setJudgeForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="judge@example.com"
+                    autoComplete="email"
+                    required
+                  />
+                </label>
+
+                <label className="admin-page__field">
+                  <span>Регион</span>
+                  <select
+                    value={judgeForm.region}
+                    onChange={e => setJudgeForm(f => ({ ...f, region: e.target.value }))}
+                  >
+                    {JUDGE_REGIONS.map(region => (
+                      <option key={region} value={region}>{region}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="admin-page__field">
+                  <span>Категория судьи</span>
+                  <select
+                    value={judgeForm.judge_category}
+                    onChange={e => setJudgeForm(f => ({ ...f, judge_category: e.target.value }))}
+                  >
+                    {JUDGE_CATEGORIES.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="admin-page__field">
+                  <span>Опыт тренерской работы</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="80"
+                    step="1"
+                    value={judgeForm.coaching_experience_years}
+                    onChange={e => setJudgeForm(f => ({ ...f, coaching_experience_years: e.target.value }))}
+                    required
+                  />
+                </label>
+              </div>
+
+              <fieldset className="admin-page__judge-disciplines">
+                <legend>Дисциплины для судейства</legend>
+                <div className="admin-page__checkbox-grid">
+                  {JUDGE_DISCIPLINES.map(discipline => (
+                    <label key={discipline} className="admin-page__checkbox">
+                      <input
+                        type="checkbox"
+                        checked={judgeForm.judge_disciplines.includes(discipline)}
+                        onChange={() => toggleJudgeDiscipline(discipline)}
+                      />
+                      <span>{discipline}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label className="admin-page__field admin-page__field--wide">
+                <span>Дополнительная информация</span>
+                <textarea
+                  value={judgeForm.additional_info}
+                  onChange={e => setJudgeForm(f => ({ ...f, additional_info: e.target.value }))}
+                  rows={3}
+                  placeholder="Другая дисциплина или комментарий"
+                />
+              </label>
+
+              {judgeFormError && (
+                <p className="admin-page__form-error">{judgeFormError}</p>
+              )}
+
+              {judgeFormResult && (
+                <p className="admin-page__form-success">
+                  {judgeFormResult.created?.length ? 'Судья добавлен' : 'Данные судьи обновлены'}
+                </p>
+              )}
+
+              <button
+                className="admin-page__btn admin-page__btn--primary"
+                type="submit"
+                disabled={judgeFormSaving}
+              >
+                {judgeFormSaving ? 'Сохранение…' : 'Сохранить судью'}
+              </button>
+            </form>
+          )}
 
           {judgeImportOpen && (
             <div className="admin-page__import-body" style={{ marginTop: '1rem' }}>
@@ -542,7 +769,7 @@ export default function AdminPage() {
                 </button>
               </div>
               <p style={{ margin: '0 0 .5rem' }}>
-                XLSX: первая строка — заголовки формы 245210. JSON: массив судей или объект <code>{'{ entries: [...] }'}</code>.
+                XLSX: первая строка — заголовки формы {JUDGE_FORM_ID}. JSON: массив судей или объект <code>{'{ entries: [...] }'}</code>.
                 Допустимые значения: <code>region</code> ∈ {'{Центральный, Северо-Западный, Южный, Северо-Кавказский, Приволжский, Уральский, Сибирский, Дальневосточный}'},{' '}
                 <code>judge_category</code> ∈ {'{Национальная, Региональная, Местная, Без категории}'},{' '}
                 <code>judge_disciplines</code> — массив из {'{Технический симулятор, ЛЗ/КЗ (класс А), ЛЗ/КЗ (класс Б), ЛЗ/КЗ (класс В), Другая дисциплина (укажите)}'}.
@@ -560,7 +787,7 @@ export default function AdminPage() {
     "coaching_experience_years": 0,
     "judge_disciplines": ["ЛЗ/КЗ (класс Б)"],
     "additional_info": "Готов судить класс Б",
-    "external_id": "fd-245210-001"
+    "external_id": "fd-245211-001"
   }
 ]`}
                 </pre>

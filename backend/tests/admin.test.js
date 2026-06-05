@@ -469,9 +469,9 @@ describe('Admin Functions', () => {
       expect(rows).toHaveLength(0);
     });
 
-    test('Imports judge application rows from form 245210 XLSX', async () => {
+    test('Imports judge application rows from form 245211 XLSX', async () => {
       const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet('245210');
+      const sheet = workbook.addWorksheet('245211');
       sheet.addRow([
         'Email',
         'Телефон',
@@ -500,15 +500,15 @@ describe('Admin Functions', () => {
         .post('/api/admin/judges/import/xlsx')
         .set('Authorization', authHeader(adminUser.id, 'admin'))
         .attach('file', buffer, {
-          filename: 'judges-245210.xlsx',
+          filename: 'judges-245211.xlsx',
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         });
 
       expect(res.statusCode).toBe(207);
       expect(res.body.source).toMatchObject({
-        filename: 'judges-245210.xlsx',
+        filename: 'judges-245211.xlsx',
         rows: 1,
-        form: '245210',
+        form: '245211',
       });
       expect(res.body.created).toHaveLength(1);
       expect(res.body.created[0]).toHaveProperty('row', 2);
@@ -538,6 +538,54 @@ describe('Admin Functions', () => {
         'ЛЗ/КЗ (класс Б)',
         'Технический симулятор',
       ]);
+    });
+
+    test('Creates a judge from the manual FormDesigner 245211 fields', async () => {
+      const res = await request(app)
+        .post('/api/admin/judges/import')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({
+          entries: [{
+            email: 'test_admin_judge_manual_245211@feosport.local',
+            phone: '(978) 984-23-13',
+            birth_date: '1997-06-13',
+            region: 'Северо-Западный',
+            judge_category: 'Национальная',
+            coaching_experience_years: 0,
+            judge_disciplines: ['ЛЗ/КЗ (класс Б)'],
+            additional_info: 'manual form row',
+          }],
+        });
+
+      expect(res.statusCode).toBe(207);
+      expect(res.body.created).toHaveLength(1);
+      expect(res.body.updated).toHaveLength(0);
+      expect(res.body.errors).toHaveLength(0);
+
+      const { rows } = await pool.query(
+        `SELECT u.email, to_char(u.birth_date, 'YYYY-MM-DD') AS birth_date,
+                u.phone, u.region, u.judge_category,
+                u.coaching_experience_years, u.has_coaching_experience,
+                u.judge_disciplines, u.additional_info, r.name AS role
+           FROM users u
+           JOIN roles r ON r.id = u.role_id
+          WHERE u.email = $1`,
+        ['test_admin_judge_manual_245211@feosport.local']
+      );
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        email: 'test_admin_judge_manual_245211@feosport.local',
+        phone: '(978) 984-23-13',
+        birth_date: '1997-06-13',
+        region: 'Северо-Западный',
+        judge_category: 'Национальная',
+        coaching_experience_years: 0,
+        has_coaching_experience: false,
+        additional_info: 'manual form row',
+        role: 'judge',
+      });
+      expect(rows[0].judge_disciplines).toEqual(['ЛЗ/КЗ (класс Б)']);
     });
   });
 });

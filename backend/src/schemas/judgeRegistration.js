@@ -20,8 +20,8 @@ function optionalInteger(min, max, message) {
   );
 }
 
-// One judge entry coming from FormDesigner form 245210 OR a manual import.
-// Form 245210 does not require a full name in the visible fields, so fio is
+// One judge entry coming from FormDesigner form 245211 OR a manual import.
+// Form 245211 does not require a full name in the visible fields, so fio is
 // optional here; if present, it is split into users first/last/middle names.
 const judgeRegistrationEntrySchema = z.object({
   fio: z.string().min(2, 'FIO must be at least 2 characters').max(300).nullish(),

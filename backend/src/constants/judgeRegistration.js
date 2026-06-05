@@ -1,7 +1,7 @@
 'use strict';
 
 // Source of truth for allowed dropdown values in judge registration.
-// Mirrors the FormDesigner form 245210
+// Mirrors the FormDesigner form 245211
 // "Заявка на Участие в Судейском Корпусе".
 //
 // Used by:
@@ -24,7 +24,7 @@ const REGIONS = Object.freeze([
   'Дальневосточный',
 ]);
 
-// Судейская категория из формы 245210.
+// Судейская категория из формы 245211.
 const JUDGE_CATEGORIES = Object.freeze([
   'Национальная',
   'Региональная',
