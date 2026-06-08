@@ -426,7 +426,28 @@
     &--error { color: var(--color-error, #ff5555); }
   }
 
+  // ── Массовые действия ─────────────────────────────────────────────────────
+  &__bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 107, 107, 0.35);
+    background: rgba(255, 107, 107, 0.08);
+    font-size: 13px;
+    color: var(--color-text-primary, #e0e0ff);
+  }
+
   // ── Таблица ───────────────────────────────────────────────────────────────
+  &__cell-check {
+    width: 36px;
+    text-align: center;
+
+    input { cursor: pointer; }
+  }
+
   &__table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;

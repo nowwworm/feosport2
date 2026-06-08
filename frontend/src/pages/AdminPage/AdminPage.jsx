@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api    from '../../services/api';
 import Header from '../../components/Header/Header';
+import { useAuth } from '../../context/AuthContext';
 import './AdminPage.scss';
 
 const ROLES = ['admin', 'chief_judge', 'judge', 'pilot'];
@@ -133,6 +134,7 @@ function ImportResultDetails({ result }) {
 }
 
 export default function AdminPage() {
+  const { user: currentUser } = useAuth();
   const [users,   setUsers]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
@@ -177,6 +179,8 @@ export default function AdminPage() {
   const [savingPwd,  setSavingPwd]  = useState(null);
   const [savingRole, setSavingRole] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const loadUsers = useCallback(() => {
     setLoading(true);
@@ -457,6 +461,48 @@ export default function AdminPage() {
       alert(err.response?.data?.error || 'Не удалось удалить пользователя');
     } finally {
       setDeletingUser(null);
+    }
+  }
+
+  // ── Выбор учёток (чекбоксы) ────────────────────────────────────────────────
+  const selectableIds = users.filter(u => u.id !== currentUser?.id).map(u => u.id);
+  const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedIds.has(id));
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
+  }
+
+  // ── Удаление выбранных учёток ──────────────────────────────────────────────
+  async function handleDeleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Удалить выбранные учётки (${ids.length})? Действие необратимо.`)) return;
+
+    setBulkDeleting(true);
+    const failed = [];
+    for (const id of ids) {
+      try {
+        await api.delete(`/admin/users/${id}`);
+      } catch (err) {
+        failed.push({ id, reason: err.response?.data?.error || err.message });
+      }
+    }
+    const deletedIds = ids.filter(id => !failed.some(f => f.id === id));
+    setUsers(prev => prev.filter(u => !deletedIds.includes(u.id)));
+    setSelectedIds(new Set());
+    setBulkDeleting(false);
+
+    if (failed.length) {
+      alert(`Удалено ${deletedIds.length}, не удалось ${failed.length}:\n` +
+        failed.map(f => `#${f.id}: ${f.reason}`).join('\n'));
     }
   }
 
@@ -920,12 +966,35 @@ export default function AdminPage() {
         {loading && <p className="admin-page__state">Загрузка…</p>}
         {error   && <p className="admin-page__state admin-page__state--error">{error}</p>}
 
+        {/* ── Панель массовых действий ──────────────────────────────────── */}
+        {!loading && !error && selectedIds.size > 0 && (
+          <div className="admin-page__bulk-bar">
+            <span>Выбрано: {selectedIds.size}</span>
+            <button
+              className="admin-page__btn admin-page__btn--danger"
+              type="button"
+              disabled={bulkDeleting}
+              onClick={handleDeleteSelected}
+            >
+              {bulkDeleting ? 'Удаление…' : `Удалить выбранные (${selectedIds.size})`}
+            </button>
+          </div>
+        )}
+
         {/* ── Таблица пользователей ─────────────────────────────────────── */}
         {!loading && !error && (
           <div className="admin-page__table-wrap">
             <table className="admin-page__table">
               <thead>
                 <tr>
+                  <th className="admin-page__cell-check">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Выбрать все"
+                    />
+                  </th>
                   <th>#</th>
                   <th>E-mail</th>
                   <th>Роль</th>
@@ -941,6 +1010,16 @@ export default function AdminPage() {
                     key={u.id}
                     className={`admin-page__row${!u.is_active ? ' admin-page__row--inactive' : ''}`}
                   >
+                    <td className="admin-page__cell-check" data-label="">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(u.id)}
+                        disabled={u.id === currentUser?.id}
+                        onChange={() => toggleSelect(u.id)}
+                        aria-label={`Выбрать ${u.email}`}
+                      />
+                    </td>
+
                     <td className="admin-page__cell-id" data-label="#">{u.id}</td>
 
                     <td data-label="E-mail">{u.email}</td>
