@@ -46,21 +46,6 @@ const EMPTY_JUDGE_FORM = {
   judge_disciplines: [],
   additional_info: '',
 };
-const TMX_URL = import.meta.env.VITE_TMX_URL || '/tmx/';
-const TMX_LINKS = [
-  { label: 'Турниры', href: '#/tournaments' },
-  { label: 'Топологии', href: '#/templates/topologies' },
-  { label: 'Форматы матчей', href: '#/templates/tieformats' },
-  { label: 'Композиции', href: '#/templates/compositions' },
-  { label: 'Политики', href: '#/policies' },
-  { label: 'Настройки', href: '#/settings' },
-];
-
-function tmxHref(hash = '') {
-  if (!hash) return TMX_URL;
-  return `${TMX_URL.replace(/\/?$/, '/')}${hash}`;
-}
-
 // Ярлык строки импорта: ФИО, затем email — из самого элемента или из entry
 // (ошибки несут entry целиком, успешные строки — только fio/email).
 function importItemLabel(item) {
@@ -509,36 +494,6 @@ export default function AdminPage() {
               </div>
             </div>
           )}
-        </section>
-
-        <section className="admin-page__tmx-panel">
-          <div className="admin-page__tmx-head">
-            <div>
-              <h2>TMX</h2>
-              <p>Отдельный модуль турнирных сеток, шаблонов форматов, политик и печати сетки.</p>
-            </div>
-            <a
-              className="admin-page__btn admin-page__btn--primary admin-page__tmx-main"
-              href={tmxHref()}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Открыть TMX ↗
-            </a>
-          </div>
-          <div className="admin-page__tmx-links" aria-label="Быстрые ссылки TMX">
-            {TMX_LINKS.map(link => (
-              <a
-                key={link.href}
-                className="admin-page__tmx-link"
-                href={tmxHref(link.href)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
         </section>
 
         <section className="admin-page__demo-panel">
