@@ -67,53 +67,81 @@ function importItemLabel(item) {
   return item.fio || item.entry?.fio || item.email || item.entry?.email || '(без имени)';
 }
 
-function ImportResultGroup({ title, items, open, renderExtra }) {
+function ImportResultGroup({ title, items, tone, renderExtra }) {
   if (!items?.length) return null;
   return (
-    <details open={open}>
-      <summary style={{ cursor: 'pointer' }}>{title}: {items.length}</summary>
-      <ul style={{ margin: '.5rem 0 0', paddingLeft: '1.25rem', fontSize: 13 }}>
+    <details className={`admin-page__import-group admin-page__import-group--${tone}`} open>
+      <summary>{title} · {items.length}</summary>
+      <ul className="admin-page__import-list">
         {items.slice(0, 50).map((it, i) => (
           <li key={i}>
-            <code>{it.row ? `строка ${it.row}` : `#${it.index}`}</code> {importItemLabel(it)}{renderExtra ? renderExtra(it) : null}
+            <span className="admin-page__import-row">{it.row ? `строка ${it.row}` : `#${it.index}`}</span>
+            <span className="admin-page__import-name">{importItemLabel(it)}</span>
+            {renderExtra ? renderExtra(it) : null}
           </li>
         ))}
-        {items.length > 50 && <li>…ещё {items.length - 50}</li>}
+        {items.length > 50 && <li className="admin-page__import-more">…ещё {items.length - 50}</li>}
       </ul>
     </details>
   );
 }
 
-// Подробный результат bulk-импорта (пилоты и судьи): счётчики + по-строчная
-// разбивка на созданных, обновлённых и ошибочные записи.
+// Подробный результат bulk-импорта (пилоты и судьи): цветной баннер статуса,
+// человекочитаемый итог и по-строчная разбивка созданных/обновлённых/ошибок.
 function ImportResultDetails({ result }) {
   if (!result) return null;
   const created = result.created || [];
   const updated = result.updated || [];
   const errors  = result.errors  || [];
+
+  const status = errors.length === 0
+    ? 'ok'
+    : (created.length + updated.length > 0 ? 'partial' : 'fail');
+  const statusText = {
+    ok:      'Импорт завершён успешно',
+    partial: 'Импорт завершён с ошибками',
+    fail:    'Импорт не выполнен',
+  }[status];
+  const statusIcon = { ok: '✓', partial: '!', fail: '×' }[status];
+
+  const parts = [];
+  if (created.length) parts.push(`добавлено ${created.length}`);
+  if (updated.length) parts.push(`обновлено ${updated.length}`);
+  if (errors.length)  parts.push(`ошибок ${errors.length}`);
+  const summary = parts.length ? parts.join(', ') : 'нет записей';
+
   return (
-    <div className="admin-page__demo-result" style={{ marginTop: '.75rem' }}>
-      <strong>Результат импорта</strong>
-      {result.source && (
-        <span>
-          {result.source.filename}: строк {result.source.rows}
-          {result.source.form ? ` · форма ${result.source.form}` : ''}
-        </span>
-      )}
-      <span>✓ Создано: {created.length}</span>
-      <span>↻ Обновлено: {updated.length}</span>
-      <span>✗ Ошибок: {errors.length}</span>
+    <div className={`admin-page__import-result admin-page__import-result--${status}`}>
+      <div className="admin-page__import-banner">
+        <span className="admin-page__import-banner-icon">{statusIcon}</span>
+        <div>
+          <strong>{statusText}</strong>
+          <div className="admin-page__import-banner-sub">
+            {result.source
+              ? `${result.source.filename} · форма ${result.source.form} · строк ${result.source.rows} · `
+              : ''}
+            {summary}
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-page__import-stats">
+        <span className="admin-page__import-stat admin-page__import-stat--ok">＋ Создано {created.length}</span>
+        <span className="admin-page__import-stat admin-page__import-stat--upd">↻ Обновлено {updated.length}</span>
+        <span className={`admin-page__import-stat admin-page__import-stat--err${errors.length ? ' is-active' : ''}`}>✗ Ошибок {errors.length}</span>
+      </div>
+
       <ImportResultGroup
-        title="Созданные" items={created}
-        renderExtra={(it) => ` → id ${it.pilot_id || it.id}`}
+        title="Созданные" items={created} tone="ok"
+        renderExtra={(it) => <span className="admin-page__import-id">id {it.pilot_id || it.id}</span>}
       />
       <ImportResultGroup
-        title="Обновлённые" items={updated}
-        renderExtra={(it) => ` → id ${it.pilot_id || it.id}`}
+        title="Обновлённые" items={updated} tone="upd"
+        renderExtra={(it) => <span className="admin-page__import-id">id {it.pilot_id || it.id}</span>}
       />
       <ImportResultGroup
-        title="Ошибки" items={errors} open
-        renderExtra={(it) => `: ${it.reason || (it.issues || []).map(x => `${x.path} — ${x.message}`).join('; ')}`}
+        title="Ошибки" items={errors} tone="err"
+        renderExtra={(it) => <span className="admin-page__import-reason">{it.reason || (it.issues || []).map(x => `${x.path} — ${x.message}`).join('; ')}</span>}
       />
     </div>
   );
