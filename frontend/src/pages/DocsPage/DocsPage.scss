@@ -151,4 +151,19 @@
       &:last-child { margin-bottom: 0; }
     }
   }
+
+  &__steps {
+    margin: 4px 0 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    li {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--color-text-primary, #e0e0ff);
+      opacity: 0.9;
+    }
+  }
 }

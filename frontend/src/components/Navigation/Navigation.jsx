@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { to: '/penalties',    label: 'Штрафы',     icon: '⚖', roles: ['judge', 'chief_judge', 'admin', 'pilot'], type: 'link' },
   { to: '/protocols',    label: 'Протоколы',  icon: '📄', roles: ['judge', 'chief_judge', 'admin'],         type: 'link' },
   { to: '/admin',        label: 'Аккаунты',   icon: '⚙', roles: ['admin'],                                type: 'link' },
-  { to: '/docs',         label: 'Справка',    icon: '?', roles: ['admin', 'chief_judge'],                  type: 'link' },
+  { to: '/docs',         label: 'Документация', icon: '?', roles: null,                                    type: 'link' },
 ];
 
 const MAX_PRIMARY = 4;
