@@ -100,7 +100,7 @@ function AppRoutes() {
           <Route
             path="/docs"
             element={
-              <PrivateRoute roles={['admin', 'chief_judge']}>
+              <PrivateRoute>
                 <DocsPage />
               </PrivateRoute>
             }
