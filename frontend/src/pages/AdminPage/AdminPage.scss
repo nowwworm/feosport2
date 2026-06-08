@@ -13,7 +13,6 @@
   }
 
   &__db-panel,
-  &__tmx-panel,
   &__demo-panel {
     background: var(--color-surface, #1a1a2e);
     border: 1px solid var(--color-border, #2a2a4a);
@@ -23,7 +22,6 @@
   }
 
   &__db-head,
-  &__tmx-head,
   &__demo-head {
     display: flex;
     align-items: flex-start;
@@ -46,17 +44,8 @@
     }
   }
 
-  &__tmx-head {
-    align-items: center;
-  }
-
   &__demo-head {
     align-items: center;
-  }
-
-  &__tmx-main {
-    text-decoration: none;
-    white-space: nowrap;
   }
 
   &__demo-main {
@@ -225,32 +214,6 @@
   &__import-reason { color: #ff8787; }
 
   &__import-more { font-style: italic; }
-
-  &__tmx-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  &__tmx-link {
-    display: inline-flex;
-    align-items: center;
-    min-height: 34px;
-    padding: 0 12px;
-    background: var(--color-input-bg, #111128);
-    border: 1px solid var(--color-border, #2a2a4a);
-    border-radius: 6px;
-    color: var(--color-text-primary, #e0e0ff);
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: opacity 0.15s, border-color 0.15s;
-
-    &:hover {
-      opacity: 0.85;
-      border-color: var(--color-accent, #6c63ff);
-    }
-  }
 
   &__db-actions {
     display: flex;
@@ -573,7 +536,6 @@
 @media (max-width: 720px) {
   .admin-page {
     &__db-head,
-    &__tmx-head,
     &__demo-head {
       flex-direction: column;
     }
@@ -584,7 +546,6 @@
       width: 100%;
     }
 
-    &__tmx-main,
     &__demo-main {
       width: 100%;
       justify-content: center;
