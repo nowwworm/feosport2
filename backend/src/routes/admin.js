@@ -211,6 +211,37 @@ router.patch('/users/:id', adminOnly, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  DELETE /api/admin/users/:id  — безвозвратно удалить пользователя
+// ─────────────────────────────────────────────────────────────────────────────
+router.delete('/users/:id', adminOnly, async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid id' });
+
+  // Нельзя удалить самого себя (см. PATCH — самосанкция запрещена).
+  if (userId === req.user.id) {
+    return res.status(403).json({ error: 'Cannot delete your own account' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      'DELETE FROM users WHERE id = $1 RETURNING id, email',
+      [userId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json({ deleted: rows[0].id, email: rows[0].email });
+  } catch (err) {
+    // 23503 — foreign_key_violation: на пользователя ссылаются другие записи.
+    if (err.code === '23503') {
+      return res.status(409).json({
+        error: 'На пользователя ссылаются другие записи — удаление невозможно',
+      });
+    }
+    console.error('[admin/users DELETE]', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  GET /api/admin/export/pilots.csv  — скачать всех пилотов в CSV
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/export/pilots.csv', adminOrChief, async (req, res) => {
