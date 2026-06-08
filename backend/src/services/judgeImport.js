@@ -346,7 +346,7 @@ async function importJudgeEntries(entries) {
             existingUser.id,
           ]
         );
-        updated.push({ id: rows[0].id, email: rows[0].email, index: i });
+        updated.push({ id: rows[0].id, email: rows[0].email, index: i, fio: data.fio || null });
       } else {
         const tempPwd = randomBytes(8).toString('hex');
         const pwdHash = await bcrypt.hash(tempPwd, 10);
@@ -383,7 +383,7 @@ async function importJudgeEntries(entries) {
             externalId,
           ]
         );
-        created.push({ id: rows[0].id, email: rows[0].email, index: i });
+        created.push({ id: rows[0].id, email: rows[0].email, index: i, fio: data.fio || null });
       }
     } catch (err) {
       errors.push({
