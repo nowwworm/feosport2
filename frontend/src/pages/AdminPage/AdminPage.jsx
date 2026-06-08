@@ -802,11 +802,7 @@ export default function AdminPage() {
                 <p className="admin-page__form-error">{judgeFormError}</p>
               )}
 
-              {judgeFormResult && (
-                <p className="admin-page__form-success">
-                  {judgeFormResult.created?.length ? 'Судья добавлен' : 'Данные судьи обновлены'}
-                </p>
-              )}
+              {judgeFormResult && <ImportResultDetails result={judgeFormResult} />}
 
               <button
                 className="admin-page__btn admin-page__btn--primary"
