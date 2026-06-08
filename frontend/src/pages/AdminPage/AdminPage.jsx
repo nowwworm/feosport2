@@ -176,6 +176,7 @@ export default function AdminPage() {
   const [editPwd,    setEditPwd]    = useState({}); // { [userId]: newPwd }
   const [savingPwd,  setSavingPwd]  = useState(null);
   const [savingRole, setSavingRole] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(null);
 
   const loadUsers = useCallback(() => {
     setLoading(true);
@@ -442,6 +443,20 @@ export default function AdminPage() {
       alert('Не удалось сменить пароль');
     } finally {
       setSavingPwd(null);
+    }
+  }
+
+  // ── Удаление пользователя ──────────────────────────────────────────────────
+  async function handleDeleteUser(user) {
+    if (!window.confirm(`Удалить пользователя ${user.email}? Действие необратимо.`)) return;
+    setDeletingUser(user.id);
+    try {
+      await api.delete(`/admin/users/${user.id}`);
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Не удалось удалить пользователя');
+    } finally {
+      setDeletingUser(null);
     }
   }
 
@@ -917,6 +932,7 @@ export default function AdminPage() {
                   <th>Статус</th>
                   <th>Пароль</th>
                   <th>Зарегистрирован</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -979,6 +995,17 @@ export default function AdminPage() {
 
                     <td className="admin-page__cell-date" data-label="Зарегистрирован">
                       {new Date(u.created_at).toLocaleDateString('ru-RU')}
+                    </td>
+
+                    <td data-label="">
+                      <button
+                        className="admin-page__btn admin-page__btn--sm admin-page__btn--danger"
+                        disabled={deletingUser === u.id}
+                        onClick={() => handleDeleteUser(u)}
+                        title="Удалить пользователя"
+                      >
+                        {deletingUser === u.id ? '…' : 'Удалить'}
+                      </button>
                     </td>
                   </tr>
                 ))}

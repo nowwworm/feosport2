@@ -407,6 +407,13 @@
       color: #fff;
       margin-left: 6px;
     }
+
+    &--danger {
+      background: transparent;
+      border: 1px solid rgba(255, 107, 107, 0.5);
+      color: #ff6b6b;
+      margin-left: 0;
+    }
   }
 
   // ── Состояния ─────────────────────────────────────────────────────────────

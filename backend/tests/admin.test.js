@@ -179,6 +179,47 @@ describe('Admin Functions', () => {
     });
   });
 
+  describe('DELETE /api/admin/users/:id', () => {
+    test('Admin can delete another user', async () => {
+      const createRes = await request(app)
+        .post('/api/admin/users')
+        .set('Authorization', authHeader(adminUser.id, 'admin'))
+        .send({ email: 'test_admin_delete_target@feosport.local', password: 'password123', role: 'judge' });
+      expect([200, 201]).toContain(createRes.statusCode);
+      const id = createRes.body.id;
+
+      const res = await request(app)
+        .delete(`/api/admin/users/${id}`)
+        .set('Authorization', authHeader(adminUser.id, 'admin'));
+      expect(res.statusCode).toBe(200);
+      expect(res.body.deleted).toBe(id);
+
+      const { rows } = await pool.query('SELECT id FROM users WHERE id = $1', [id]);
+      expect(rows).toHaveLength(0);
+    });
+
+    test('Admin cannot delete own account', async () => {
+      const res = await request(app)
+        .delete(`/api/admin/users/${adminUser.id}`)
+        .set('Authorization', authHeader(adminUser.id, 'admin'));
+      expect(res.statusCode).toBe(403);
+    });
+
+    test('Non-admin cannot delete users', async () => {
+      const res = await request(app)
+        .delete(`/api/admin/users/${judgeUser.id}`)
+        .set('Authorization', authHeader(judgeUser.id, 'judge'));
+      expect(res.statusCode).toBe(403);
+    });
+
+    test('Deleting a missing user returns 404', async () => {
+      const res = await request(app)
+        .delete('/api/admin/users/99999999')
+        .set('Authorization', authHeader(adminUser.id, 'admin'));
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
   describe('GET /api/admin/db/status', () => {
     test('Returns PostgreSQL connection status', async () => {
       const res = await request(app)
