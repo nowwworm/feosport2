@@ -71,6 +71,26 @@ describe('Полный цикл соревнования (docs steps 1-12)', () 
     await pool.end();
   });
 
+  // Проставить finish_place всем участникам каждой группы этапа (1..N по порядку),
+  // чтобы advance прошёл проверку полноты результатов и посчитал очки.
+  async function completeKnockoutStage(stageType, compId = competitionId) {
+    const stages = await request(app)
+      .get(`/api/competitions/${compId}/stages`)
+      .set('Authorization', adminAuth);
+    const stage = stages.body.find(s => s.stage_type === stageType);
+    expect(stage).toBeTruthy();
+    for (const group of stage.groups) {
+      for (let i = 0; i < group.participants.length; i++) {
+        await request(app)
+          .patch(`/api/group-participants/${group.participants[i].id}`)
+          .set('Authorization', chiefAuth)
+          .send({ finish_place: i + 1 })
+          .expect(200);
+      }
+    }
+    return stage;
+  }
+
   // ── Шаг 1. Вход администратора ───────────────────────────────────────────
   test('Шаг 1: вход администратора возвращает токен', async () => {
     const res = await request(app)
@@ -288,6 +308,34 @@ describe('Полный цикл соревнования (docs steps 1-12)', () 
     expect(res.body.groups).toHaveLength(4);
   });
 
+  // ── Шаг 9b. Полный проход плей-офф: 1/4 → 1/2 → финал ────────────────────
+  test('Шаг 9b: полный проход 1/4 → 1/2 → финал с простановкой мест', async () => {
+    // 1/4 финала: проставляем места и переходим в 1/2.
+    await completeKnockoutStage('quarterfinal');
+    const semi = await request(app)
+      .post(`/api/competitions/${competitionId}/stages/advance`)
+      .set('Authorization', adminAuth)
+      .send({ from_stage_type: 'quarterfinal' });
+    expect(semi.statusCode).toBe(201);
+    expect(semi.body.stage_type).toBe('semifinal');
+    expect(semi.body.groups).toHaveLength(2);
+
+    // 1/2 финала: проставляем места и переходим в финал.
+    await completeKnockoutStage('semifinal');
+    const final = await request(app)
+      .post(`/api/competitions/${competitionId}/stages/advance`)
+      .set('Authorization', adminAuth)
+      .send({ from_stage_type: 'semifinal' });
+    expect(final.statusCode).toBe(201);
+    expect(final.body.stage_type).toBe('final');
+    expect(final.body.groups).toHaveLength(1);
+
+    // Финал: проставляем итоговые места группы.
+    const finalStage = await completeKnockoutStage('final');
+    const places = finalStage.groups[0].participants.length;
+    expect(places).toBe(4);
+  });
+
   // ── Шаг 10. Штрафы и протесты ────────────────────────────────────────────
   test('Шаг 10: штраф, протест и решение ГСК', async () => {
     // Завершённый вылет в 5-минутном окне для подачи протеста.
@@ -336,6 +384,10 @@ describe('Полный цикл соревнования (docs steps 1-12)', () 
       .get(`/api/competitions/${competitionId}/standings`)
       .set('Authorization', adminAuth);
     expect(standings.statusCode).toBe(200);
+    expect(Array.isArray(standings.body.standings)).toBe(true);
+    expect(standings.body.standings.length).toBeGreaterThan(0);
+    // После плей-офф проставлены finish_place → набраны очки, и список отсортирован по убыванию.
+    expect(standings.body.standings[0].total_points).toBeGreaterThan(0);
 
     const leaderboard = await request(app)
       .get(`/api/competitions/${competitionId}/leaderboard`)
@@ -365,5 +417,64 @@ describe('Полный цикл соревнования (docs steps 1-12)', () 
       .set('Authorization', adminAuth);
     expect(history.statusCode).toBe(200);
     expect(history.body.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // ── Негативные кейсы ─────────────────────────────────────────────────────
+  describe('Негативные кейсы', () => {
+    test('протест вне 5-минутного окна отклоняется (400)', async () => {
+      const heat = await request(app)
+        .post('/api/heats')
+        .set('Authorization', chiefAuth)
+        .send({
+          competition_id: competitionId,
+          round_type: 'qualification',
+          heat_number: 500,
+          participants: [{ pilot_id: pilotIds[0], lane: 1 }],
+        });
+      expect(heat.statusCode).toBe(201);
+
+      // Завершаем вылет «6 минут назад» — окно подачи протеста уже закрыто.
+      await pool.query(
+        `UPDATE heats SET status = 'completed', ended_at = $1 WHERE id = $2`,
+        [new Date(Date.now() - 6 * 60 * 1000), heat.body.id]
+      );
+
+      const res = await request(app)
+        .post(`/api/competitions/${competitionId}/protests`)
+        .set('Authorization', pilotAuth)
+        .send({ heat_id: heat.body.id, subject_pilot_id: pilotIds[0], description: 'too late' });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toMatch(/window_expired/);
+    });
+
+    test('advance при неполных результатах этапа отклоняется (400)', async () => {
+      // Отдельное соревнование, чтобы не трогать основной цикл.
+      const comp = await request(app)
+        .post('/api/competitions')
+        .set('Authorization', adminAuth)
+        .send({ name: 'Cycle Negative', location: 'X', playoff_size: 16 });
+      await request(app)
+        .patch(`/api/competitions/${comp.body.id}`)
+        .set('Authorization', adminAuth)
+        .send({ discipline_id: disciplineId, race_system_id: raceSystemId })
+        .expect(200);
+
+      // qualification → quarterfinal по явному ranked_qualifiers (без результатов).
+      await request(app)
+        .post(`/api/competitions/${comp.body.id}/stages/advance`)
+        .set('Authorization', adminAuth)
+        .send({ from_stage_type: 'qualification', ranked_qualifiers: pilotIds })
+        .expect(201);
+
+      // Попытка перейти из 1/4 без проставленных мест.
+      const res = await request(app)
+        .post(`/api/competitions/${comp.body.id}/stages/advance`)
+        .set('Authorization', adminAuth)
+        .send({ from_stage_type: 'quarterfinal' });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe('previous_stage_results_incomplete');
+    });
   });
 });
