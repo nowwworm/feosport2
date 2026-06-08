@@ -271,9 +271,9 @@ async function importPilotEntries(entries) {
 
       const row = rows[0];
       if (row.inserted) {
-        results.created.push({ index: i, pilot_id: row.id });
+        results.created.push({ index: i, pilot_id: row.id, fio: entry.fio });
       } else {
-        results.updated.push({ index: i, pilot_id: row.id });
+        results.updated.push({ index: i, pilot_id: row.id, fio: entry.fio });
       }
     } catch (err) {
       console.error(`[import] entry ${i} (${entry.fio}):`, err.message);

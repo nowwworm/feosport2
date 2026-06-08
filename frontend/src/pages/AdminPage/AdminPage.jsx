@@ -61,6 +61,64 @@ function tmxHref(hash = '') {
   return `${TMX_URL.replace(/\/?$/, '/')}${hash}`;
 }
 
+// Ярлык строки импорта: ФИО, затем email — из самого элемента или из entry
+// (ошибки несут entry целиком, успешные строки — только fio/email).
+function importItemLabel(item) {
+  return item.fio || item.entry?.fio || item.email || item.entry?.email || '(без имени)';
+}
+
+function ImportResultGroup({ title, items, open, renderExtra }) {
+  if (!items?.length) return null;
+  return (
+    <details open={open}>
+      <summary style={{ cursor: 'pointer' }}>{title}: {items.length}</summary>
+      <ul style={{ margin: '.5rem 0 0', paddingLeft: '1.25rem', fontSize: 13 }}>
+        {items.slice(0, 50).map((it, i) => (
+          <li key={i}>
+            <code>{it.row ? `строка ${it.row}` : `#${it.index}`}</code> {importItemLabel(it)}{renderExtra ? renderExtra(it) : null}
+          </li>
+        ))}
+        {items.length > 50 && <li>…ещё {items.length - 50}</li>}
+      </ul>
+    </details>
+  );
+}
+
+// Подробный результат bulk-импорта (пилоты и судьи): счётчики + по-строчная
+// разбивка на созданных, обновлённых и ошибочные записи.
+function ImportResultDetails({ result }) {
+  if (!result) return null;
+  const created = result.created || [];
+  const updated = result.updated || [];
+  const errors  = result.errors  || [];
+  return (
+    <div className="admin-page__demo-result" style={{ marginTop: '.75rem' }}>
+      <strong>Результат импорта</strong>
+      {result.source && (
+        <span>
+          {result.source.filename}: строк {result.source.rows}
+          {result.source.form ? ` · форма ${result.source.form}` : ''}
+        </span>
+      )}
+      <span>✓ Создано: {created.length}</span>
+      <span>↻ Обновлено: {updated.length}</span>
+      <span>✗ Ошибок: {errors.length}</span>
+      <ImportResultGroup
+        title="Созданные" items={created}
+        renderExtra={(it) => ` → id ${it.pilot_id || it.id}`}
+      />
+      <ImportResultGroup
+        title="Обновлённые" items={updated}
+        renderExtra={(it) => ` → id ${it.pilot_id || it.id}`}
+      />
+      <ImportResultGroup
+        title="Ошибки" items={errors} open
+        renderExtra={(it) => `: ${it.reason || (it.issues || []).map(x => `${x.path} — ${x.message}`).join('; ')}`}
+      />
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [users,   setUsers]   = useState([]);
   const [loading, setLoading] = useState(true);
@@ -576,32 +634,7 @@ export default function AdminPage() {
                 <p className="admin-page__demo-error" style={{ marginTop: '.75rem' }}>{importError}</p>
               )}
 
-              {importResult && (
-                <div className="admin-page__demo-result" style={{ marginTop: '.75rem' }}>
-                  <strong>Результат импорта</strong>
-                  {importResult.source && (
-                    <span>{importResult.source.filename}: строк {importResult.source.rows}</span>
-                  )}
-                  <span>✓ Создано: {importResult.created?.length || 0}</span>
-                  <span>↻ Обновлено: {importResult.updated?.length || 0}</span>
-                  <span>✗ Ошибок: {importResult.errors?.length || 0}</span>
-                  {importResult.errors?.length > 0 && (
-                    <details>
-                      <summary style={{ cursor: 'pointer' }}>Список ошибок</summary>
-                      <ul style={{ margin: '.5rem 0 0', paddingLeft: '1.25rem', fontSize: 13 }}>
-                        {importResult.errors.slice(0, 20).map((e, i) => (
-                          <li key={i}>
-                            <code>{e.row ? `строка ${e.row}` : `#${e.index}`}</code> {e.entry?.fio || '(no fio)'}: {e.reason}
-                          </li>
-                        ))}
-                        {importResult.errors.length > 20 && (
-                          <li>…ещё {importResult.errors.length - 20}</li>
-                        )}
-                      </ul>
-                    </details>
-                  )}
-                </div>
-              )}
+              {importResult && <ImportResultDetails result={importResult} />}
             </div>
           )}
         </section>
@@ -821,33 +854,7 @@ export default function AdminPage() {
                 <p className="admin-page__demo-error" style={{ marginTop: '.75rem' }}>{judgeImportError}</p>
               )}
 
-              {judgeImportResult && (
-                <div className="admin-page__demo-result" style={{ marginTop: '.75rem' }}>
-                  <strong>Результат импорта</strong>
-                  {judgeImportResult.source && (
-                    <span>{judgeImportResult.source.filename}: строк {judgeImportResult.source.rows}</span>
-                  )}
-                  <span>✓ Создано: {judgeImportResult.created?.length || 0}</span>
-                  <span>↻ Обновлено: {judgeImportResult.updated?.length || 0}</span>
-                  <span>✗ Ошибок: {judgeImportResult.errors?.length || 0}</span>
-                  {judgeImportResult.errors?.length > 0 && (
-                    <details>
-                      <summary style={{ cursor: 'pointer' }}>Список ошибок</summary>
-                      <ul style={{ margin: '.5rem 0 0', paddingLeft: '1.25rem', fontSize: 13 }}>
-                        {judgeImportResult.errors.slice(0, 20).map((e, i) => (
-                          <li key={i}>
-                            <code>{e.row ? `строка ${e.row}` : `#${e.index}`}</code> {e.entry?.email || e.email || '(no email)'}:{' '}
-                            {e.reason || e.issues?.map(x => `${x.path} — ${x.message}`).join('; ')}
-                          </li>
-                        ))}
-                        {judgeImportResult.errors.length > 20 && (
-                          <li>…ещё {judgeImportResult.errors.length - 20}</li>
-                        )}
-                      </ul>
-                    </details>
-                  )}
-                </div>
-              )}
+              {judgeImportResult && <ImportResultDetails result={judgeImportResult} />}
             </div>
           )}
         </section>
